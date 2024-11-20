@@ -23,6 +23,5 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /dev:/dev
-      - ../../localization-ws-ros1/src/localization-devel-ws:/home/user/localization-ws-ros1/src/localization-devel-ws:rw  # Ensure this is rw
-    user: "${UID}:${GID}"  # Ensure the user has correct permissions
+      - ../../localization-ws-ros1/src/localization-devel-ws:/home/user/localization-ws-ros1/src/localization-devel-ws:rw
     command: /bin/bash

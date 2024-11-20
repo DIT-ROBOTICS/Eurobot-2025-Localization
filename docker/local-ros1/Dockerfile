@@ -30,6 +30,7 @@ RUN groupadd --gid $USER_GID $USERNAME && \
     echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME && \
     rm -rf /var/lib/apt/lists/*
+
 ################################################################################################
 # - Tools Installation stage
 #   - In this stage, I will install convenient tools for development.
@@ -98,8 +99,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/user/localization-ws-ros1
-RUN mkdir -p /home/user/localization-ws-ros1/src &&  \
-    git clone https://github.com/tysik/obstacle_detector.git /home/user/localization-ws-ros1/src/obstacle_detector
+RUN mkdir -p /home/user/localization-ws-ros1/src/localization-devel-ws &&  \
+    git clone https://github.com/tysik/obstacle_detector.git /home/user/localization-ws-ros1/src/localization-devel-ws/obstacle_detector
 
 RUN sudo apt-get update && \
     rosdep update && \
@@ -128,4 +129,5 @@ RUN source /opt/ros/noetic/setup.bash && \
 
 USER ${USERNAME}
 SHELL ["/bin/bash", "-c"]
+
 CMD ["/bin/bash"]
