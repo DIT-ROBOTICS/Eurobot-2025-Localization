@@ -86,9 +86,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean
 
 RUN pip3 install -U colcon-common-extensions
-RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/localization-ws/src/sensor-ws/rplidar-ros-driver/
+RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/sensor-ws/rplidar-ros-driver/
 
-WORKDIR /home/localization-ws
+WORKDIR /home/user/localization-ws
 RUN rosdep update && rosdep install --from-paths src --ignore-src -r -y
 RUN . /opt/ros/humble/setup.sh && \
     colcon build --symlink-install
@@ -103,7 +103,7 @@ RUN . /opt/ros/humble/setup.sh && \
 FROM rplidar-dep AS final
 
 ## Set working directory
-WORKDIR /home/localization-ws
+WORKDIR /home/user/localization-ws
 
 USER ${USERNAME}
 COPY .bashrc /home/$USERNAME/.bashrc.conf

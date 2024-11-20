@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    # image: jossiewang/ros2-humble:ver1
+    image: localization-env 
     container_name: localization-2025-dev
     stdin_open: true
     tty: true
