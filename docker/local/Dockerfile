@@ -71,13 +71,36 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 ################################################################################################
+# - RPLiDar Installation stage
+#   - In this stage, install neccesary stuff for RPLiDar.
+################################################################################################
+
+FROM imu-dep AS rplidar-dep
+RUN apt-get update && apt-get install -y \
+    ros-humble-rplidar-ros \
+    python3-pip \
+    python3-rosdep \
+    python3-setuptools \
+    python3-numpy \
+    git \
+    && apt-get clean
+
+RUN pip3 install -U colcon-common-extensions
+RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/localization-ws/src/sensor-ws/rplidar-ros-driver/
+
+WORKDIR /home/localization-ws
+RUN rosdep update && rosdep install --from-paths src --ignore-src -r -y
+RUN . /opt/ros/humble/setup.sh && \
+    colcon build --symlink-install
+
+################################################################################################
 # - Final stage
 #   - In this stage, I will install required packages for Navigation2.
 #   - Reference:
 #       - https://github.com/ros-navigation/navigation2
 ################################################################################################
 
-FROM imu-dep AS final
+FROM rplidar-dep AS final
 
 ## Set working directory
 WORKDIR /home/localization-ws
@@ -97,6 +120,6 @@ RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
 #     && rm -rf /var/lib/apt/lists/*
 
 
-## Final configurations
+## Final configurationszz
 USER $USERNAME
 CMD ["/bin/bash"]
