@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: localization-env 
+    # image: localization-env:test
     container_name: localization-2025-dev
     stdin_open: true
     tty: true
@@ -47,6 +47,6 @@ services:
       # "source=${localWorkspaceFolder}/../cache/humble/install,target=/home/ws/install,type=bind",
       # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
       # Mount workspace
-      - ../../localization-ws:/home/user/localization-ws
-
+      - ../../localization-ws/src/localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
+    user: "${UID}:${GID}"
     command: /bin/bash
