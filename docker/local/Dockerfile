@@ -107,10 +107,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 
 WORKDIR /home/user/localization-ws
 
-RUN  && \
-    mkdir -p /home/user/localization-ws/src && \
-    mv /tmp/repo/localization-ws/src/obstacle_detector_2 /home/user/localization-ws/src/ && \
+RUN git clone -b obstacle-detect https://wintera1233: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@github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /tmp/repo \
+    && mv /tmp/repo/localization-ws/src/obstacle_detector_2 /home/user/localization-ws/src/ && \
     rm -rf /tmp/repo
+
 
 ################################################################################################
 # - Final stage
@@ -125,7 +125,7 @@ WORKDIR /home/user/localization-ws
 USER ${USERNAME}
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
-RUN git clone -b ros2
+ 
 
 ## NOTE:
 ## Steps below should ideally be performed in a separate container and then mounted as a volume to the main container, 
