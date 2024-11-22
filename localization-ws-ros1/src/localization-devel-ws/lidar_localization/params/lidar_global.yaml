@@ -1,0 +1,100 @@
+# Obstacle Extractor
+# To -> base_footprint
+obstacle_detector_to_base: 
+  active: true
+  use_scan: true
+  use_pcl: false
+
+  use_split_and_merge: true
+  circles_from_visibles: true
+  discard_converted_segments: false
+  transform_coordinates: true
+
+  min_group_points: 5
+
+  max_group_distance: 0.04
+  distance_proportion: 0.00628
+  max_split_distance: 0.02
+  max_merge_separation: 0.25
+  max_merge_spread: 0.02
+  max_circle_radius: 0.2
+  radius_enlargement: 0.05
+
+# Obstacle Extractor
+# To -> map
+obstacle_detector_to_map: 
+  active: true
+  use_scan: true
+  use_pcl: false
+
+  use_split_and_merge: true
+  circles_from_visibles: true
+  discard_converted_segments: false
+  transform_coordinates: true
+
+  min_group_points: 5
+
+  max_group_distance: 0.04
+  distance_proportion: 0.00628
+  max_split_distance: 0.02
+  max_merge_separation: 0.25
+  max_merge_spread: 0.02
+  max_circle_radius: 0.2
+  radius_enlargement: 0.05
+
+# Obstacle Tracker
+# To -> base_footprint
+obstacle_tracker_to_base: 
+  active: true
+
+  loop_rate: 10.0
+  tracking_duration: 0.24
+  min_correspondence_cost: 3
+  std_correspondence_dev: 0.15
+  process_variance: 0.4
+  process_rate_variance: 1
+  measurement_variance: 0.1
+
+# Obstacle Tracker
+# To -> map
+obstacle_tracker_to_map: 
+  active: true
+
+  loop_rate: 10.0
+  tracking_duration: 0.24
+  min_correspondence_cost: 3
+  std_correspondence_dev: 0.15
+  process_variance: 0.4
+  process_rate_variance: 1
+  measurement_variance: 0.1
+
+# Triangular localization
+lidar_localization: 
+  active: true
+
+  cov_x: 0.1
+  cov_y: 0.1
+  cov_yaw: 0.1
+
+  theta: 0
+
+  beacon_tolerance: 0.14  # Should be less than "max_obstacle_distance" in global_filter_basic.yaml
+  threshold: 0.24
+  cov_dec: 0.01
+  predict_magnification: 0.065 # Highly depends on rate of odometry ( /Toposition )
+
+  obstacle_topic: obstacles_to_base
+  beacon_parent_frame_id: map
+  beacon_frame_id_prefix: beacon
+  robot_parent_frame_id: map
+  robot_frame_id: base_footprint
+
+# Extract obstacles
+area_obstacles_extractor: 
+  x_max_range: 2.85
+  y_max_range: 1.85
+  x_min_range: 0.15
+  y_min_range: 0.15
+  obstacle_merge_d: 0.2
+  obstacle_vel_merge_d: 0.25
+  obstacle_error: 0.35
