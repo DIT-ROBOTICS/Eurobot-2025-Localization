@@ -112,12 +112,23 @@ RUN echo "source /opt/ros/noetic/setup.bash" >> /etc/bash.bashrc && \
     echo "source /home/user/localization-ws-ros1/devel/setup.bash" >> /etc/bash.bashrc
 # Clean up
 RUN sudo rm -rf /var/lib/apt/lists/*
+################################################################################################
+# - Spatial-driver Installation stage
+################################################################################################
+
+FROM obs-dep AS imu-dep
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3-pip \
+    ros-humble-imu-tools \
+    libusb-1.0-0 libusb-1.0-0-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 ################################################################################################
 # - Final stage
 ################################################################################################
 
-FROM obs-dep AS final
+FROM imu-dep AS final
 
 ## Set working directory
 WORKDIR /home/user/localization-ws-ros1
