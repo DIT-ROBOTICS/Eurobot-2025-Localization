@@ -53,8 +53,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     x11-apps \
     tmux \
     htop \ 
+    ros-humble-foxglove-bridge \
     && rm -rf /var/lib/apt/lists/*
-
+    
 ################################################################################################
 # - IMU Installation stage
 #   - In this stage, install neccesary stuff for phidget IMU spatial.
