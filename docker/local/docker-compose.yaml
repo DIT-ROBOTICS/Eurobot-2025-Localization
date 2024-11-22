@@ -48,5 +48,6 @@ services:
       # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
       # Mount workspace
       - ../../localization-ws/src/localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
-    user: "${UID}:${GID}"
+    ports:
+      - "8765:8765"  #foxglove
     command: /bin/bash
