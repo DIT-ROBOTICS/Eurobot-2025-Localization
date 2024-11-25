@@ -1,14 +1,16 @@
 <launch>
 
-	<arg name="robot_name" default="robot1"/>
-	<arg name="robot_name_slash" default="robot1/"/>
+	<arg name="robot_name" default="robot"/>
+	<arg name="robot_name_slash" default="robot/"/>
 	<arg name="active_rival_center" default="0"/>
-	<arg name="side" default='0' />
+	<arg name="simulation" default="false" />
+	<arg name="use_min_angle" default="true"/>
 
     <group ns="$(arg robot_name)">
-        <include file="$(find lidar_localization)/launch/lidar_driver/rplidar_s3.launch">
+        <include file="$(find lidar_localization)/launch/lidar_driver/lidar_G6.launch" unless="$(arg simulation)">
 			<arg name="robot_name" value="$(arg robot_name)"/>
 			<arg name="robot_name_slash" value="$(arg robot_name_slash)"/>
+			<arg name="use_min_angle" value="$(arg use_min_angle)"/>
 		</include>
 	</group>
 
@@ -16,7 +18,6 @@
 		<arg name="robot_name" value="$(arg robot_name)"/>
 		<arg name="robot_name_slash" value="$(arg robot_name_slash)"/>
         <arg name="active_rival_center" value="$(arg active_rival_center)"/>
-	    <arg name="side" value="$(arg side)"/>
     </include>
 
 </launch>

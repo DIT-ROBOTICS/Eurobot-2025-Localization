@@ -38,14 +38,19 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Twist.h>
+#include <nav_msgs/Odometry.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <tf2_ros/transform_broadcaster.h>
+
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
 #include <lidar_localization/util/math_util.h>
 #include <obstacle_detector/Obstacles.h>
+
+// matrix calulation
+#include <Eigen/Dense>
+#include <math.h>
 
 #define BEACON_NUMBER 3
 
@@ -110,7 +115,7 @@ public:
   LidarLocalization(ros::NodeHandle& nh, ros::NodeHandle& nh_local);
   ~LidarLocalization();
 
-public:
+private:
   /**
    * @brief To get params and set to this node in the constructor
    *
@@ -119,7 +124,6 @@ public:
   {
     std_srvs::Empty empt;
     updateParams(empt.request, empt.response);
-
   }
 
   /**
@@ -140,6 +144,13 @@ public:
   void cmdvelCallback(const geometry_msgs::Twist::ConstPtr& ptr);
 
   /**
+   * @brief Topic `odom` callback function
+   *
+   * @param ptr The command velocity data
+   */
+  void odomCallback(const nav_msgs::Odometry::ConstPtr& ptr);
+
+  /**
    * @brief Topic `obstacles` callback function
    *
    * @param ptr The obstaacles data
@@ -151,7 +162,7 @@ public:
    *
    * @param ptr The obstaacles data
    */
-  void ekfposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& ptr);
+  void ekfposeCallback(const nav_msgs::Odometry::ConstPtr& ptr);
 
   /**
    * @brief Topic `lidar_pose` publisher function
@@ -221,7 +232,8 @@ public:
 
   /* ros inter-node */
   ros::Subscriber sub_obstacles_;
-  ros::Subscriber sub_toposition_;
+  // ros::Subscriber sub_toposition_;
+  ros::Subscriber sub_odom_;
   ros::Subscriber sub_ekfpose_;
   ros::Publisher pub_location_;
   ros::Publisher pub_beacon_;
@@ -241,6 +253,7 @@ public:
   geometry_msgs::Pose ekf_pose_;
 
   geometry_msgs::Point robot_to_map_vel_;
+  geometry_msgs::Point robot_to_map_vel_pre;
 
   bool failed_tf_;
 
@@ -266,12 +279,21 @@ public:
   double p_cov_dec_;
 
   std::string p_obstacle_topic_;
-  std::string p_toposition_topic_;
+  // std::string p_toposition_topic_;
+  std::string p_odom_topic_;
   std::string p_beacon_parent_frame_id_;
   std::string p_predict_frame_id_;
   std::string p_beacon_frame_id_prefix_;
   std::string p_robot_parent_frame_id_;
   std::string p_robot_frame_id_;
   std::string p_ekfpose_topic_;
+  int chassis_type;
+
+  ros::Time stamp_get_obs;
+
+  //ready process
+  ros::Subscriber ready_sub;
+  void readyCallback(const geometry_msgs::PointStamped::ConstPtr& msg);
+  bool ready_signal_active;
 };
 }  // namespace lidar_localization

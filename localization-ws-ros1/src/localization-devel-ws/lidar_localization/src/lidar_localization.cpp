@@ -33,7 +33,6 @@ LidarLocalization::LidarLocalization(ros::NodeHandle& nh, ros::NodeHandle& nh_lo
 {
   params_srv_ = nh_local_.advertiseService("params", &LidarLocalization::updateParams, this);
   initialize();
-  
 }
 
 LidarLocalization::~LidarLocalization()
@@ -43,12 +42,12 @@ LidarLocalization::~LidarLocalization()
   nh_local_.deleteParam("cov_x");
   nh_local_.deleteParam("cov_y");
   nh_local_.deleteParam("cov_yaw");
-  nh_local_.deleteParam("beacon_1_x");
-  nh_local_.deleteParam("beacon_1_y");
-  nh_local_.deleteParam("beacon_2_x");
-  nh_local_.deleteParam("beacon_2_y");
-  nh_local_.deleteParam("beacon_3_x");
-  nh_local_.deleteParam("beacon_3_y");
+  // nh_local_.deleteParam("beacon_ax");
+  // nh_local_.deleteParam("beacon_ay");
+  // nh_local_.deleteParam("beacon_bx");
+  // nh_local_.deleteParam("beacon_by");
+  // nh_local_.deleteParam("beacon_cx");
+  // nh_local_.deleteParam("beacon_cy");
   nh_local_.deleteParam("theta");
 
   nh_local_.deleteParam("beacon_tolerance");
@@ -56,7 +55,8 @@ LidarLocalization::~LidarLocalization()
   nh_local_.deleteParam("cov_dec");
 
   nh_local_.deleteParam("obstacle_topic");
-  nh_local_.deleteParam("toposition_topic");
+  // nh_local_.deleteParam("toposition_topic");
+  nh_local_.deleteParam("odom_topic");
   nh_local_.deleteParam("ekfpose_topic");
 
   nh_local_.deleteParam("beacon_parent_frame_id");
@@ -71,41 +71,37 @@ bool LidarLocalization::updateParams(std_srvs::Empty::Request& req, std_srvs::Em
   bool get_param_ok = true;
   bool prev_active = p_active_;
 
-  get_param_ok = nh_local_.param<bool>("active", p_active_, true);
-  ROS_INFO("param active");
-  get_param_ok = nh_local_.param<double>("cov_x", p_cov_x_, 1e-1);
-  get_param_ok = nh_local_.param<double>("cov_y", p_cov_y_, 1e-1);
-  get_param_ok = nh_local_.param<double>("cov_yaw", p_cov_yaw_, 1e-1);
-  get_param_ok = nh_local_.param<double>("beacon_1_x", p_beacon_1_x_, 1.0);
-  get_param_ok = nh_local_.param<double>("beacon_1_y", p_beacon_1_y_, -0.05);
-  get_param_ok = nh_local_.param<double>("beacon_2_x", p_beacon_2_x_, 0.05);
-  get_param_ok = nh_local_.param<double>("beacon_2_y", p_beacon_2_y_, 3.05);
-  get_param_ok = nh_local_.param<double>("beacon_3_x", p_beacon_3_x_, 1.95);
-  get_param_ok = nh_local_.param<double>("beacon_3_y", p_beacon_3_y_, 3.05);
-  get_param_ok = nh_local_.param<double>("theta", p_theta_, 0);
-  ROS_INFO("cov");
-  get_param_ok = nh_local_.param<double>("beacon_tolerance", p_beacon_tolerance_, 0.13);
-  get_param_ok = nh_local_.param<double>("threshold", p_threshold_, 0.24);
-  get_param_ok = nh_local_.param<double>("cov_dec", p_cov_dec_, 0.01);
-  get_param_ok = nh_local_.param<double>("predict_magnification", p_predict_magnification_, 0.1);
-  ROS_INFO("tol");
-  get_param_ok = nh_local_.param<string>("obstacle_topic", p_obstacle_topic_, "obstacles");
-  get_param_ok = nh_local_.param<string>("toposition_topic", p_toposition_topic_, "/Toposition");
-  get_param_ok = nh_local_.param<string>("ekfpose_topic", p_ekfpose_topic_, "ekf_pose");
-  ROS_INFO("topic");
-  get_param_ok = nh_local_.param<string>("beacon_parent_frame_id", p_beacon_parent_frame_id_, "map");
-  get_param_ok = nh_local_.param<string>("robot_parent_frame_id", p_robot_parent_frame_id_, "map");
-  get_param_ok = nh_local_.param<string>("robot_frame_id", p_robot_frame_id_, "base_footprint");
-  get_param_ok = nh_local_.param<string>("beacon_predict_frame_id", p_predict_frame_id_, "predict");
-  ROS_INFO("frameID");
-  get_param_ok = nh_local_.param<string>("beacon_frame_id_prefix", p_beacon_frame_id_prefix_, "beacon");
+  get_param_ok &= nh_local_.param<bool>("active", p_active_, true);
+
+  get_param_ok &= nh_local_.param<double>("cov_x", p_cov_x_, 1e-1);
+  get_param_ok &= nh_local_.param<double>("cov_y", p_cov_y_, 1e-1);
+  get_param_ok &= nh_local_.param<double>("cov_yaw", p_cov_yaw_, 1e-1);
+  get_param_ok &= nh_local_.param<double>("theta", p_theta_, 0);
+
+  get_param_ok &= nh_local_.param<double>("beacon_tolerance", p_beacon_tolerance_, 0.13);
+  get_param_ok &= nh_local_.param<double>("threshold", p_threshold_, 0.24);
+  get_param_ok &= nh_local_.param<double>("cov_dec", p_cov_dec_, 0.01);
+  get_param_ok &= nh_local_.param<double>("predict_magnification", p_predict_magnification_, 0.1);
+
+  get_param_ok &= nh_local_.param<string>("obstacle_topic", p_obstacle_topic_, "obstacles");
+  // get_param_ok &= nh_local_.param<string>("toposition_topic", p_toposition_topic_, "Toposition");
+  get_param_ok &= nh_local_.param<string>("odom_topic", p_odom_topic_, "odom");
+  get_param_ok &= nh_local_.param<string>("ekfpose_topic", p_ekfpose_topic_, "ekf_pose");
+
+  get_param_ok &= nh_local_.param<string>("beacon_parent_frame_id", p_beacon_parent_frame_id_, "map");
+  get_param_ok &= nh_local_.param<string>("robot_parent_frame_id", p_robot_parent_frame_id_, "map");
+  get_param_ok &= nh_local_.param<string>("robot_frame_id", p_robot_frame_id_, "base_footprint");
+  get_param_ok &= nh_local_.param<string>("beacon_predict_frame_id", p_predict_frame_id_, "predict");
+
+  get_param_ok &= nh_local_.param<string>("beacon_frame_id_prefix", p_beacon_frame_id_prefix_, "beacon");
 
   if (p_active_ != prev_active)
   {
     if (p_active_)
     {
       sub_obstacles_ = nh_.subscribe(p_obstacle_topic_, 10, &LidarLocalization::obstacleCallback, this);
-      sub_toposition_ = nh_.subscribe(p_toposition_topic_, 10, &LidarLocalization::cmdvelCallback, this);
+      // sub_toposition_ = nh_.subscribe(p_toposition_topic_, 10, &LidarLocalization::cmdvelCallback, this);
+      sub_odom_ = nh_.subscribe(p_odom_topic_, 10, &LidarLocalization::odomCallback, this);
       sub_ekfpose_ = nh_.subscribe(p_ekfpose_topic_, 10, &LidarLocalization::ekfposeCallback, this);
       pub_location_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("lidar_bonbonbon", 10);
       pub_beacon_ = nh_.advertise<geometry_msgs::PoseArray>("beacons", 10);
@@ -116,6 +112,49 @@ bool LidarLocalization::updateParams(std_srvs::Empty::Request& req, std_srvs::Em
       pub_location_.shutdown();
       pub_beacon_.shutdown();
     }
+  }
+
+  get_param_ok &= nh_.param<bool>("localization/ready_signal_active", ready_signal_active, false);
+  if(ready_signal_active){
+      ready_sub = nh_.subscribe("startup/ready_signal", 10, &LidarLocalization::readyCallback, this);
+  }else{
+    geometry_msgs::PointStamped initial_msg;
+    get_param_ok &= nh_.param<string>("localization/side", initial_msg.header.frame_id, "0");
+    get_param_ok &= nh_.param<double>("localization/initial_pose/x", initial_msg.point.x, 0.3);
+    get_param_ok &= nh_.param<double>("localization/initial_pose/y", initial_msg.point.y, 1.5);
+    get_param_ok &= nh_.param<double>("localization/initial_pose/z", initial_msg.point.z, 0.0);
+    
+    std::string side;
+    if(strcmp(initial_msg.header.frame_id.c_str(), "0") == 0) side = "Blue";
+    else if(strcmp(initial_msg.header.frame_id.c_str(), "1") == 0) side = "Yellow";
+    
+    get_param_ok &= nh_.param<double>(side + "/beacon_ax", p_beacon_1_x_, -0.094);
+    get_param_ok &= nh_.param<double>(side + "/beacon_ay", p_beacon_1_y_, 0.052);
+    get_param_ok &= nh_.param<double>(side + "/beacon_bx", p_beacon_2_x_, -0.094);
+    get_param_ok &= nh_.param<double>(side + "/beacon_by", p_beacon_2_y_, 1.948);
+    get_param_ok &= nh_.param<double>(side + "/beacon_cx", p_beacon_3_x_, 3.094);
+    get_param_ok &= nh_.param<double>(side + "/beacon_cy", p_beacon_3_y_, 1.0);
+    
+    /* Setup beacon position for triangular localization */
+    setBeacontoMap();
+    geometry_msgs::TransformStamped transform;
+    ros::Time now = ros::Time::now();
+    transform.header.stamp = now;
+    transform.header.frame_id = p_robot_parent_frame_id_;
+
+    transform.transform.translation.z = 0;
+    transform.transform.rotation.x = 0;
+    transform.transform.rotation.y = 0;
+    transform.transform.rotation.z = 0;
+    transform.transform.rotation.w = 1;
+
+    transform.child_frame_id = p_robot_frame_id_;
+    transform.transform.translation.x = 0;
+    transform.transform.translation.y = 0;
+    static_broadcaster_.sendTransform(transform);
+    checkTFOK();
+    getBeacontoMap();
+
   }
 
   if (get_param_ok)
@@ -129,47 +168,78 @@ bool LidarLocalization::updateParams(std_srvs::Empty::Request& req, std_srvs::Em
                     << "set param failed");
   }
 
+  return true;
+}
+
+void LidarLocalization::readyCallback(const geometry_msgs::PointStamped::ConstPtr& msg){
+  static bool received_ready = false;
+  if(received_ready) return;
+  std::string side = msg->header.frame_id;
+  if(strcmp(side.c_str(), "0") == 0) side = "Blue";
+  else if(strcmp(side.c_str(), "1") == 0) side = "Yellow";
+
+  bool ok = true;
+  ok &= nh_.param<double>(side + "/beacon_ax", p_beacon_1_x_, -0.094);
+  ok &= nh_.param<double>(side + "/beacon_ay", p_beacon_1_y_, 0.052);
+  ok &= nh_.param<double>(side + "/beacon_bx", p_beacon_2_x_, -0.094);
+  ok &= nh_.param<double>(side + "/beacon_by", p_beacon_2_y_, 1.948);
+  ok &= nh_.param<double>(side + "/beacon_cx", p_beacon_3_x_, 3.094);
+  ok &= nh_.param<double>(side + "/beacon_cy", p_beacon_3_y_, 1.0);
+
   /* Setup beacon position for triangular localization */
   setBeacontoMap();
-  geometry_msgs::TransformStamped transform;
-  ros::Time now = ros::Time::now();
-  transform.header.stamp = now;
-  transform.header.frame_id =p_beacon_parent_frame_id_;
-
-  transform.transform.translation.z = 0;
-  transform.transform.rotation.x = 0;
-  transform.transform.rotation.y = 0;
-  transform.transform.rotation.z = 0;
-  transform.transform.rotation.w = 1;
-
-  transform.child_frame_id =  p_robot_frame_id_;
-  transform.transform.translation.x = 0;
-  transform.transform.translation.y = 0;
-  static_broadcaster_.sendTransform(transform);
   checkTFOK();
   getBeacontoMap();
 
-  return true;
+  if(!ok) ROS_WARN("[Lidar Localization]: ready failed");
+  received_ready = true;
+
 }
 
 void LidarLocalization::cmdvelCallback(const geometry_msgs::Twist::ConstPtr& ptr)
 {
-//   robot_to_map_vel_.x = ptr->linear.x;
-//   robot_to_map_vel_.y = ptr->linear.y;
-//   robot_to_map_vel_.z = ptr->angular.z;
-    robot_to_map_vel_.x = 0 ;
-    robot_to_map_vel_.y = 0 ;
-    robot_to_map_vel_.z = 0 ;
+  // robot_to_map_vel_.x = ptr->linear.x;
+  // robot_to_map_vel_.y = ptr->linear.y;
+  // robot_to_map_vel_.z = ptr->angular.z;
+  robot_to_map_vel_.x = 0;
+  robot_to_map_vel_.y = 0;
+  robot_to_map_vel_.z = 0;
 }
 
-void LidarLocalization::ekfposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& ptr)
+void LidarLocalization::odomCallback(const nav_msgs::Odometry::ConstPtr& ptr)
+{
+  robot_to_map_vel_.x = ptr->twist.twist.linear.x;
+  robot_to_map_vel_.y = ptr->twist.twist.linear.y;
+  robot_to_map_vel_.z = ptr->twist.twist.angular.z;
+}
+
+void LidarLocalization::ekfposeCallback(const nav_msgs::Odometry::ConstPtr& ptr)
 {
   this->ekf_pose_ = ptr->pose.pose;
+  geometry_msgs::TransformStamped transform;
+
+    // Use the time from the message header for synchronization
+  transform.header.stamp = ptr->header.stamp;
+  transform.header.frame_id = p_robot_parent_frame_id_;  // Parent frame (e.g., map)
+  transform.child_frame_id = p_robot_frame_id_;          // Child frame (e.g., base_footprint)
+
+  // Set translation from the pose
+  transform.transform.translation.x = ptr->pose.pose.position.x;
+  transform.transform.translation.y = ptr->pose.pose.position.y;
+  transform.transform.translation.z = ptr->pose.pose.position.z;
+
+  // Set rotation from the pose
+  transform.transform.rotation = ptr->pose.pose.orientation;
+
+  // Broadcast the transform
+  static_broadcaster_.sendTransform(transform);
 }
 
 /* MAIN */
 void LidarLocalization::obstacleCallback(const obstacle_detector::Obstacles::ConstPtr& ptr)
 {
+  stamp_get_obs = ptr->header.stamp;
+
   /* Remove previous obstacle circles */
   realtime_circles_.clear();
 
@@ -203,7 +273,8 @@ void LidarLocalization::updateBeacons()
   /* And broadcast the pose to map frame */
   geometry_msgs::TransformStamped transform;
   ros::Time now = ros::Time::now();
-  transform.header.stamp = now;
+  // transform.header.stamp = now;
+  transform.header.stamp = stamp_get_obs;
   transform.header.frame_id = p_robot_parent_frame_id_;
   transform.child_frame_id = p_predict_frame_id_;
 
@@ -449,6 +520,8 @@ bool LidarLocalization::validateBeaconGeometry()
     //                                     << real_beacon_distance[1][2]);
     ROS_WARN_STREAM_THROTTLE(2, "beacon distance: " << beacon_distance[0][1] << ", " << beacon_distance[0][2] << ", "
                                         << beacon_distance[1][2]);
+    ROS_WARN_STREAM_THROTTLE(2, "real_beacon distance: " << real_beacon_distance[0][1] << ", " << real_beacon_distance[0][2] << ", "
+                                        << real_beacon_distance[1][2]);
     return false;
   }
 }
@@ -507,6 +580,48 @@ void LidarLocalization::getRobotPose()
     }
 
     robot_yaw = atan2(robot_sin, robot_cos) + p_theta_ / 180.0 * 3.1415926;
+
+    /*
+      TODO: should know exactly how much the delay is
+      known: lidar publish stamp, obstacle stamp, imu rotation, odom linear x and y
+      better to also to with linear
+      and then publish with ros::Time::now()
+    */
+
+    ros::Time now = ros::Time::now();
+    ros::Duration delay = now - stamp_get_obs;
+
+    // the robotstate calculated with obstacles, which is a few ms ago
+    Eigen::Vector3d robotstate;
+    robotstate(0) = X(0);
+    robotstate(1) = X(1);
+    robotstate(2) = robot_yaw; 
+
+    /* prediction function for omni wheel */
+    double v_x = robot_to_map_vel_.x;
+    double v_y = robot_to_map_vel_.y;
+    double w = robot_to_map_vel_.z;
+    double dt = delay.toSec();
+    
+    Eigen::Vector3d d_state;
+
+    d_state << (v_x * dt), (v_y * dt), (w * dt);
+
+    double theta_ = robotstate(2) + d_state(2) / 2;
+    double s__theta = sin(theta_);
+    double c__theta = cos(theta_);
+
+    Eigen::Matrix3d A;
+    A << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+
+    Eigen::Matrix3d B;
+    B << c__theta, -s__theta, 0, s__theta, c__theta, 0, 0, 0, 1;
+
+    robotstate = A * robotstate + B * d_state;
+
+    output_robot_pose_.pose.pose.position.x = robotstate(0);
+    output_robot_pose_.pose.pose.position.y = robotstate(1);
+
     tf2::Quaternion q;
     q.setRPY(0., 0., robot_yaw);
     output_robot_pose_.pose.pose.orientation = tf2::toMsg(q);
@@ -519,7 +634,7 @@ void LidarLocalization::getRobotPose()
     ROS_WARN_STREAM(b);
     ROS_WARN_STREAM(ex.what());
   }
-  publishBeacons();
+  // publishBeacons();
 }
 
 void LidarLocalization::publishLocation()
@@ -528,6 +643,7 @@ void LidarLocalization::publishLocation()
 
   output_robot_pose_.header.frame_id = p_robot_parent_frame_id_;
   output_robot_pose_.header.stamp = now;
+  // output_robot_pose_.header.stamp = stamp_get_obs;
 
   double error_length = length(output_robot_pose_.pose.pose.position, ekf_pose_.position);
   double cov_x = (error_length > p_threshold_) ? p_cov_x_ * p_cov_dec_ : p_cov_x_;
