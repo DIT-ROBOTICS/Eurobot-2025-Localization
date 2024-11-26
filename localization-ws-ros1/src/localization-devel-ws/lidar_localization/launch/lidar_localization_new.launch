@@ -10,7 +10,7 @@
 
         <!-- link to laser -->
         <node name="base_link_to_laser" pkg="tf2_ros" type="static_transform_publisher"
-            args="0 0 0 0 0 1 0 $(arg robot_name_slash)base_footprint $(arg robot_name_slash)laser_frame" />
+            args="0 0 0 0 0 0.383 0.924  $(arg robot_name_slash)base_footprint $(arg robot_name_slash)laser_frame" />
 
         <!-- scan processing -->
         <node name="obstacle_detector_to_base" pkg="obstacle_detector"
