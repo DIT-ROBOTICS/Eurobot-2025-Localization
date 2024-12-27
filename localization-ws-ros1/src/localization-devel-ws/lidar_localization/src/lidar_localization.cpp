@@ -208,9 +208,12 @@ void LidarLocalization::cmdvelCallback(const geometry_msgs::Twist::ConstPtr& ptr
 
 void LidarLocalization::odomCallback(const nav_msgs::Odometry::ConstPtr& ptr)
 {
-  robot_to_map_vel_.x = ptr->twist.twist.linear.x;
-  robot_to_map_vel_.y = ptr->twist.twist.linear.y;
-  robot_to_map_vel_.z = ptr->twist.twist.angular.z;
+  // robot_to_map_vel_.x = ptr->twist.twist.linear.x;
+  // robot_to_map_vel_.y = ptr->twist.twist.linear.y;
+  // robot_to_map_vel_.z = ptr->twist.twist.angular.z;
+  robot_to_map_vel_.x = 0;
+  robot_to_map_vel_.y = 0;
+  robot_to_map_vel_.z = 0;
 }
 
 void LidarLocalization::ekfposeCallback(const nav_msgs::Odometry::ConstPtr& ptr)
@@ -480,6 +483,8 @@ void LidarLocalization::findBeacon()
         beacons_[i].real.x = circle.center.x;
         beacons_[i].real.y = circle.center.y;
         beacons_[i].beaconError = min_distance;
+        ROS_INFO("Lidar_distance%d: %f, %f, err: %f", 
+                     i, circle.center.x, circle.center.y, min_distance);
       }
     }
   }
@@ -511,6 +516,11 @@ bool LidarLocalization::validateBeaconGeometry()
       is_whthin_tolerance(beacon_distance[0][2], real_beacon_distance[0][2], tolerance) &&
       is_whthin_tolerance(beacon_distance[1][2], real_beacon_distance[1][2], tolerance))
   {
+    ROS_WARN_STREAM_THROTTLE(2, "[Lidar Localization] : current beacon tolerance " << tolerance);
+    ROS_WARN_STREAM_THROTTLE(2, "beacon distance: " << beacon_distance[0][1] << ", " << beacon_distance[0][2] << ", "
+                                        << beacon_distance[1][2]);
+    ROS_WARN_STREAM_THROTTLE(2, "reacon distance: " << real_beacon_distance[0][1] << ", " << real_beacon_distance[0][2] << ", "
+                                        << real_beacon_distance[1][2]);
     return true;
   }
   else
@@ -524,6 +534,7 @@ bool LidarLocalization::validateBeaconGeometry()
                                         << real_beacon_distance[1][2]);
     return false;
   }
+
 }
 
 void LidarLocalization::getRobotPose()
