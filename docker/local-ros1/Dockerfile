@@ -120,7 +120,7 @@ FROM obs-dep AS imu-dep
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3-pip \
-    ros-humble-imu-tools \
+    ros-noetic-imu-tools \
     libusb-1.0-0 libusb-1.0-0-dev \
     && rm -rf /var/lib/apt/lists/*
 
