@@ -1,8 +1,7 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python3
 import rospy
-from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
+from geometry_msgs.msg import PoseWithCovarianceStamped
 import numpy as np
 from math import sin, cos, atan2
 import tf
@@ -12,9 +11,9 @@ class EKFFootprintBroadcaster:
         rospy.init_node('ekf_footprint_broadcaster')
         self.tf_broadcaster = tf.TransformBroadcaster()
 
-        rospy.Subscriber('/gps', Odometry, self.gps_callback)
+        rospy.Subscriber('/robot/lidar_bonbonbon', PoseWithCovarianceStamped, self.gps_callback)
         rospy.Subscriber('/camera', Odometry, self.camera_callback)
-        rospy.Subscriber('/odom', Odometry, self.odom_callback)
+        rospy.Subscriber('/robot/local_filter', Odometry, self.odom_callback)
 
         self.X = np.array([0.0, 0.0, 0.0])  # Initial state
 
@@ -28,14 +27,15 @@ class EKFFootprintBroadcaster:
         self.last_odom = rospy.Time.now().to_sec()
 
         self.ekf_pose_topic = rospy.get_param('~ekf_pose_topic', 'ekf_pose')
-        self.parent_frame_id = rospy.get_param('~robot_parent_frame_id', 'map')
-        self.child_frame_id = rospy.get_param('~robot_frame_id', 'base_footprint')
+        self.parent_frame_id = rospy.get_param('~robot_parent_frame_id', 'robot/map')
+        self.child_frame_id = rospy.get_param('~robot_frame_id', 'robot/base_footprint')
         self.rate = rospy.Rate(rospy.get_param('~update_rate', 100))  # based on the update rate of the odometry
 
     def gps_callback(self, msg):
         gps_time = msg.header.stamp.to_sec()
         current_time = rospy.Time.now().to_sec()
-        if abs(current_time - gps_time) > 0.5:  # GPS data too old
+        if abs(current_time - gps_time) >1.5:  # GPS data too old
+            rospy.logwarn(f"Current time: {current_time}, GPS time: {gps_time}")
             rospy.logwarn("GPS data too old")
             return
 
@@ -43,7 +43,7 @@ class EKFFootprintBroadcaster:
             rospy.logwarn("Invalid GPS data received")
             return
 
-        gps_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, 0.0]) 
+        gps_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, 0.0])
         self.ekf_update(gps_measurement, self.R_gps)
 
     def camera_callback(self, msg):
