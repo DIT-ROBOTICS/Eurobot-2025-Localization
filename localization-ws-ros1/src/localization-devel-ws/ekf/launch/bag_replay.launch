@@ -11,7 +11,7 @@
     </group>
     
     <!-- Play the specified rosbag file -->
-    <node pkg="rosbag" type="play" name="rosbag_play" output="screen" args="$(find ekf)/baggy/0502_omni_4.bag --clock --topics /robot/lidar_bonbonbon /robot/local_filter /tf_static /robot/final_pose   ">
+    <node pkg="rosbag" type="play" name="rosbag_play" output="screen" args="$(find ekf)/baggy/0502_omni_2.bag --clock --topics /robot/lidar_bonbonbon /robot/local_filter /tf_static /robot/final_pose   ">
     </node>
 
 </launch>
