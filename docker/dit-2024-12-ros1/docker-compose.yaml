@@ -1,12 +1,12 @@
 version: '3'
 services:
-  ros2-localization-dev:
+  ros1-localization-dev:
     build: 
       context: .
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    # image: localization-env:test
+    image: jossiewang/eurobot2025-localization:robot-ydlidar
     container_name: localization-2025-dev
     stdin_open: true
     tty: true
@@ -47,7 +47,6 @@ services:
       # "source=${localWorkspaceFolder}/../cache/humble/install,target=/home/ws/install,type=bind",
       # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
       # Mount workspace
-      - ../../localization-ws/src/localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
-    ports:
-      - "8765:8765"  #foxglove
+      - ../../localization-ws:/home/user/localization-ws
+
     command: /bin/bash

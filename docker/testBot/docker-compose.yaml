@@ -1,0 +1,28 @@
+version: '3'
+services:
+  ros1-localization-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USERNAME: user
+    image: jossiewang/eurobot2025-localization:testBot-ros1-ImuLidar
+    container_name: localization-2025-ros1-dev
+    stdin_open: true
+    tty: true
+    privileged: true
+    stop_grace_period: 1s
+    restart: no
+    network_mode: host
+    working_dir: /home/user/localization-ws-ros1
+    environment:
+      - DISPLAY=${DISPLAY}
+      - ROS_WS=/home/user/localization-ws-ros1
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /dev:/dev
+      # - ../../localization-ws-ros1/src/localization-devel-ws:/home/user/localization-ws-ros1/src/localization-devel-ws:rw
+      - ../../localization-ws-ros1/src/localization-devel-ws:/home/user/localization-ws-ros1/src/localization-devel-ws
+    command: /bin/bash -c "echo 'export ROS_HOSTNAME=192.168.50.10' >> ~/.bashrc && echo 'export ROS_MASTER_URI=http://192.168.50.10:11311' >> ~/.bashrc && /home/user/localization-ws-ros1/src/localization-devel-ws/usb.sh && /bin/bash"

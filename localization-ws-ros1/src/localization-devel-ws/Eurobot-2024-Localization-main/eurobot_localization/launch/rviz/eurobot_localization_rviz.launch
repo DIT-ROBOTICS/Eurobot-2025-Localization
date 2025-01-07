@@ -1,0 +1,5 @@
+<launch>
+
+    <node type="rviz" name="myrviz" pkg="rviz" args="-d $(find eurobot_localization)/rviz/eurobot_localization.rviz" />
+
+</launch>

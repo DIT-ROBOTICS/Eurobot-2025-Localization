@@ -121,7 +121,7 @@ RUN git clone -b obstacle-detect https://wintera1233:ghp_epTL9sCKSTwLSnZRbPsnNMG
 FROM obs-dep AS final
 
 ## Set working directory
-WORKDIR /home/user/localization-ws
+WORKDIR /home/$USERNAME/localization-ws/src
 
 USER ${USERNAME}
 COPY .bashrc /home/$USERNAME/.bashrc.conf

@@ -49,3 +49,7 @@ node_modules/
 build/
 install/
 log/
+
+# vscode #
+##########
+.vscode/
