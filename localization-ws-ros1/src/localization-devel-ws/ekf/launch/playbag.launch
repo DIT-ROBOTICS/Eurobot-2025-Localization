@@ -1,0 +1,17 @@
+<launch>
+    <param name="use_sim_time" value="true"/> 
+    <!-- Launch the EKF node under the robot namespace -->
+    <group ns="robot">
+        <node pkg="ekf" type="ekf.py" name="ekf_footprint_broadcaster" output="screen">
+            <param name="ekf_pose_topic" value="ekf_pose"/>
+            <param name="robot_parent_frame_id" value="robot/map"/>
+            <param name="robot_frame_id" value="robot/base_footprint"/>
+            <param name="update_rate" value="100"/>
+        </node>
+    </group>
+    
+    <!-- Play the specified rosbag file -->
+    <node pkg="rosbag" type="play" name="rosbag_play" output="screen" args="$(find ekf)/baggy/0502_omni_2.bag --clock --topics /robot/lidar_bonbonbon /robot/local_filter /tf_static /robot/final_pose --start 40">
+    </node>
+
+</launch>

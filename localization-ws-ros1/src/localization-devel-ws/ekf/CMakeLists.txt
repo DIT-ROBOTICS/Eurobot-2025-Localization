@@ -21,9 +21,7 @@ find_package(
     geometry_msgs
     sensor_msgs
     laser_geometry
-    obstacle_detector
   )
-
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
