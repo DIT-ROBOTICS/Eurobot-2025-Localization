@@ -15,6 +15,7 @@ ARG USER_GID=$USER_UID
 
 SHELL ["/bin/bash", "-c"]
 
+
 ################################################################################################
 # - User Setup stage
 #   - In this stage, create a non-root user and configure passwordless sudo.
@@ -31,6 +32,7 @@ RUN groupadd --gid $USER_GID $USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME && \
     rm -rf /var/lib/apt/lists/*
 
+
 ################################################################################################
 # - Tools Installation stage
 #   - In this stage, I will install convenient tools for development.
@@ -41,18 +43,25 @@ FROM user-setup AS tools
 ## Install necessary packages
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3-pip \
+    python3-rosdep \
+    python3-setuptools \
+    python3-numpy \
     apt-utils \
     git \
     nano \
     net-tools \
     ssh \
     usbutils \
-    udev \
+    udev \ 
     x11-apps \
     tmux \
-    htop \
+    htop \ 
     libsdl-image1.2-dev \
+    libarmadillo-dev \
+    libboost-all-dev \
     libsdl-dev \
+    ros-noetic-laser-geometry \
     ros-noetic-tf2-sensor-msgs \
     ros-noetic-move-base-msgs \
     ros-noetic-mbf-costmap-core \
@@ -65,58 +74,18 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     ros-noetic-imu-tools \
     libusb-1.0-0 libusb-1.0-0-dev -y && \
     rm -rf /var/lib/apt/lists/*
-
 ################################################################################################
-# - RPLiDar Installation stage
-#   - In this stage, install necessary tools for RPLiDar.
+# - ROS Installation stage
 ################################################################################################
 
-FROM tools AS rplidar-dep
-RUN apt-get update && apt-get install -y \
-    python3-pip \
-    python3-rosdep \
-    python3-setuptools \
-    python3-numpy \
-    git && \
-    apt-get clean
+FROM tools AS ros-dep
 
-WORKDIR /home/user/localization-ws-ros1
-RUN git clone https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws-ros1/src/rplidar-ros-driver
-RUN . /opt/ros/noetic/setup.sh && \
-    catkin_make
-
-################################################################################################
-# - Obstacle detect Installation stage
-################################################################################################
-
-FROM rplidar-dep AS obs-dep
-
+## Install necessary tools for imu
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    ros-noetic-laser-geometry \
-    libarmadillo-dev \
-    libboost-all-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /home/user/localization-ws-ros1
-RUN mkdir -p /home/user/localization-ws-ros1/src/localization-devel-ws &&  \
-    git clone https://github.com/tysik/obstacle_detector.git /home/user/localization-ws-ros1/src/localization-devel-ws/obstacle_detector
-
-RUN sudo apt-get update && \
-    rosdep update && \
-    rosdep install --from-paths . --ignore-src -r -y
-    
-RUN sudo rm -rf /var/lib/apt/lists/*
-################################################################################################
-# - Spatial-driver Installation stage
-################################################################################################
-
-FROM obs-dep AS imu-dep
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    python3-pip \
-    ros-noetic-imu-tools \
-    libusb-1.0-0 libusb-1.0-0-dev \
+    ros-noetic-tf2-sensor-msgs \
+    ros-noetic-move-base-msgs \
+    ros-noetic-costmap-converter \
     && rm -rf /var/lib/apt/lists/*
 
 ################################################################################################
@@ -126,13 +95,14 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 #       - https://github.com/ros-navigation/navigation2
 ################################################################################################
 
-FROM imu-dep AS final
+FROM ros-dep AS final
 
 USER ${USERNAME}
 ## Set working directory
 WORKDIR /home/$USERNAME/localization-ws-ros1/src
-RUN git clone https://github.com/tysik/obstacle_detector.git /home/$USERNAME/localization-ws-ros1/src/obstacle_detector
-
+RUN mkdir -p /home/user/localization-ws-ros1/src/localization-devel-ws &&  \
+git clone https://github.com/tysik/obstacle_detector.git /home/user/localization-ws-ros1/src/obstacle_detector && \
+git clone https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws-ros1/src/rplidar-ros-driver
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
 

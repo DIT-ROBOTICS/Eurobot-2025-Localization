@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:local-ros1-nosensor
-    container_name: localization-2025-ros1-dev
+    image: wintera1233/eu25-localization:local-ros1-full
+    container_name: localization-2025-ros1
     stdin_open: true
     tty: true
     privileged: true
