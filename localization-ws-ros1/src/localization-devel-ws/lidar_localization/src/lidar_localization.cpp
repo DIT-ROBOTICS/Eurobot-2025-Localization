@@ -136,24 +136,24 @@ bool LidarLocalization::updateParams(std_srvs::Empty::Request& req, std_srvs::Em
     get_param_ok &= nh_.param<double>(side + "/beacon_cy", p_beacon_3_y_, 1.0);
     
     /* Setup beacon position for triangular localization */
-    setBeacontoMap();
-    geometry_msgs::TransformStamped transform;
-    ros::Time now = ros::Time::now();
-    transform.header.stamp = now;
-    transform.header.frame_id = p_robot_parent_frame_id_;
+    // setBeacontoMap();
+    // geometry_msgs::TransformStamped transform;
+    // ros::Time now = ros::Time::now();
+    // transform.header.stamp = now;
+    // transform.header.frame_id = p_robot_parent_frame_id_;
 
-    transform.transform.translation.z = 0;
-    transform.transform.rotation.x = 0;
-    transform.transform.rotation.y = 0;
-    transform.transform.rotation.z = 0;
-    transform.transform.rotation.w = 1;
+    // transform.transform.translation.z = 0;
+    // transform.transform.rotation.x = 0;
+    // transform.transform.rotation.y = 0;
+    // transform.transform.rotation.z = 0;
+    // transform.transform.rotation.w = 1;
 
-    transform.child_frame_id = p_robot_frame_id_;
-    transform.transform.translation.x = 0;
-    transform.transform.translation.y = 0;
-    static_broadcaster_.sendTransform(transform);
-    checkTFOK();
-    getBeacontoMap();
+    // transform.child_frame_id = p_robot_frame_id_;
+    // transform.transform.translation.x = 0;
+    // transform.transform.translation.y = 0;
+    // static_broadcaster_.sendTransform(transform);
+    // checkTFOK();
+    // getBeacontoMap();
 
   }
 
@@ -221,21 +221,21 @@ void LidarLocalization::ekfposeCallback(const nav_msgs::Odometry::ConstPtr& ptr)
   this->ekf_pose_ = ptr->pose.pose;
   geometry_msgs::TransformStamped transform;
 
-    // Use the time from the message header for synchronization
-  transform.header.stamp = ptr->header.stamp;
-  transform.header.frame_id = p_robot_parent_frame_id_;  // Parent frame (e.g., map)
-  transform.child_frame_id = p_robot_frame_id_;          // Child frame (e.g., base_footprint)
+  //   // Use the time from the message header for synchronization
+  // transform.header.stamp = ptr->header.stamp;
+  // transform.header.frame_id = p_robot_parent_frame_id_;  // Parent frame (e.g., map)
+  // transform.child_frame_id = p_robot_frame_id_;          // Child frame (e.g., base_footprint)
 
-  // Set translation from the pose
-  transform.transform.translation.x = ptr->pose.pose.position.x;
-  transform.transform.translation.y = ptr->pose.pose.position.y;
-  transform.transform.translation.z = ptr->pose.pose.position.z;
+  // // Set translation from the pose
+  // transform.transform.translation.x = ptr->pose.pose.position.x;
+  // transform.transform.translation.y = ptr->pose.pose.position.y;
+  // transform.transform.translation.z = ptr->pose.pose.position.z;
 
-  // Set rotation from the pose
-  transform.transform.rotation = ptr->pose.pose.orientation;
+  // // Set rotation from the pose
+  // transform.transform.rotation = ptr->pose.pose.orientation;
 
-  // Broadcast the transform
-  static_broadcaster_.sendTransform(transform);
+  // // Broadcast the transform
+  // static_broadcaster_.sendTransform(transform);
 }
 
 /* MAIN */
