@@ -28,7 +28,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: LaserScan
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -61,20 +61,34 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        robot/base_footprint:
+        rival/base_footprint:
           Value: false
+        robot/base_footprint:
+          Value: true
         robot/beacon1:
           Value: true
         robot/beacon2:
-          Value: false
+          Value: true
         robot/beacon3:
           Value: true
         robot/laser_frame:
-          Value: true
-        robot/map:
           Value: false
+        robot/map:
+          Value: true
         robot/predict:
           Value: false
+        survive_LH0:
+          Value: true
+        survive_map:
+          Value: true
+        survive_map0:
+          Value: true
+        survive_map_avg:
+          Value: true
+        survive_world:
+          Value: true
+        trackerC:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -82,6 +96,8 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
+        rival/base_footprint:
+          {}
         robot/map:
           robot/base_footprint:
             robot/laser_frame:
@@ -94,6 +110,18 @@ Visualization Manager:
             {}
           robot/predict:
             {}
+        survive_LH0:
+          {}
+        survive_map:
+          {}
+        survive_map0:
+          {}
+        survive_map_avg:
+          {}
+        survive_world:
+          {}
+        trackerC:
+          {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -126,7 +154,7 @@ Visualization Manager:
       Value: true
     - Circles color: 170; 0; 0
       Class: Obstacles
-      Enabled: false
+      Enabled: true
       Margin color: 0; 170; 0
       Name: Obstacles
       Opacity: 0.30000001192092896
@@ -135,7 +163,7 @@ Visualization Manager:
       Segments thickness: 0.029999999329447746
       Topic: /robot/obstacles_to_base
       Unreliable: false
-      Value: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -163,7 +191,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: -2.34999942779541
+      Angle: -2.344999313354492
       Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
@@ -173,10 +201,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: -720.2513427734375
+      Scale: -136.22442626953125
       Target Frame: <Fixed Frame>
-      X: 2.997767686843872
-      Y: 1.1588507890701294
+      X: 1.7662214040756226
+      Y: 1.9656715393066406
     Saved: ~
 Window Geometry:
   Displays:

@@ -27,6 +27,5 @@
         </node>
     </group>
 
-    <node pkg="rosbag" type="play" name="rosbag_play" output="screen"
-          args="$(find ekf)/baggy/0502_omni_2.bag --start 30 --topics /robot/local_filter /robot/obstacles_to_base /tf_static /tf" />
+    <node pkg="rosbag" type="play" name="rosbag_play" output="screen" args="$(find ekf)/baggy/0502_omni_2.bag --topics /robot/local_filter /robot/obstacles_to_base /tf_static /tf" />
 </launch>
