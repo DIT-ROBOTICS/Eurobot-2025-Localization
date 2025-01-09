@@ -198,22 +198,22 @@ void LidarLocalization::readyCallback(const geometry_msgs::PointStamped::ConstPt
 
 void LidarLocalization::cmdvelCallback(const geometry_msgs::Twist::ConstPtr& ptr)
 {
-  // robot_to_map_vel_.x = ptr->linear.x;
-  // robot_to_map_vel_.y = ptr->linear.y;
-  // robot_to_map_vel_.z = ptr->angular.z;
-  robot_to_map_vel_.x = 0;
-  robot_to_map_vel_.y = 0;
-  robot_to_map_vel_.z = 0;
+  robot_to_map_vel_.x = ptr->linear.x;
+  robot_to_map_vel_.y = ptr->linear.y;
+  robot_to_map_vel_.z = ptr->angular.z;
+  // robot_to_map_vel_.x = 0;
+  // robot_to_map_vel_.y = 0;
+  // robot_to_map_vel_.z = 0;
 }
 
 void LidarLocalization::odomCallback(const nav_msgs::Odometry::ConstPtr& ptr)
 {
-  // robot_to_map_vel_.x = ptr->twist.twist.linear.x;
-  // robot_to_map_vel_.y = ptr->twist.twist.linear.y;
-  // robot_to_map_vel_.z = ptr->twist.twist.angular.z;
-  robot_to_map_vel_.x = 0;
-  robot_to_map_vel_.y = 0;
-  robot_to_map_vel_.z = 0;
+  robot_to_map_vel_.x = ptr->twist.twist.linear.x;
+  robot_to_map_vel_.y = ptr->twist.twist.linear.y;
+  robot_to_map_vel_.z = ptr->twist.twist.angular.z;
+  // robot_to_map_vel_.x = 0;
+  // robot_to_map_vel_.y = 0;
+  // robot_to_map_vel_.z = 0;
 }
 
 void LidarLocalization::ekfposeCallback(const nav_msgs::Odometry::ConstPtr& ptr)

@@ -35,6 +35,7 @@ obstacle_tracker_to_base:
 
 # Triangular localization
 lidar_localization: 
+  side: 1
   active: true
 
   cov_x: 0.1
