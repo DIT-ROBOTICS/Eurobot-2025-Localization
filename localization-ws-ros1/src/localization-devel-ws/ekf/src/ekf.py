@@ -21,7 +21,7 @@ class EKFFootprintBroadcaster:
 
         self.ekf_pose_publisher = rospy.Publisher('/robot/final_pose', Odometry, queue_size=10)
 
-        self.X = np.array([0, 0, 0.0])  # Initial state
+        self.X = np.array([2.259588, 1.709261426,  47.599])  # Initial state
 
         self.P = np.eye(3) * 1e-3
         self.Q = np.eye(3) * 1e-3  # Process noise
@@ -36,22 +36,7 @@ class EKFFootprintBroadcaster:
         self.predict_frame_id = rospy.get_param('~robot_predict_frame_id', 'robot/predict')
         self.rate = rospy.Rate(rospy.get_param('~update_rate', 100))  # based on the update rate of the odometry
         current_time = rospy.Time.now()
-        q = tf.transformations.quaternion_from_euler(0, 0, self.X[2])
-
-        _static_transform_stamped = geometry_msgs.msg.TransformStamped()
-        _static_transform_stamped.header.stamp = current_time
-        _static_transform_stamped.header.frame_id = self.parent_frame_id
-        _static_transform_stamped.child_frame_id = self.child_frame_id
-        _static_transform_stamped.transform.translation.x = self.X[0]
-        _static_transform_stamped.transform.translation.y = self.X[1]
-        _static_transform_stamped.transform.translation.z = 0
-        _static_transform_stamped.transform.rotation.x = q[0]
-        _static_transform_stamped.transform.rotation.y = q[1]
-        _static_transform_stamped.transform.rotation.z = q[2]
-        _static_transform_stamped.transform.rotation.w = q[3]
-        self.tf_broadcaster.sendTransform(_static_transform_stamped)
-    
-        self.last_broadcast_time = current_time
+        self.broadcast_footprint()
         rospy.loginfo("EKF Footprint Broadcaster initialized.")
 
     def gps_callback(self, msg):
@@ -69,19 +54,19 @@ class EKFFootprintBroadcaster:
         self.ekf_update(gps_measurement, self.R_gps)
 
     def camera_callback(self, msg):
-        # if self.is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
-        #     rospy.logwarn("Invalid Camera data received")
-        #     return
-        # theta_Cam = tf.transformations.euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])[2]    
-        # camera_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, theta_Cam])
-        try:
-            (trans, rot) = self.listener.lookupTransform('/robot/map', '/robot/predict', rospy.Time.now())
-            theta_Cam = tf.transformations.euler_from_quaternion(rot)[2]
-            camera_measurement = np.array([trans[0], trans[1], theta_Cam])
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logwarn("TF lookup from /robot/map to /robot/predict failed.")
+        if self.is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
+            rospy.logwarn("Invalid Camera data received")
             return
-        self.ekf_update(camera_measurement, self.R_camera)
+        theta_Cam = tf.transformations.euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])[2]    
+        camera_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, theta_Cam])
+        # try:
+        #     (trans, rot) = self.listener.lookupTransform('/robot/map', '/robot/predict', rospy.Time.now())
+        #     theta_Cam = tf.transformations.euler_from_quaternion(rot)[2]
+        #     camera_measurement = np.array([trans[0], trans[1], theta_Cam])
+        # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        #     rospy.logwarn("TF lookup from /robot/map to /robot/predict failed.")
+        #     return
+        # self.ekf_update(camera_measurement, self.R_camera)
 
     def odom_callback(self, msg):
         current_time = msg.header.stamp.to_sec()
@@ -111,6 +96,7 @@ class EKFFootprintBroadcaster:
         self.X[2] = self.normalize_angle(self.X[2])
 
         self.P = F @ self.P @ F.T + self.Q
+        self.broadcast_footprint()
 
     def ekf_update(self, z, R):
         if np.any(np.isnan(z)):  # Check if the measurement is valid
@@ -123,12 +109,12 @@ class EKFFootprintBroadcaster:
         self.X += K @ (z - H @ self.X)
         self.X[2] = self.normalize_angle(self.X[2])
         self.P = (np.eye(3) - K @ H) @ self.P
-        self.broadcast_footprint()
+        
 
     def broadcast_footprint(self):
         current_time = rospy.Time.now()
-        if (current_time - self.last_broadcast_time).to_sec() < 0.001:  
-            return
+        # if (current_time - self.last_broadcast_time).to_sec() < 0.001:  
+        #     return
         
         q = tf.transformations.quaternion_from_euler(0, 0, self.X[2])
         _static_transform_stamped = geometry_msgs.msg.TransformStamped()
@@ -143,21 +129,19 @@ class EKFFootprintBroadcaster:
         _static_transform_stamped.transform.rotation.z = q[2]
         _static_transform_stamped.transform.rotation.w = q[3]
         self.tf_broadcaster.sendTransform(_static_transform_stamped)
-
-
         self.last_broadcast_time = current_time
 
-        ekf_pose = Odometry()
-        ekf_pose.header.stamp = current_time
-        ekf_pose.header.frame_id = self.parent_frame_id
-        ekf_pose.pose.pose.position.x = self.X[0]
-        ekf_pose.pose.pose.position.y = self.X[1]
-        ekf_pose.pose.pose.position.z = 0.0
-        ekf_pose.pose.pose.orientation.x = q[0]
-        ekf_pose.pose.pose.orientation.y = q[1]
-        ekf_pose.pose.pose.orientation.z = q[2]
-        ekf_pose.pose.pose.orientation.w = q[3]
-        self.ekf_pose_publisher.publish(ekf_pose)
+        self.ekf_pose = Odometry()
+        self.ekf_pose.header.stamp = current_time
+        self.ekf_pose.header.frame_id = self.parent_frame_id
+        self.ekf_pose.pose.pose.position.x = self.X[0]
+        self.ekf_pose.pose.pose.position.y = self.X[1]
+        self.ekf_pose.pose.pose.position.z = 0.0
+        self.ekf_pose.pose.pose.orientation.x = q[0]
+        self.ekf_pose.pose.pose.orientation.y = q[1]
+        self.ekf_pose.pose.pose.orientation.z = q[2]
+        self.ekf_pose.pose.pose.orientation.w = q[3]
+        self.ekf_pose_publisher.publish(self.ekf_pose)
         
         # try:
         #     # Listen to the transform from map to base_footprint
