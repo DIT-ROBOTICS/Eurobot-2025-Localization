@@ -12,11 +12,11 @@ class EKFFootprintBroadcaster:
         self.tf_broadcaster = tf.TransformBroadcaster()
         self.listener = tf.TransformListener()
         rospy.Subscriber('/robot/lidar_bonbonbon', PoseWithCovarianceStamped, self.gps_callback)
-        rospy.Subscriber('/camera', Odometry, self.camera_callback)
+        rospy.Subscriber('/robot/camera', Odometry, self.camera_callback)
         rospy.Subscriber('/robot/local_filter', Odometry, self.odom_callback)
-        self.ekf_pose_publisher = rospy.Publisher('/ekf_pose', Odometry, queue_size=10)
+        self.ekf_pose_publisher = rospy.Publisher('/robot/final_pose', Odometry, queue_size=10)
 
-        self.X = np.array([0.0, 0.0, 0.0])  # Initial state
+        self.X = np.array([0, 0, 0.0])  # Initial state
 
         self.P = np.eye(3) * 1e-3
         self.Q = np.eye(3) * 1e-3  # Process noise
@@ -26,9 +26,8 @@ class EKFFootprintBroadcaster:
         self.last_odom = rospy.Time.now().to_sec()
         self.last_broadcast_time = rospy.Time.now()
 
-        self.ekf_pose_topic = rospy.get_param('~ekf_pose_topic', 'ekf_pose')
         self.parent_frame_id = rospy.get_param('~robot_parent_frame_id', 'robot/map')
-        self.child_frame_id = rospy.get_param('~robot_frame_id', 'robot/base_footprint_ekf')
+        self.child_frame_id = rospy.get_param('~robot_frame_id', 'robot/base_footprint')
         self.rate = rospy.Rate(rospy.get_param('~update_rate', 100))  # based on the update rate of the odometry
         current_time = rospy.Time.now()
         q = tf.transformations.quaternion_from_euler(0, 0, 0)
@@ -56,11 +55,18 @@ class EKFFootprintBroadcaster:
         self.ekf_update(gps_measurement, self.R_gps)
 
     def camera_callback(self, msg):
-        if self.is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
-            rospy.logwarn("Invalid Camera data received")
+        # if self.is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
+        #     rospy.logwarn("Invalid Camera data received")
+        #     return
+        # theta_Cam = tf.transformations.euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])[2]    
+        # camera_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, theta_Cam])
+        try:
+            (trans, rot) = self.listener.lookupTransform('/robot/map', '/robot/predict', rospy.Time.now())
+            theta_Cam = tf.transformations.euler_from_quaternion(rot)[2]
+            camera_measurement = np.array([trans[0], trans[1], theta_Cam])
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            rospy.logwarn("TF lookup from /robot/map to /robot/predict failed.")
             return
-        
-        camera_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, 0.0])
         self.ekf_update(camera_measurement, self.R_camera)
 
     def odom_callback(self, msg):
@@ -71,6 +77,10 @@ class EKFFootprintBroadcaster:
         delta_x = msg.twist.twist.linear.x * dt
         delta_y = msg.twist.twist.linear.y * dt
         delta_theta = msg.twist.twist.angular.z * dt
+
+        # delta_x = 0
+        # delta_y = 0
+        # delta_theta = 0
         self.ekf_predict(delta_x, delta_y, delta_theta)
 
     def ekf_predict(self, delta_x, delta_y, delta_theta):
