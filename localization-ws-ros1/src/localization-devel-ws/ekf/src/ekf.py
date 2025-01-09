@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import rospy
 from nav_msgs.msg import Odometry
+import geometry_msgs
 from geometry_msgs.msg import PoseWithCovarianceStamped
+import geometry_msgs.msg
 import numpy as np
 from math import sin, cos, atan2
 import tf
@@ -36,7 +38,7 @@ class EKFFootprintBroadcaster:
         current_time = rospy.Time.now()
         q = tf.transformations.quaternion_from_euler(0, 0, self.X[2])
 
-        _static_transform_stamped = tf2_ros.StaticTransformStamped()
+        _static_transform_stamped = geometry_msgs.msg.TransformStamped()
         _static_transform_stamped.header.stamp = current_time
         _static_transform_stamped.header.frame_id = self.parent_frame_id
         _static_transform_stamped.child_frame_id = self.child_frame_id
@@ -129,7 +131,7 @@ class EKFFootprintBroadcaster:
             return
         
         q = tf.transformations.quaternion_from_euler(0, 0, self.X[2])
-        _static_transform_stamped = tf2_ros.StaticTransformStamped()
+        _static_transform_stamped = geometry_msgs.msg.TransformStamped()
         _static_transform_stamped.header.stamp = current_time
         _static_transform_stamped.header.frame_id = self.parent_frame_id    
         _static_transform_stamped.child_frame_id = self.child_frame_id
@@ -144,7 +146,7 @@ class EKFFootprintBroadcaster:
 
 
         self.last_broadcast_time = current_time
-        
+
         ekf_pose = Odometry()
         ekf_pose.header.stamp = current_time
         ekf_pose.header.frame_id = self.parent_frame_id
