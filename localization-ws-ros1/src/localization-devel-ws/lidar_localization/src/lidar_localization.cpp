@@ -32,6 +32,7 @@ LidarLocalization::LidarLocalization(ros::NodeHandle& nh, ros::NodeHandle& nh_lo
   : nh_(nh), nh_local_(nh_local), tf2_listener_(tf2_buffer_)
 {
   params_srv_ = nh_local_.advertiseService("params", &LidarLocalization::updateParams, this);
+  ROS_DEBUG_STREAM("LidarLocalization::LidarLocalization");
   initialize();
 }
 
@@ -136,7 +137,7 @@ bool LidarLocalization::updateParams(std_srvs::Empty::Request& req, std_srvs::Em
     get_param_ok &= nh_.param<double>(side + "/beacon_cy", p_beacon_3_y_, 1.0);
     
     /* Setup beacon position for triangular localization */
-    // setBeacontoMap();
+    setBeacontoMap();
     // geometry_msgs::TransformStamped transform;
     // ros::Time now = ros::Time::now();
     // transform.header.stamp = now;
@@ -152,8 +153,8 @@ bool LidarLocalization::updateParams(std_srvs::Empty::Request& req, std_srvs::Em
     // transform.transform.translation.x = 0;
     // transform.transform.translation.y = 0;
     // static_broadcaster_.sendTransform(transform);
-    // checkTFOK();
-    // getBeacontoMap();
+    checkTFOK();
+    getBeacontoMap();
 
   }
 
@@ -196,15 +197,12 @@ void LidarLocalization::readyCallback(const geometry_msgs::PointStamped::ConstPt
 
 }
 
-void LidarLocalization::cmdvelCallback(const geometry_msgs::Twist::ConstPtr& ptr)
-{
-  robot_to_map_vel_.x = ptr->linear.x;
-  robot_to_map_vel_.y = ptr->linear.y;
-  robot_to_map_vel_.z = ptr->angular.z;
-  // robot_to_map_vel_.x = 0;
-  // robot_to_map_vel_.y = 0;
-  // robot_to_map_vel_.z = 0;
-}
+// void LidarLocalization::cmdvelCallback(const geometry_msgs::Twist::ConstPtr& ptr)
+// {
+//   robot_to_map_vel_.x = ptr->linear.x;
+//   robot_to_map_vel_.y = ptr->linear.y;
+//   robot_to_map_vel_.z = ptr->angular.z;
+// }
 
 void LidarLocalization::odomCallback(const nav_msgs::Odometry::ConstPtr& ptr)
 {
@@ -219,23 +217,7 @@ void LidarLocalization::odomCallback(const nav_msgs::Odometry::ConstPtr& ptr)
 void LidarLocalization::ekfposeCallback(const nav_msgs::Odometry::ConstPtr& ptr)
 {
   this->ekf_pose_ = ptr->pose.pose;
-  geometry_msgs::TransformStamped transform;
-
-  //   // Use the time from the message header for synchronization
-  // transform.header.stamp = ptr->header.stamp;
-  // transform.header.frame_id = p_robot_parent_frame_id_;  // Parent frame (e.g., map)
-  // transform.child_frame_id = p_robot_frame_id_;          // Child frame (e.g., base_footprint)
-
-  // // Set translation from the pose
-  // transform.transform.translation.x = ptr->pose.pose.position.x;
-  // transform.transform.translation.y = ptr->pose.pose.position.y;
-  // transform.transform.translation.z = ptr->pose.pose.position.z;
-
-  // // Set rotation from the pose
-  // transform.transform.rotation = ptr->pose.pose.orientation;
-
-  // // Broadcast the transform
-  // static_broadcaster_.sendTransform(transform);
+ 
 }
 
 /* MAIN */
@@ -248,10 +230,10 @@ void LidarLocalization::obstacleCallback(const obstacle_detector::Obstacles::Con
 
   /* Transform beacon to robot frame */
   getBeacontoRobot();
-
+  ROS_DEBUG_STREAM("updatebeacon begin");
   /* Get update prediction beacons */
   updateBeacons();
-
+  ROS_DEBUG_STREAM("updatebeacon stop");
   /* Restore the obstacle circles */
   for (const obstacle_detector::CircleObstacle& obstacle : ptr->circles)
   {
@@ -276,7 +258,7 @@ void LidarLocalization::updateBeacons()
   /* And broadcast the pose to map frame */
   geometry_msgs::TransformStamped transform;
   ros::Time now = ros::Time::now();
-  // transform.header.stamp = now;
+  transform.header.stamp = now;
   transform.header.stamp = stamp_get_obs;
   transform.header.frame_id = p_robot_parent_frame_id_;
   transform.child_frame_id = p_predict_frame_id_;
@@ -303,7 +285,10 @@ void LidarLocalization::updateBeacons()
   failed_tf_ = !(ekf_pose_.orientation.x + ekf_pose_.orientation.y + ekf_pose_.orientation.z + ekf_pose_.orientation.w);
 
   if(!failed_tf_) static_broadcaster_.sendTransform(transform);
-  else return;
+  else {
+    ROS_DEBUG_STREAM("ekf_pose orien !=1");
+    return;
+  }
 
   /* Get beacon transform from the tf to map */
   bool tf_ok = true;
@@ -361,8 +346,8 @@ void LidarLocalization::setBeacontoMap()
   transform.transform.translation.y = p_beacon_3_y_;
   static_broadcaster_.sendTransform(transform);
 
-//   ROS_INFO_STREAM("[Lidar Localization]: "
-//                   << "set beacon tf ok");
+  // ROS_INFO_STREAM("[Lidar Localization]: "
+  //                 << "set beacon tf ok");
 }
 
 bool LidarLocalization::checkTFOK()
@@ -628,7 +613,7 @@ void LidarLocalization::getRobotPose()
     Eigen::Matrix3d B;
     B << c__theta, -s__theta, 0, s__theta, c__theta, 0, 0, 0, 1;
 
-    robotstate = A * robotstate + B * d_state;
+    // robotstate = A * robotstate + B * d_state;
 
     output_robot_pose_.pose.pose.position.x = robotstate(0);
     output_robot_pose_.pose.pose.position.y = robotstate(1);
