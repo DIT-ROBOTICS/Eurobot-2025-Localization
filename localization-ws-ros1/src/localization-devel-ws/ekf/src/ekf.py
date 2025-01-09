@@ -5,15 +5,18 @@ from geometry_msgs.msg import PoseWithCovarianceStamped
 import numpy as np
 from math import sin, cos, atan2
 import tf
+import tf2_ros
 
 class EKFFootprintBroadcaster:
     def __init__(self):
         rospy.init_node('ekf_footprint_broadcaster')
-        self.tf_broadcaster = tf.TransformBroadcaster()
         self.listener = tf.TransformListener()
         rospy.Subscriber('/robot/lidar_bonbonbon', PoseWithCovarianceStamped, self.gps_callback)
         rospy.Subscriber('/robot/camera', Odometry, self.camera_callback)
         rospy.Subscriber('/robot/local_filter', Odometry, self.odom_callback)
+
+        self.tf_broadcaster = tf2_ros.StaticTransformBroadcaster()
+
         self.ekf_pose_publisher = rospy.Publisher('/robot/final_pose', Odometry, queue_size=10)
 
         self.X = np.array([0, 0, 0.0])  # Initial state
@@ -28,18 +31,27 @@ class EKFFootprintBroadcaster:
 
         self.parent_frame_id = rospy.get_param('~robot_parent_frame_id', 'robot/map')
         self.child_frame_id = rospy.get_param('~robot_frame_id', 'robot/base_footprint')
+        self.predict_frame_id = rospy.get_param('~robot_predict_frame_id', 'robot/predict')
         self.rate = rospy.Rate(rospy.get_param('~update_rate', 100))  # based on the update rate of the odometry
         current_time = rospy.Time.now()
-        q = tf.transformations.quaternion_from_euler(0, 0, 0)
-        self.tf_broadcaster.sendTransform(
-            (self.X[0], self.X[1], 0.0),
-            q,
-            current_time,
-            self.child_frame_id,
-            self.parent_frame_id
-            
-        )
+        q = tf.transformations.quaternion_from_euler(0, 0, self.X[2])
+
+        _static_transform_stamped = tf2_ros.StaticTransformStamped()
+        _static_transform_stamped.header.stamp = current_time
+        _static_transform_stamped.header.frame_id = self.parent_frame_id
+        _static_transform_stamped.child_frame_id = self.child_frame_id
+        _static_transform_stamped.transform.translation.x = self.X[0]
+        _static_transform_stamped.transform.translation.y = self.X[1]
+        _static_transform_stamped.transform.translation.z = 0
+        _static_transform_stamped.transform.rotation.x = q[0]
+        _static_transform_stamped.transform.rotation.y = q[1]
+        _static_transform_stamped.transform.rotation.z = q[2]
+        _static_transform_stamped.transform.rotation.w = q[3]
+        self.tf_broadcaster.sendTransform(_static_transform_stamped)
+    
         self.last_broadcast_time = current_time
+        rospy.loginfo("EKF Footprint Broadcaster initialized.")
+
     def gps_callback(self, msg):
         gps_time = msg.header.stamp.to_sec()
         current_time = rospy.Time.now().to_sec()
@@ -117,13 +129,22 @@ class EKFFootprintBroadcaster:
             return
         
         q = tf.transformations.quaternion_from_euler(0, 0, self.X[2])
-        self.tf_broadcaster.sendTransform(
-            (self.X[0], self.X[1], 0.0),
-            q,
-            current_time,
-            self.child_frame_id,
-            self.parent_frame_id
-        )
+        _static_transform_stamped = tf2_ros.StaticTransformStamped()
+        _static_transform_stamped.header.stamp = current_time
+        _static_transform_stamped.header.frame_id = self.parent_frame_id    
+        _static_transform_stamped.child_frame_id = self.child_frame_id
+        _static_transform_stamped.transform.translation.x = self.X[0]
+        _static_transform_stamped.transform.translation.y = self.X[1]
+        _static_transform_stamped.transform.translation.z = 0
+        _static_transform_stamped.transform.rotation.x = q[0]
+        _static_transform_stamped.transform.rotation.y = q[1]
+        _static_transform_stamped.transform.rotation.z = q[2]
+        _static_transform_stamped.transform.rotation.w = q[3]
+        self.tf_broadcaster.sendTransform(_static_transform_stamped)
+
+
+        self.last_broadcast_time = current_time
+        
         ekf_pose = Odometry()
         ekf_pose.header.stamp = current_time
         ekf_pose.header.frame_id = self.parent_frame_id
@@ -136,16 +157,15 @@ class EKFFootprintBroadcaster:
         ekf_pose.pose.pose.orientation.w = q[3]
         self.ekf_pose_publisher.publish(ekf_pose)
         
-        self.last_broadcast_time = current_time
         # try:
         #     # Listen to the transform from map to base_footprint
         #     current_time = rospy.Time.now()
-        #     (trans, rot) = self.listener.lookupTransform(self.parent_frame_id, self.child_frame_id, rospy.Time.now())
+        #     (trans, rot) = self.listener.lookupTransform(self.parent_frame_id, self.predict_frame_id, rospy.Time.now())
         #     theta = tf.transformations.euler_from_quaternion(rot)[2]
-        #     rospy.loginfo(f"Current TF from {self.parent_frame_id} to {self.child_frame_id}: "
+        #     rospy.loginfo(f"Current TF from {self.parent_frame_id} to {self.predict_frame_id}: "
         #                   f"x={trans[0]}, y={trans[1]}, theta={theta}")
         # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-        #     rospy.logwarn(f"TF lookup from {self.parent_frame_id} to {self.child_frame_id} failed.")
+        #     rospy.logwarn(f"TF lookup from {self.parent_frame_id} to {self.predict_frame_id} failed.")
         #     return
         
     def normalize_angle(self, angle):
