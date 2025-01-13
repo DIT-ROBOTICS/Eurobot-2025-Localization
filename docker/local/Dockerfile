@@ -79,10 +79,12 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 
 FROM imu-dep AS final
 
+# Set user as ${username} before setting working directory to avoid permission problem
+USER ${USERNAME}
+
 ## Set working directory
 WORKDIR /home/$USERNAME/localization-ws/src
 
-USER ${USERNAME}
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
 
