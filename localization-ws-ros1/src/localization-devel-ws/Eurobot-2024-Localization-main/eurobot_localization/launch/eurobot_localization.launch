@@ -1,0 +1,36 @@
+<launch>
+
+
+	<arg name="robot_name" default="robot" />
+	<arg name="robot_name_slash" default="robot/" />
+	<arg name="active_rival_center" default="0" /> <!-- not used in 2024 -->
+	<arg name="side" default='0' /> <!-- blue: 0, yellow: 1, only for simulation -->
+	<arg name="simulation" default="false" />
+	<arg name="use_min_angle" default="false"/> <!-- whether to activate scan preprocess with min_angle method -->
+
+	<include file="$(find local_filter)/launch/local_filter_whole.launch">
+		<arg name="robot_name" value="$(arg robot_name)" />
+		<arg name="robot_name_slash" value="$(arg robot_name_slash)" />
+		<arg name="simulation" default="$(arg simulation)" />
+	</include>
+
+	<include file="$(find eurobot_localization)/launch/gps/global_ekf.launch">
+		<arg name="robot_name" value="$(arg robot_name)" />
+		<arg name="robot_name_slash" value="$(arg robot_name_slash)" />
+		<arg name="active_rival_center" value="$(arg active_rival_center)" />
+		<arg name="simulation" default="$(arg simulation)" />
+		<arg name="use_min_angle" value="$(arg use_min_angle)"/>
+
+	</include>
+
+	<include file="$(find rival_localization)/launch/rival_localization.launch">
+		<arg name="robot_name" default="$(arg robot_name)"/>
+	</include>
+
+	<include file="$(find simulation)/launch/sim.launch" if="$(arg simulation)">
+		<arg name="robot_name" value="$(arg robot_name)" />
+		<arg name="robot_name_slash" value="$(arg robot_name_slash)" />
+		<arg name="side" value="$(arg side)" />
+	</include>
+
+</launch>

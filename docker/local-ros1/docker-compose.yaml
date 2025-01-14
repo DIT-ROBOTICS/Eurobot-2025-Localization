@@ -1,0 +1,51 @@
+services:
+  ros1-localization-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USERNAME: user
+    image: jossiewang/eurobot2025-localization:local-ros1-nosensor
+    container_name: localization-2025-ros1-dev
+    stdin_open: true
+    tty: true
+    privileged: true
+    stop_grace_period: 1s
+    restart: no
+    # entrypoint: ["./start.sh"]
+
+    network_mode: host
+    working_dir: /home/user/localization-ws-ros1
+    environment:
+      - DISPLAY=${DISPLAY}
+      # Set ros2 environment variables.
+      # References:
+      # - https://docs.ros.org/en/humble/Concepts/Intermediate/About-Domain-ID.html
+      # - https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html
+      # - ROS_LOCALHOST_ONLY=1
+      # - ROS_DOMAIN_ID=42
+      - ROS_WS=/home/user/localization-ws-ros1
+    volumes:
+      # Mount local timezone into container. ( Readonly )
+      # Reference: https://stackoverflow.com/questions/57607381/how-do-i-change-timezone-in-a-docker-container
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      # Mount X11 server
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # Direct Rendering Infrastructure
+      # - /dev/dri:/dev/dri
+      # Mount sound card to prevent Gazebo warning.
+      # - /dev/snd:/dev/snd
+      - /dev:/dev
+      # Mount Gazebo models directory to reuse models downloaded during first launch.
+      # Reference: https://answers.ros.org/question/365658
+      # - ./cache/.gazebo:/home/user/.gazebo
+      # Mounting the following directories will forbid direct deletion.
+      # Consider mount these directories only if the build process is slow.
+      # "source=${localWorkspaceFolder}/../cache/humble/build,target=/home/ws/build,type=bind",
+      # "source=${localWorkspaceFolder}/../cache/humble/install,target=/home/ws/install,type=bind",
+      # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
+      # Mount workspace
+      - ../../localization-ws-ros1/src/localization-devel-ws:/home/user/localization-ws-ros1/src/localization-devel-ws
+
+    command: /bin/bash
