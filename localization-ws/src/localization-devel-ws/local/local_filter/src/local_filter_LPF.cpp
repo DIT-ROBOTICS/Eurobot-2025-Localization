@@ -36,10 +36,15 @@ public:
         // nh_local_.param<double>("LPF_alpha_y", alpha_y, 0.5); //filter coefficient
         // nh_local_.param<double>("linear_cov_max", linear_cov_max_, 0.1);
         // nh_local_.param<double>("angular_cov_max", angular_cov_max_, 0.05);
-        nh_local_.declare_parameter(alpha_x, 0.5); // filter coefficient
-        nh_local_.declare_parameter(alpha_y, 0.5); // filter coefficient
-        nh_local_.declare_parameter(linear_cov_max_, 0.1);
-        nh_local_.declare_parameter(angular_cov_max_, 0.05);
+        this->declare_parameter("LPF_alpha_x", 0.5); // filter coefficient
+        this->declare_parameter("LPF_alpha_y", 0.5); // filter coefficient
+        this->declare_parameter("linear_cov_max", 0.1);
+        this->declare_parameter("angular_cov_max", 0.05);
+
+        alpha_x=this->get_parameter("LPF_alpha_x");
+        alpha_y=this->get_parameter("LPF_alpha_y");
+        linear_cov_max_=this->get_parameter("linear_cov_max");
+        angular_cov_max_=this->get_parameter("angular_cov_max");
 
         // setpose_sub_ = nh_.subscribe("initialpose", 50, &GlobalFilterNode::setposeCallback, this);
         // odom_sub_ = nh_.subscribe("odom", 10, &GlobalFilterNode::odomCallback, this);

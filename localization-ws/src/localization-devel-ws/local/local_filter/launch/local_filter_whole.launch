@@ -10,7 +10,7 @@
 
     <group ns="$(arg robot_name)">
 
-        <rosparam command="load" file="$(find local_filter)/param/local_filter_whole.yaml" />
+        <arg name="local_filter_whole_yaml" value="$(find local_filter)/param/local_filter_whole.yaml" />
 
         <!-- Local filter by robot localization -->
         <!-- <node pkg="robot_localization" type="ekf_localization_node" name="ekf_velocity"
@@ -27,7 +27,7 @@
             <param name="world_frame" value="$(arg robot_name_slash)odom" />
         </node> -->
 
-        <node name="local_filter_LPF" pkg="local_filter" type="local_filter_LPF" >
+        <node name="local_filter_LPF" pkg="local_filter" exec="local_filter_LPF" >
             <param name="LPF_alpha_x" value="$(arg LPF_alpha_x)"/>
             <param name="LPF_alpha_y" value="$(arg LPF_alpha_y)"/>
             <param name="linear_cov_max" value="$(arg linear_cov_max)"/>
