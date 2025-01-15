@@ -6,9 +6,8 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    # image: jossiewang/eurobot2025-localization:local-ros2-nosensor
-    image: ros2-humble:latest
-    container_name: localization-2025-dev
+    image: jossiewang/eurobot2025-localization:local-ros2-wSensors
+    container_name: localization-2025-dev-ros2
     stdin_open: true
     tty: true
     privileged: true
@@ -48,7 +47,7 @@ services:
       # "source=${localWorkspaceFolder}/../cache/humble/install,target=/home/ws/install,type=bind",
       # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
       # Mount workspace
-      - ../../localization-ws/src/localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
-    ports:
-      - "8765:8765"  #foxglove
+
+      - ../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
     command: /bin/bash
+

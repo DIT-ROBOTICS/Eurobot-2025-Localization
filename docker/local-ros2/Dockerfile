@@ -43,6 +43,10 @@ FROM user-setup AS tools
 ## Install necessary packages
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3-pip \
+    python3-rosdep \
+    python3-setuptools \
+    python3-numpy \
     apt-utils \
     git \
     nano \
@@ -54,7 +58,16 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     tmux \
     htop \ 
     ros-humble-foxglove-bridge \
-    && rm -rf /var/lib/apt/lists/*
+    libsdl-image1.2-dev \
+    libarmadillo-dev \
+    libboost-all-dev \
+    # ros-humble-laser-geometry \
+    libsuitesparse-dev \
+    ros-humble-libg2o \
+    # ros-humble-imu-tools \
+    libusb-1.0-0 libusb-1.0-0-dev -y && \
+    rm -rf /var/lib/apt/lists/*
+
     
 ################################################################################################
 # - IMU Installation stage
@@ -66,10 +79,23 @@ FROM tools AS imu-dep
 ## Install necessary tools for imu
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    python3-pip \
     ros-humble-imu-tools \
-    libusb-1.0-0 libusb-1.0-0-dev \
     && rm -rf /var/lib/apt/lists/*
+
+USER ${USERNAME}
+WORKDIR /home/user/localization-ws/src/phidgets_drivers
+COPY phidgets_drivers /home/user/localization-ws/src/phidgets_drivers
+
+################################################################################################
+# - RPLiDar and obstacle detector Installation stage
+#   - In this stage, install neccesary stuff for RPLiDar.
+################################################################################################
+
+FROM imu-dep AS lidar-dep
+USER ${USERNAME}
+WORKDIR /home/user/localization-ws/src/rplidar-ros-driver
+RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/rplidar-ros-driver/
+RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
 
 ################################################################################################
 # - RPLiDar Installation stage
@@ -118,16 +144,24 @@ RUN git clone -b obstacle-detect https://wintera1233:ghp_epTL9sCKSTwLSnZRbPsnNMG
 # 
 ################################################################################################
 
+
 FROM obs-dep AS final
-
 ## Set working directory
-WORKDIR /home/$USERNAME/localization-ws/src
-
+WORKDIR /home/${USERNAME}/localization-ws
+# RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
 USER ${USERNAME}
+RUN sudo apt-get update && \
+    rosdep update && \
+    rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
+    /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install' \
+    && sudo rm -rf /var/lib/apt/lists/*
+
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
  
 
+
+USER ${USERNAME}
 ## NOTE:
 ## Steps below should ideally be performed in a separate container and then mounted as a volume to the main container, 
 ## as they require modifications that are better handled outside the Dockerfile.
@@ -137,9 +171,5 @@ RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
 #     rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
 #     /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install' \
 #     && rm -rf /var/lib/apt/lists/*
-USER root
-RUN echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc && \
-    echo "source /home/localization-ws/install/setup.bash" >> /etc/bash.bashrc
-## Final configurationszz
-USER $USERNAME
+
 CMD ["/bin/bash"]
