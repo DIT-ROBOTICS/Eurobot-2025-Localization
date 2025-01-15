@@ -1,0 +1,21 @@
+<launch>
+
+    <arg name="robot_name_slash" default="robot/" />
+    <arg name="robot_name" default="robot" />
+    <param name="/use_sim_time" value="true"/> 
+
+    <group ns="$(arg robot_name)">
+        <node pkg="ekf" type="ekf.py" name="ekf_footprint_broadcaster" output="screen">
+            <param name="robot_parent_frame_id" value="$(arg robot_name_slash)map"/>
+            <param name="robot_frame_id" value="$(arg robot_name_slash)base_footprint"/>
+            <param name="update_rate" value="100"/>
+        </node>
+
+        <node pkg="ekf" type="fake_cam.py" name="fake_cam" output="screen">
+            <param name="robot_parent_frame_id" value="$(arg robot_name_slash)map"/>
+            <param name="update_rate" value="100"/>
+        </node>
+    </group>
+    <node pkg="rosbag" type="play" name="rosbag_play" output="screen" args="$(find ekf)/baggy/0502_omni_4.bag --topics /robot/local_filter /robot/obstacles_to_base /tf_static /tf ">
+    </node>
+</launch>

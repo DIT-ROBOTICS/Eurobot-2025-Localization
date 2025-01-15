@@ -1,0 +1,11 @@
+<launch>
+
+    <arg name="robot_name_slash" default="robot/" />
+    <arg name="robot_name" default="robot" />
+    <param name="/use_sim_time" value="true"/> 
+
+    <group ns="$(arg robot_name)">
+        <node pkg="ekf" type="camera_publisher.py" name="fake_cam" output="screen">
+        </node>
+    </group>
+</launch>
