@@ -1,20 +1,18 @@
-#include "rclcpp/rclcpp.hpp" // <ros/ros.h>
-// #include <time.h>
+#include "rclcpp/rclcpp.hpp"
 // msg
-#include "nav_msgs/msg/odometry.hpp" // <nav_msgs/Odometry.h>
-#include "sensor_msgs/msg/imu.hpp" // <sensor_msgs/Imu.h>
-#include "geometry_msgs/msg/poseWithCovarianceStamped.hpp" // <geometry_msgs/PoseWithCovarianceStamped.h>
-// #include <nav_msgs/Odometry.h>
+#include "nav_msgs/msg/odometry.hpp"
+#include "sensor_msgs/msg/imu.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 // matrix calulation
-#include <Eigen/Dense>
+#include <eigen3/Eigen/Dense>
 #include <math.h>
 // tf2
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
-#include <geometry_msgs/PointStamped.h>
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include <tf2/LinearMath/Transform.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 struct RobotState
 {
@@ -24,7 +22,6 @@ struct RobotState
 
 class GlobalFilterNode {
 public:
-    // GlobalFilterNode(ros::NodeHandle& nh, ros::NodeHandle& nh_local) : nh_(nh), nh_local_(nh_local){
     GlobalFilterNode(std::shared_ptr<rclcpp::Node> nh, std::shared_ptr<rclcpp::Node> nh_local) :
     nh_(nh), nh_local_(nh_local){
         // Initialize filter coefficients and initial values
@@ -32,32 +29,21 @@ public:
         linear_y_ = 0.0;
         angular_z_ = 0.0;
 
-        // nh_local_.param<double>("LPF_alpha_x", alpha_x, 0.5); //filter coefficient
-        // nh_local_.param<double>("LPF_alpha_y", alpha_y, 0.5); //filter coefficient
-        // nh_local_.param<double>("linear_cov_max", linear_cov_max_, 0.1);
-        // nh_local_.param<double>("angular_cov_max", angular_cov_max_, 0.05);
-        this->declare_parameter("LPF_alpha_x", 0.5); // filter coefficient
-        this->declare_parameter("LPF_alpha_y", 0.5); // filter coefficient
-        this->declare_parameter("linear_cov_max", 0.1);
-        this->declare_parameter("angular_cov_max", 0.05);
+        nh_local_->declare_parameter("LPF_alpha_x", 0.5); // filter coefficient
+        nh_local_->declare_parameter("LPF_alpha_y", 0.5); // filter coefficient
+        nh_local_->declare_parameter("linear_cov_max", 0.1);
+        nh_local_->declare_parameter("angular_cov_max", 0.05);
 
-        alpha_x=this->get_parameter("LPF_alpha_x");
-        alpha_y=this->get_parameter("LPF_alpha_y");
-        linear_cov_max_=this->get_parameter("linear_cov_max");
-        angular_cov_max_=this->get_parameter("angular_cov_max");
+        alpha_x=nh_local_->get_parameter("LPF_alpha_x").as_double();
+        alpha_y=nh_local_->get_parameter("LPF_alpha_y").as_double();
+        linear_cov_max_=nh_local_->get_parameter("linear_cov_max").as_double();
+        angular_cov_max_=nh_local_->get_parameter("angular_cov_max").as_double();
 
-        // setpose_sub_ = nh_.subscribe("initialpose", 50, &GlobalFilterNode::setposeCallback, this);
-        // odom_sub_ = nh_.subscribe("odom", 10, &GlobalFilterNode::odomCallback, this);
-        // imu_sub_ = nh_.subscribe("imu/data_cov", 10, &GlobalFilterNode::imuCallback, this);
-        setpose_sub_ = nh_.create_subscribtion<geometry_msgs::msg::PoseWithCovarianceStamped>(
-            "initialpose", 50, std::bind(&GlobalFilterNode::setposeCallback, this));
-        odom_sub_ = nh_.create_subscribtion<nav_msgs::msg::Odometry>(
-            "odom", 10, std::bind(&GlobalFilterNode::odomCallback, this));
-        imu_sub_ = nh_.create_subscription<sensor_msgs::msg::Imu>(
-            "imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this));
+        setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initialpose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
+        odom_sub_ = nh_->create_subscription<nav_msgs::msg::Odometry>("odom", 10, std::bind(&GlobalFilterNode::odomCallback, this, std::placeholders::_1));
+        imu_sub_ = nh_->create_subscription<sensor_msgs::msg::Imu>("imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this, std::placeholders::_1));
 
-        // global_filter_pub_ = nh_.advertise<nav_msgs::Odometry>("local_filter", 100);
-        global_filter_pub_ = nh_.create_publisher<nav_msgs::msg::Odometry>("local_filter", 100);
+        global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 100);
     }
 
     void diff_model(double v, double w, double dt)
@@ -98,14 +84,13 @@ public:
         robotstate_.mu = A * robotstate_.mu + B * d_state;
     }
 
-    // void setposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& pose_msg)
-    void setposeCallback(const geometry_msgs::msg::PoseWithCovarianceStamped & pose_msg) const
+    void setposeCallback(const geometry_msgs::msg::PoseWithCovarianceStamped & pose_msg)
     {
-        double x = pose_msg->pose.pose.position.x;
-        double y = pose_msg->pose.pose.position.y;
+        double x = pose_msg.pose.pose.position.x;
+        double y = pose_msg.pose.pose.position.y;
 
         tf2::Quaternion q;
-        tf2::fromMsg(pose_msg->pose.pose.orientation, q);
+        tf2::fromMsg(pose_msg.pose.pose.orientation, q);
         tf2::Matrix3x3 qt(q);
         double _, yaw;
         qt.getRPY(_, _, yaw);
@@ -114,41 +99,38 @@ public:
         robotstate_.mu(1) = y;
         robotstate_.mu(2) = yaw;
 
-        robotstate_.sigma(0, 0) = pose_msg->pose.covariance[0];   // x-x
-        robotstate_.sigma(0, 1) = pose_msg->pose.covariance[1];   // x-y
-        robotstate_.sigma(0, 2) = pose_msg->pose.covariance[5];   // x-theta
-        robotstate_.sigma(1, 0) = pose_msg->pose.covariance[6];   // y-x
-        robotstate_.sigma(1, 1) = pose_msg->pose.covariance[7];   // y-y
-        robotstate_.sigma(1, 2) = pose_msg->pose.covariance[11];  // y-theta
-        robotstate_.sigma(2, 0) = pose_msg->pose.covariance[30];  // theta-x
-        robotstate_.sigma(2, 1) = pose_msg->pose.covariance[31];  // theta-y
-        robotstate_.sigma(2, 2) = pose_msg->pose.covariance[35];  // theta-theta
+        robotstate_.sigma(0, 0) = pose_msg.pose.covariance[0];   // x-x
+        robotstate_.sigma(0, 1) = pose_msg.pose.covariance[1];   // x-y
+        robotstate_.sigma(0, 2) = pose_msg.pose.covariance[5];   // x-theta
+        robotstate_.sigma(1, 0) = pose_msg.pose.covariance[6];   // y-x
+        robotstate_.sigma(1, 1) = pose_msg.pose.covariance[7];   // y-y
+        robotstate_.sigma(1, 2) = pose_msg.pose.covariance[11];  // y-theta
+        robotstate_.sigma(2, 0) = pose_msg.pose.covariance[30];  // theta-x
+        robotstate_.sigma(2, 1) = pose_msg.pose.covariance[31];  // theta-y
+        robotstate_.sigma(2, 2) = pose_msg.pose.covariance[35];  // theta-theta
     }
 
-    // void odomCallback(const nav_msgs::Odometry:ConstPtr& odom_msg) {
-    void odomCallback(const nav_msgs::msg::Odometry & odom_msg) const{
+    void odomCallback(const nav_msgs::msg::Odometry & odom_msg) {
         // get velocity data
-        twist_x_ = odom_msg->twist.twist.linear.x;
-        twist_y_ = odom_msg->twist.twist.linear.y;
+        twist_x_ = odom_msg.twist.twist.linear.x;
+        twist_y_ = odom_msg.twist.twist.linear.y;
         // Apply low-pass filter to linear xy from odom
-        linear_x_ = alpha_x * odom_msg->twist.twist.linear.x + (1 - alpha_x) * linear_x_;
-        linear_y_ = alpha_y * odom_msg->twist.twist.linear.y + (1 - alpha_y) * linear_y_;
-        linear_x_cov_ = std::min(linear_cov_max_, odom_msg->twist.covariance[0]);
-        linear_y_cov_ = std::min(linear_cov_max_, odom_msg->twist.covariance[7]);
+        linear_x_ = alpha_x * odom_msg.twist.twist.linear.x + (1 - alpha_x) * linear_x_;
+        linear_y_ = alpha_y * odom_msg.twist.twist.linear.y + (1 - alpha_y) * linear_y_;
+        linear_x_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[0]);
+        linear_y_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[7]);
     }
 
-    // void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_msg) {
     void imuCallback(const sensor_msgs::msg::Imu & imu_msg) {
-        angular_z_ = imu_msg->angular_velocity.z;
-        local_filter_pub(imu_msg->header.stamp, std::min(angular_cov_max_, imu_msg->angular_velocity_covariance[8])); //cov_max
-        prev_stamp_ = imu_msg->header.stamp;
+        angular_z_ = imu_msg.angular_velocity.z;
+        local_filter_pub(imu_msg.header.stamp, std::min(angular_cov_max_, imu_msg.angular_velocity_covariance[8])); //cov_max
+        prev_stamp_ = imu_msg.header.stamp;
     }
 
-    // void local_filter_pub(ros::Time stamp, double imu_cov)
     void local_filter_pub(rclcpp::Time stamp, double imu_cov)
     {
         // Publish global_filter message
-        nav_msgs::Odometry global_filter_msg;
+        nav_msgs::msg::Odometry global_filter_msg;
         global_filter_msg.header.stamp = stamp; // imu callback stamp
         //velocity
             global_filter_msg.twist.twist.linear.x = linear_x_; //filtered x velocity
@@ -166,7 +148,7 @@ public:
             global_filter_msg.twist.covariance[0] = linear_x_cov_; //x-x
             global_filter_msg.twist.covariance[7] = linear_y_cov_; //y-y
             global_filter_msg.twist.covariance[35] = imu_cov; //theta-theta
-            global_filter_pub_.publish(global_filter_msg);
+            global_filter_pub_->publish(global_filter_msg);
     }
 
     double angleLimitChecking(double theta)
@@ -183,12 +165,6 @@ public:
     }
 
 private:
-    // ros::NodeHandle nh_;
-    // ros::NodeHandle nh_local_;
-    // ros::Subscriber odom_sub_;
-    // ros::Subscriber imu_sub_;
-    // ros::Subscriber setpose_sub_;
-    // ros::Publisher global_filter_pub_;
     std::shared_ptr<rclcpp::Node> nh_;
     std::shared_ptr<rclcpp::Node> nh_local_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
@@ -209,23 +185,25 @@ private:
     double angular_z_;
     // double imu_cov_;
     RobotState robotstate_;
-    // ros::Time prev_stamp_;
-    rclcpp::Timer prev_stamp_;
+    rclcpp::Time prev_stamp_;
     double linear_cov_max_;
     double angular_cov_max_;
 };
 
 int main(int argc, char** argv) {
-    // ros::init(argc, argv, "global_filter_LPF");
-    // ros::NodeHandle nh;
-    // ros::NodeHandle nh_local("~");
-    // GlobalFilterNode global_filter_node(nh, nh_local);
-    // ros::spin();
+    
     rclcpp::init(argc, argv);
-    std::shared_ptr<rclcpp::Node> nh = rclcpp::Node::make_shared();
-    std::shared_ptr<rclcpp::Node> nh_local = rclcpp::Node::make_shared("~");
+
+    auto exec=std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
+    std::shared_ptr<rclcpp::Node> nh = rclcpp::Node::make_shared("nh");
+    std::shared_ptr<rclcpp::Node> nh_local = rclcpp::Node::make_shared("nh_local");
     GlobalFilterNode global_filter_node(nh, nh_local);
-    rclcpp::spin();
+
+    exec->add_node(nh);
+    exec->add_node(nh_local);
+    exec->spin();
+
     rclcpp::shutdown();
+    
     return 0;
 }
