@@ -2,7 +2,7 @@
 
 ## 1. make scripts & library executable
 echo "=== [COMMUNICATION] ==="
-find ../E.Communication -type f -name "*.sh" -exec sudo chmod +x {} \;
+find ../OdomComm -type f -name "*.sh" -exec sudo chmod +x {} \;
 
 ## 2. environment setup  
 export DISPLAY=:0

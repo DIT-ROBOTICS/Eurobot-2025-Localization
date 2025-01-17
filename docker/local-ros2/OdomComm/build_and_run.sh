@@ -6,7 +6,7 @@ echo "[COMMUNICATION] Remove Containers ..."
 docker compose -p communication down --volumes --remove-orphans
 
 ## 1. make scripts & library executable
-find ../E.Communication -type f -name "*.sh" -exec sudo chmod +x {} \;
+find ../OdomComm -type f -name "*.sh" -exec sudo chmod +x {} \;
 
 ## 2. environment setup  
 export DISPLAY=:0
