@@ -96,5 +96,5 @@ services:
       # - /dev/snd:/dev/snd
       - /dev:/dev
       # Mount workspace
-      - ../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
+      - ../../../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
     command: /bin/bash
