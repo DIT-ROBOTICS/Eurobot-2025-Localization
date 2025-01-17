@@ -71,14 +71,16 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
     static geometry_msgs::msg::Point obstacle_pose_pre;
     static geometry_msgs::msg::Vector3 obstacle_vel_pre;
     static rclcpp::Time obstacle_stamp_pre;
-    double dt = msg->header.stamp.sec - obstacle_stamp_pre.seconds();
+    static rclcpp::Time Obstacles_stamp_now;
+    Obstacles_stamp_now = msg->header.stamp;
+    double dt = Obstacles_stamp_now.seconds() - obstacle_stamp_pre.seconds();
     double min_distance = 400;
 
     for (const obstacle_detector::msg::CircleObstacle& circle : msg->circles) {
 
         if (!in_playArea_obs(circle.center)) continue;
 
-        // if (!within_lock(obstacle_pose_pre, circle.center, dt)) continue;
+        if (!within_lock(obstacle_pose_pre, circle.center, dt)) continue;
 
         if (!first){
 
@@ -91,7 +93,7 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
         }
 
         double distance_ = sqrt(pow((circle.center.x - rival_pose.x), 2) + pow((circle.center.y, rival_pose.y), 2));
-1
+
         obstacle_ok = true;
 
         if (distance_ <= min_distance) {
@@ -119,7 +121,7 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
     }
     else 
         locking_rad = p_locking_rad;
-
+    
     return;
 }
 

@@ -1,5 +1,20 @@
 #include "imm_filter/imm_filter_node.h"
 
+filter::filter () : Node("imm_filter_node"){
+
+    IMM imm;
+
+    model_ = imm;
+    first_ = true;
+
+    robot_name = "robot";
+    rival_name = "rival_final";
+            
+    imm_sub = this->create_subscription<nav_msgs::msg::Odometry>("raw_pose", 10, std::bind(&filter::obstacles_callback, this, _1));
+    imm_pub = this->create_publisher<nav_msgs::msg::Odometry>("final_pose", 10);
+    imm_br = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+}
+
 void filter::obstacles_callback(const nav_msgs::msg::Odometry::ConstPtr& msg){
 
     rclcpp::Clock clock;

@@ -17,20 +17,7 @@ using namespace std::placeholders;
 class filter  : public rclcpp::Node{
     
     public:
-        filter() : Node("imm_filter_node"){
-
-            IMM imm;
-
-            model_ = imm;
-            first_ = true;
-
-            robot_name = "robot";
-            rival_name = "rival_final";
-            
-            imm_sub = this->create_subscription<nav_msgs::msg::Odometry>("raw_pose", 10, std::bind(&filter::obstacles_callback, this, _1));
-            imm_pub = this->create_publisher<nav_msgs::msg::Odometry>("final_pose", 10);
-            imm_br = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
-        }
+        filter();
 
         void obstacles_callback(const nav_msgs::msg::Odometry::ConstPtr& msg);
         void IMM_publisher(double point_x, double point_y, double velocity_x, double velocity_y, rclcpp::Time time);

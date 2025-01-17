@@ -11,7 +11,7 @@ obstacle_detector_to_map:
     discard_converted_segments: false
     transform_coordinates: true
 
-    min_group_points: 20
+    min_group_points: 50
 
     max_group_distance: 0.04
     distance_proportion: 0.00628
