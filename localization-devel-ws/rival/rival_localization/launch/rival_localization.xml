@@ -1,0 +1,22 @@
+<launch>
+
+    <arg name="robot_name" default="robot" />
+    <arg name="rival_name" default="rival" />
+
+    <node name="map_link_to_laser" pkg="tf2_ros" exec="static_transform_publisher"
+        args="1.45 0.5 0 0 0 0 1 $(var robot_name)/map laser" />
+
+    <include file ="$(find-pkg-share rplidar_ros)/launch/view_rplidar_s3_launch.py"/>
+
+    <node name="obstacle_detector_to_map" pkg="obstacle_detector" exec="obstacle_extractor_node">
+        <param from="$(find-pkg-share rival_localization)/config/rival_localization.yaml"/>
+        <remap from="raw_obstacles" to="/obstacles_to_map" />
+        <param name="frame_id" value="$(var robot_name)/map" />
+    </node>
+
+    <node pkg="rival_localization" exec="rival_localization" name="rival_localization" output="screen">
+        <param from="$(find-pkg-share rival_localization)/config/rival_localization.yaml"/>
+        <remap from="raw_pose" to="/$(var rival_name)/raw_pose" />
+    </node>
+
+</launch>
