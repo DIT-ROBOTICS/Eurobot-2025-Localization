@@ -1,0 +1,73 @@
+services:
+  ros-core:
+    image: osrf/ros:noetic-desktop-full
+    container_name: ros-core
+    command: "rosmaster --core"
+    network_mode: host
+    stop_grace_period: 1s
+    healthcheck:
+      # The healthcheck is required for ros1-bridge to wait until roscore is ready.
+      test: /ros_entrypoint.sh bash -c "rostopic list || exit 1"
+      interval: 3s
+      timeout: 10s
+      retries: 5
+
+  ros1-bridge:
+    build:
+      context: .
+      target: release
+    image: pomelo925/ttennis-humble:communication
+    container_name: ros2-ros1-bridge-ws
+    stop_grace_period: 1s
+    depends_on:
+      ros-core:
+        # The healthcheck is required for ros1-bridge to wait until roscore is ready.
+        condition: service_healthy
+    command: ./start-bridge.sh
+    stdin_open: true
+    tty: true
+    network_mode: host
+    working_dir: /
+    volumes:
+      # Mount local timezone into container. ( Readonly )
+      # Reference: https://stackoverflow.com/questions/57607381/how-do-i-change-timezone-in-a-docker-container
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      # Direct Rendering Infrastructure
+      - /dev/dri:/dev/dri
+      # Shared Memory
+      - /dev/shm:/dev/shm
+
+  ros1:
+    image: osrf/ros:noetic-desktop-full
+    container_name: ros1
+    stdin_open: true
+    tty: true
+    network_mode: host
+    privileged: true
+    volumes:
+      - ../comm-ws:/root/comm-ws
+      - /dev/bus/usb:/dev/bus/usb
+    stop_grace_period: 1s
+    depends_on:
+      ros-core:
+        condition: service_healthy
+    command: /bin/bash -c "
+            chmod +x /root/comm-ws/devel/_setup_util.py &&
+            find /root/comm-ws/devel -type f -name '*.sh' -exec chmod +x {} \; &&
+            source /opt/ros/noetic/setup.bash && 
+            source /root/comm-ws/devel/setup.bash && 
+            cd /root/comm-ws &&
+            sudo chmod 777 /dev/ttyACM0 &&
+            roslaunch rosserial_server stm32.launch"
+        
+  # ros2:
+  #   image: osrf/ros:humble-desktop-full
+  #   container_name: ros2
+  #   stdin_open: true
+  #   tty: true
+  #   network_mode: host
+  #   stop_grace_period: 1s
+  #   volumes:
+  #     # Shared Memory
+  #     - /dev/shm:/dev/shm
