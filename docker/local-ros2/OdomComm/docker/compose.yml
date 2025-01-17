@@ -39,7 +39,7 @@ services:
       - /dev/shm:/dev/shm
 
   ros1:
-    image: ros1:serial
+    image: jossiewang/eurobot2025-localization:ros1-serial
     container_name: ros1
     stdin_open: true
     tty: true
@@ -57,36 +57,44 @@ services:
             sudo chmod 777 /dev/ttyACM0 &&
             roslaunch odometry odometry_comm.launch"
 
-  # ros1:
-  #   image: osrf/ros:noetic-desktop-full
-  #   container_name: ros1
-  #   stdin_open: true
-  #   tty: true
-  #   network_mode: host
-  #   privileged: true
-  #   volumes:
-  #     - ../comm-ws:/root/comm-ws
-  #     - /dev/bus/usb:/dev/bus/usb
-  #   stop_grace_period: 1s
-  #   depends_on:
-  #     ros-core:
-  #       condition: service_healthy
-  #   command: /bin/bash -c "
-  #           chmod +x /root/comm-ws/devel/_setup_util.py &&
-  #           find /root/comm-ws/devel -type f -name '*.sh' -exec chmod +x {} \; &&
-  #           source /opt/ros/noetic/setup.bash && 
-  #           source /root/comm-ws/devel/setup.bash && 
-  #           cd /root/comm-ws &&
-  #           sudo chmod 777 /dev/ttyACM0 &&
-  #           roslaunch rosserial_server stm32.launch"
-        
-  # ros2:
-  #   image: osrf/ros:humble-desktop-full
-  #   container_name: ros2
-  #   stdin_open: true
-  #   tty: true
-  #   network_mode: host
-  #   stop_grace_period: 1s
-  #   volumes:
-  #     # Shared Memory
-  #     - /dev/shm:/dev/shm
+  ros2-localization-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USERNAME: user
+    image: jossiewang/eurobot2025-localization:local-ros2-wSensors
+    container_name: localization-2025-dev-ros2
+    stdin_open: true
+    tty: true
+    privileged: true
+    stop_grace_period: 1s
+    restart: no
+    # entrypoint: ["./start.sh"]
+
+    network_mode: host
+    working_dir: /home/user/localization-ws
+    environment:
+      - DISPLAY=${DISPLAY}
+      # Set ros2 environment variables.
+      # References:
+      # - https://docs.ros.org/en/humble/Concepts/Intermediate/About-Domain-ID.html
+      # - https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html
+      # - ROS_LOCALHOST_ONLY=1
+      # - ROS_DOMAIN_ID=42
+      - ROS_WS=/home/user/localization-ws
+    volumes:
+      # Mount local timezone into container. ( Readonly )
+      # Reference: https://stackoverflow.com/questions/57607381/how-do-i-change-timezone-in-a-docker-container
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      # Mount X11 server
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # Direct Rendering Infrastructure
+      # - /dev/dri:/dev/dri
+      # Mount sound card to prevent Gazebo warning.
+      # - /dev/snd:/dev/snd
+      - /dev:/dev
+      # Mount workspace
+      - ../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
+    command: /bin/bash
