@@ -39,8 +39,10 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(
-  DIRECTORY include/
+install(DIRECTORY 
+  include
+  launch
+  param
   DESTINATION include/${PROJECT_NAME}
 )
 
