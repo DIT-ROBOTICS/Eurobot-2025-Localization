@@ -10,7 +10,7 @@ FROM osrf/ros:humble-desktop-full AS base
 LABEL org.opencontainers.image.authors="yoseph.huang@gmail.com"
 
 ARG USERNAME=user
-ARG USER_UID=1004
+ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
 SHELL ["/bin/bash", "-c"]

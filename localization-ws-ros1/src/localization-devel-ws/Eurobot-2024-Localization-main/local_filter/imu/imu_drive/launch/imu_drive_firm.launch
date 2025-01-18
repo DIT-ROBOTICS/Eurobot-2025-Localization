@@ -1,0 +1,27 @@
+<launch>
+
+	<arg name="robot_name" default=""/>
+	<arg name="robot_name_slash" default=""/>
+
+	<arg name="param" default="1"/>
+    <arg name="simulation" default="false" />
+
+    <!-- Open imu firmware -->
+    <include file="$(find imu_drive)/launch/spatial.launch" unless="$(arg simulation)">
+		<arg name="robot_name" value="$(arg robot_name)"/>        
+        <arg name="robot_name_slash" value="$(arg robot_name_slash)"/> 
+    </include>
+
+    <node pkg="imu_drive" type="imu_drive_node" name="imu_node">
+
+        <rosparam command="load" file="$(find imu_drive)/param/imu_drive_firm.yaml" if="$(eval arg('param')==1)"/>
+
+        <param name="sub_topic" value="/$(arg robot_name)/imu/data"/>
+        <param name="pub_topic" value="/$(arg robot_name)/imu/data_cov"/>
+        <remap from="/cmd_vel" to="/$(arg robot_name)/cmd_vel"/>
+
+        <param name="frame" value="$(arg robot_name_slash)imu_link"/>
+
+    </node>
+
+</launch>
