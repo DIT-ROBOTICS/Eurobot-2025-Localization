@@ -16,14 +16,14 @@ services:
     build:
       context: .
       target: release
-    image: pomelo925/ttennis-humble:communication
+    image: ros2:parambridge
     container_name: ros2-ros1-bridge-ws
     stop_grace_period: 1s
     depends_on:
       ros-core:
         # The healthcheck is required for ros1-bridge to wait until roscore is ready.
         condition: service_healthy
-    command: ./start-bridge.sh
+    command: ./param-bridge.sh
     stdin_open: true
     tty: true
     network_mode: host
@@ -39,7 +39,7 @@ services:
       - /dev/shm:/dev/shm
 
   ros1:
-    image: jossiewang/eurobot2025-localization:ros1-serial
+    image: ros1:serial
     container_name: ros1
     stdin_open: true
     tty: true
@@ -55,6 +55,8 @@ services:
             source /opt/ros/noetic/setup.bash && 
             source ~/ws/devel/setup.bash &&
             sudo chmod 777 /dev/ttyACM0 &&
+            cd ~/ws/src/odometry &&
+            rosparam load bridge.yaml &&
             roslaunch odometry odometry_comm.launch"
 
   ros2-localization-dev:

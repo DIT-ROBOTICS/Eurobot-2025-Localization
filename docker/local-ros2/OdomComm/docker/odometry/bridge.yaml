@@ -1,0 +1,5 @@
+topics:
+  -
+    topic: /odoo_googoogoo  # Topic name on both ROS 1 and ROS 2
+    type: geometry_msgs/msg/Twist  # Type of topic to bridge
+    queue_size: 1  # Queue size

@@ -35,7 +35,6 @@ RUN groupadd --gid $USER_GID $USERNAME && \
 FROM user-setup AS final
 
 USER ${USERNAME}
-# COPY comm-ws /home/$USERNAME/comm-ws
 RUN mkdir -p /home/$USERNAME/ws/src
 COPY odometry /home/$USERNAME/ws/src/odometry
 

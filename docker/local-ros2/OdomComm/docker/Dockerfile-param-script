@@ -1,0 +1,8 @@
+FROM pomelo925/ttennis-humble:communication AS base
+
+USER root
+COPY ./param-bridge.sh /param-bridge.sh
+RUN chmod +x /param-bridge.sh
+
+WORKDIR /
+CMD ["./param-bridge.sh"]
