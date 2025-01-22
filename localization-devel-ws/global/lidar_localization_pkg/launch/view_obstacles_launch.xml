@@ -1,6 +1,6 @@
 <launch>
     <!-- publish static transform map to laser -->
-    <node pkg="tf2_ros" exec="static_transform_publisher" name="robot_to_laser" output="screen" args="--x 0 --y 0 --z 0 --roll 0 --pitch 0 --yaw 0 --frame-id /robot_predict --child-frame-id /laser" />
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="robot_to_laser" output="screen" args="--x 0 --y 0 --z 0 --roll 0 --pitch 0 --yaw 0 --frame-id /base_footprint --child-frame-id /laser" />
     <!-- rplidar -->
     <include file="$(find-pkg-share rplidar_ros)/launch/rplidar_s3_launch.py" />
     <!-- <include file="$(find-pkg-share rplidar_ros)/launch/view_rplidar_s3_launch.py" /> -->

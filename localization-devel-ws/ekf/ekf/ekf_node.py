@@ -58,9 +58,10 @@ class EKFFootprintBroadcaster(Node):
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
 
         self.init_subscribers()
-        self.ekf_pose_publisher = self.create_publisher(Odometry, 'pred_pose', 10)
+        self.ekf_pose_publisher = self.create_publisher(Odometry, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
         self.create_timer(0.2, self.camera_callback)
+        self.footprint_publish()
         
     def claim_parameters(self):
         self.declare_parameter('robot_parent_frame_id', 'map')
@@ -128,9 +129,10 @@ class EKFFootprintBroadcaster(Node):
         dt = current_time - self.last_odom_time
         self.last_odom_time = current_time
 
-        delta_x = msg.linear.x * dt
-        delta_y = msg.linear.y * dt
-        delta_theta = msg.angular.z * dt 
+        delta_x = msg.linear.x * dt /1e3
+        delta_y = msg.linear.y * dt /1e3
+        delta_theta = msg.angular.z * dt /1e3 
+        self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
         self.ekf_predict(delta_x, delta_y, delta_theta) 
 
     def ekf_predict(self, delta_x, delta_y, delta_theta):
@@ -143,7 +145,7 @@ class EKFFootprintBroadcaster(Node):
         self.X[1] += delta_x * math.sin(theta) + delta_y * math.cos(theta)
         self.X[2] += delta_theta
         self.X[2] = normalize_angle(self.X[2])
-
+        self.get_logger().info(f"predict-x{self.X[0]}")
         self.P = F @ self.P @ F.T + self.Q
         self.footprint_publish()
 

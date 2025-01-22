@@ -55,7 +55,7 @@ class LidarLocalization(Node): # inherit from Node
             10)
         self.subscription = self.create_subscription(
             PoseWithCovarianceStamped, 
-            'pred_pose',
+            'final_pose',
             self.pred_pose_callback,
             10
         )
