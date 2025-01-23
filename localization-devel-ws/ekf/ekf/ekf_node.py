@@ -56,12 +56,13 @@ class EKFFootprintBroadcaster(Node):
         self.R_camera = np.eye(3) * 1e-2
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
-
+        self.cnt = 0
         self.init_subscribers()
         self.ekf_pose_publisher = self.create_publisher(Odometry, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
         # self.create_timer(0.2, self.camera_callback)
         self.footprint_publish()
+
         
     def claim_parameters(self):
         self.declare_parameter('robot_parent_frame_id', 'map')
@@ -98,13 +99,14 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.pose.orientation.z,
             msg.pose.pose.orientation.w
         )
-        self.X[2] = theta
+        if self.cnt == 0:
+            self.X[2] = theta
 
-        self.P[0, 0] = msg.pose.covariance[0]
-        self.P[1, 1] = msg.pose.covariance[7]
-        self.P[2, 2] = msg.pose.covariance[35]
-        self.X[0] = msg.pose.position.x
-        self.X[1] = msg.pose.position.y
+            self.P[0, 0] = msg.pose.covariance[0]
+            self.P[1, 1] = msg.pose.covariance[7]
+            self.P[2, 2] = msg.pose.covariance[35]
+            self.X[0] = msg.pose.position.x
+            self.X[1] = msg.pose.position.y
 
 
     def gps_callback(self, msg):
