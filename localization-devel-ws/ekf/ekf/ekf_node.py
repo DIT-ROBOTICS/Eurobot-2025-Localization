@@ -60,7 +60,7 @@ class EKFFootprintBroadcaster(Node):
         self.init_subscribers()
         self.ekf_pose_publisher = self.create_publisher(Odometry, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
-        self.create_timer(0.2, self.camera_callback)
+        # self.create_timer(0.2, self.camera_callback)
         self.footprint_publish()
         
     def claim_parameters(self):
@@ -188,9 +188,9 @@ class EKFFootprintBroadcaster(Node):
         final_pose.pose.pose.orientation.y = quat[1]
         final_pose.pose.pose.orientation.z = quat[2]
         final_pose.pose.pose.orientation.w = quat[3]
-        final_pose.covariance[0] = self.P[0, 0]
-        final_pose.covariance[1] = self.P[1, 1]
-        final_pose.covariance[2] = self.P[2,2]
+        final_pose.pose.covariance[0] = self.P[0, 0]
+        final_pose.pose.covariance[1] = self.P[1, 1]
+        final_pose.pose.covariance[2] = self.P[2,2]
         self.ekf_pose_publisher.publish(final_pose)
 
 def main(args=None):
