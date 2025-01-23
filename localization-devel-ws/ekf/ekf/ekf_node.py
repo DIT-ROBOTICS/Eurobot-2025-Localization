@@ -58,7 +58,7 @@ class EKFFootprintBroadcaster(Node):
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.cnt = 0
         self.init_subscribers()
-        self.ekf_pose_publisher = self.create_publisher(Odometry, 'final_pose', 10)
+        self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
         # self.create_timer(0.2, self.camera_callback)
         self.footprint_publish()
@@ -80,44 +80,36 @@ class EKFFootprintBroadcaster(Node):
     def init_subscribers(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
         self.create_subscription(Twist, 'odoo_googoogoo', self.odom_callback, 10)
-        self.create_subscripition(PoseWithCovariance, 'initial_pose', self.init_callback,10)
+        self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,10)
     
     def init_callback(self, msg):
-        gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-        current_time = self.get_clock().now().nanoseconds / 1e9
-        if abs(current_time - gps_time) > 1.5:  # GPS data too old
-            self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
-            return
-
-        if is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
-            self.get_logger().info("Invalid GPS data received")
-            return
 
         theta = euler_from_quaternion(
-            msg.pose.pose.orientation.x,
-            msg.pose.pose.orientation.y,
-            msg.pose.pose.orientation.z,
-            msg.pose.pose.orientation.w
+            msg.pose.orientation.x,
+            msg.pose.orientation.y,
+            msg.pose.orientation.z,
+            msg.pose.orientation.w
         )
         if self.cnt == 0:
             self.X[2] = theta
 
-            self.P[0, 0] = msg.pose.covariance[0]
-            self.P[1, 1] = msg.pose.covariance[7]
-            self.P[2, 2] = msg.pose.covariance[35]
+            self.P[0, 0] = msg.covariance[0]
+            self.P[1, 1] = msg.covariance[7]
+            self.P[2, 2] = msg.covariance[35]
             self.X[0] = msg.pose.position.x
             self.X[1] = msg.pose.position.y
+            self.cnt += 1
 
 
     def gps_callback(self, msg):
         gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         current_time = self.get_clock().now().nanoseconds / 1e9
         if abs(current_time - gps_time) > 1.5:  # GPS data too old
-            self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
+            # self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
             return
 
         if is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
-            self.get_logger().info("Invalid GPS data received")
+            # self.get_logger().info("Invalid GPS data received")
             return
 
         theta = euler_from_quaternion(
@@ -136,7 +128,7 @@ class EKFFootprintBroadcaster(Node):
 
     def camera_callback(self):
         now = self.get_clock().now().nanoseconds / 1e9
-        self.get_logger().info(f"Camera callback triggered at: {now}")
+        # self.get_logger().info(f"Camera callback triggered at: {now}")
         try:
             t = self.tf_buffer.lookup_transform(
                 self.camera_parent_id,
@@ -148,7 +140,7 @@ class EKFFootprintBroadcaster(Node):
             theta = euler_from_quaternion(rot.x, rot.y, rot.z, rot.w)
 
             camera_measurement = np.array([trans.x, trans.y, theta])
-            self.get_logger().info(f"Camera transform: x={trans.x}, y={trans.y}, theta={theta}")
+            # self.get_logger().info(f"Camera transform: x={trans.x}, y={trans.y}, theta={theta}")
             self.ekf_update(camera_measurement, self.R_camera)
         except TransformException as ex:
             self.get_logger().warn(f"TransformException in camera_callback: {ex}")
@@ -161,7 +153,7 @@ class EKFFootprintBroadcaster(Node):
         delta_x = msg.linear.x * dt /1e3
         delta_y = msg.linear.y * dt /1e3
         delta_theta = msg.angular.z * dt /1e3 
-        self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
+        # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
         self.ekf_predict(delta_x, delta_y, delta_theta) 
 
     def ekf_predict(self, delta_x, delta_y, delta_theta):
@@ -174,7 +166,7 @@ class EKFFootprintBroadcaster(Node):
         self.X[1] += delta_x * math.sin(theta) + delta_y * math.cos(theta)
         self.X[2] += delta_theta
         self.X[2] = normalize_angle(self.X[2])
-        self.get_logger().info(f"predict-x{self.X[0]}")
+        # self.get_logger().info(f"predict-x{self.X[0]}")
         self.P = F @ self.P @ F.T + self.Q
         self.footprint_publish()
 
@@ -207,7 +199,7 @@ class EKFFootprintBroadcaster(Node):
         t.transform.rotation.w = quat[3]
         self.tf_static_broadcaster.sendTransform(t)
 
-        final_pose = Odometry()
+        final_pose = PoseWithCovarianceStamped()
         final_pose.header.stamp = self.get_clock().now().to_msg()
         final_pose.header.frame_id = self.parent_frame_id
         final_pose.pose.pose.position.x = self.X[0]
@@ -221,6 +213,7 @@ class EKFFootprintBroadcaster(Node):
         final_pose.pose.covariance[1] = self.P[1, 1]
         final_pose.pose.covariance[2] = self.P[2,2]
         self.ekf_pose_publisher.publish(final_pose)
+
 
 def main(args=None):
     rclpy.init(args=args)

@@ -3,7 +3,7 @@
     <node pkg="lidar_localization_pkg" exec="lidar_localization" name="lidar_localization" output="screen">
     <!-- load ROS2 params from yaml -->
         <!-- <param from="$(find-pkg-share lidar_localization_pkg)/config/lidar_localization.yml" /> -->
-        <param name="side" value="0"/> -->
+        <param name="side" value="0"/>
         <param name="debug_mode" value="False"/>
         <param name="visualize_candidate" value="True"/>
         <param name="likelihood_threshold" value="0.002"/>
