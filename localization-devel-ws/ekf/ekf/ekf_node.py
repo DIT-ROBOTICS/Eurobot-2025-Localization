@@ -50,17 +50,19 @@ class EKFFootprintBroadcaster(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.X = np.array([0.0, 0.0, 0.0])  # State vector: x, y, theta
-        self.P = np.eye(3) * 1e-3
+        self.P_predict = np.eye(3) * 0.16
+        self.P_update = np.eye(3) * 1e-2
         self.Q = np.eye(3) * 1e-3
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
+        self.R_camera[2, 2] = 0.25
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.cnt = 0
         self.init_subscribers()
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
-        self.create_timer(0.2, self.camera_callback)
+        self.create_timer(1, self.camera_callback)
         self.footprint_publish()
 
         
@@ -92,10 +94,11 @@ class EKFFootprintBroadcaster(Node):
         )
         if self.cnt == 0:
             self.X[2] = theta
-
-            self.P[0, 0] = msg.covariance[0]
-            self.P[1, 1] = msg.covariance[7]
-            self.P[2, 2] = msg.covariance[35]
+            if msg.covariance[0] > 0:
+                if msg.covariance[0] < 1:
+                    self.P_predict[0, 0] = msg.covariance[0]
+                    self.P_predict[1, 1] = msg.covariance[7]
+                    self.P_predict[2, 2] = msg.covariance[35]
             self.X[0] = msg.pose.position.x
             self.X[1] = msg.pose.position.y
             self.cnt += 1
@@ -167,7 +170,10 @@ class EKFFootprintBroadcaster(Node):
         self.X[2] += delta_theta
         self.X[2] = normalize_angle(self.X[2])
         # self.get_logger().info(f"predict-x{self.X[0]}")
-        self.P = F @ self.P @ F.T + self.Q
+        self.P_predict = F @ self.P_update @ F.T + self.Q
+        if (self.P_predict[0, 0] > 1) | (self.P_predict[1, 1] > 1 ) | (self.P_predict[2, 2] > 1) :
+            self.get_logger().warn(f"large Cov_pred:{self.P_predict[0, 0]},{self.P_predict[1, 1]},{self.P_predict[2, 2]}")
+            self.P_predict = np.eye(3) * 1e-2
         self.footprint_publish()
 
     def ekf_update(self, z, R):
@@ -176,12 +182,15 @@ class EKFFootprintBroadcaster(Node):
             return
         
         H = np.eye(3)  # Observation matrix
-        S = H @ self.P @ H.T + R
-        K = self.P @ H.T @ np.linalg.inv(S)
+        S = H @ self.P_predict @ H.T + R
+        K = self.P_predict @ H.T @ np.linalg.inv(S)
         self.X += K @ (z - H @ self.X)
         self.X[2] = normalize_angle(self.X[2])
-        self.P = (np.eye(3) - K @ H) @ self.P
-
+        self.P_update = (np.eye(3) - K @ H) @ self.P_predict
+        if (self.P_update[0] > 1) | (self.P_update[0] > 1 ) | (self.P_update[0] > 1) :
+            self.get_logger().warn(f"large Cov_update:{self.P_update[0, 0]},{self.P_update[1, 1]},{self.P_update[2, 2]}")
+            self.P_predict = np.eye(3) * 1e-2
+            
     def footprint_publish(self):
         t = TransformStamped()
 
@@ -209,9 +218,9 @@ class EKFFootprintBroadcaster(Node):
         final_pose.pose.pose.orientation.y = quat[1]
         final_pose.pose.pose.orientation.z = quat[2]
         final_pose.pose.pose.orientation.w = quat[3]
-        final_pose.pose.covariance[0] = self.P[0, 0]
-        final_pose.pose.covariance[1] = self.P[1, 1]
-        final_pose.pose.covariance[2] = self.P[2,2]
+        final_pose.pose.covariance[0] = self.P_predict[0, 0]
+        final_pose.pose.covariance[7] = self.P_predict[1, 1]
+        final_pose.pose.covariance[35] = self.P_predict[2, 2]
         self.ekf_pose_publisher.publish(final_pose)
 
 
