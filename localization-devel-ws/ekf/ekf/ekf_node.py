@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import math
-from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, Twist
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 import numpy as np
 
@@ -79,6 +79,33 @@ class EKFFootprintBroadcaster(Node):
     def init_subscribers(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
         self.create_subscription(Twist, 'odoo_googoogoo', self.odom_callback, 10)
+        self.create_subscripition(PoseWithCovariance, 'initial_pose', self.init_callback,10)
+    
+    def init_callback(self, msg):
+        gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        current_time = self.get_clock().now().nanoseconds / 1e9
+        if abs(current_time - gps_time) > 1.5:  # GPS data too old
+            self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
+            return
+
+        if is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
+            self.get_logger().info("Invalid GPS data received")
+            return
+
+        theta = euler_from_quaternion(
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w
+        )
+        self.X[2] = theta
+
+        self.P[0, 0] = msg.pose.covariance[0]
+        self.P[1, 1] = msg.pose.covariance[7]
+        self.P[2, 2] = msg.pose.covariance[35]
+        self.X[0] = msg.pose.position.x
+        self.X[1] = msg.pose.position.y
+
 
     def gps_callback(self, msg):
         gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
