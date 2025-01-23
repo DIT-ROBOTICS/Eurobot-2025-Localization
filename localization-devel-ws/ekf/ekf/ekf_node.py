@@ -60,7 +60,7 @@ class EKFFootprintBroadcaster(Node):
         self.init_subscribers()
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
-        # self.create_timer(0.2, self.camera_callback)
+        self.create_timer(0.2, self.camera_callback)
         self.footprint_publish()
 
         
