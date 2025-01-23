@@ -23,7 +23,7 @@ class PredPublisher(Node):
         self.pose_pred.pose.covariance[35] = 0.25
 
         self.pub = self.create_publisher(PoseWithCovarianceStamped, '/pred_pose', 10)
-        self.sub = self.create_subscription(PoseWithCovarianceStamped, '/pred_pub_param', self.param_callback, 10)
+        self.sub = self.create_subscription(PoseWithCovarianceStamped, '/lidar_pose', self.param_callback, 10)
 
         self.br = TransformBroadcaster(self)
         self.timer = self.create_timer(0.01, self.publish_pose)  # 100Hz
@@ -53,7 +53,7 @@ class PredPublisher(Node):
 
     def publish_pose(self):
         self.pose_pred.header.stamp = self.get_clock().now().to_msg()
-        self.pub.publish(self.pose_pred)
+        # self.pub.publish(self.pose_pred)
 
 def main(args=None):
     rclpy.init(args=args)
