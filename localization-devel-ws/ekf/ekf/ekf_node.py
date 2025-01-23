@@ -188,6 +188,9 @@ class EKFFootprintBroadcaster(Node):
         final_pose.pose.pose.orientation.y = quat[1]
         final_pose.pose.pose.orientation.z = quat[2]
         final_pose.pose.pose.orientation.w = quat[3]
+        final_pose.covariance[0] = self.P[0, 0]
+        final_pose.covariance[1] = self.P[1, 1]
+        final_pose.covariance[2] = self.P[2,2]
         self.ekf_pose_publisher.publish(final_pose)
 
 def main(args=None):
