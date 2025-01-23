@@ -37,6 +37,9 @@ services:
       - /dev/dri:/dev/dri
       # Shared Memory
       - /dev/shm:/dev/shm
+    environment:
+      - ROS_DOMAIN_ID=42
+      # - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp=value
 
   ros1:
     image: jossiewang/eurobot2025-localization:ros1-serial
