@@ -91,6 +91,8 @@ void IMU::IMUdataCallback(const sensor_msgs::msg::Imu::ConstPtr &msg){  //  from
 
     this->imu_output_.linear_acceleration = msg->linear_acceleration;
 
+    this->imu_output_.angular_velocity=msg->angular_velocity; /* <!-- ADD --> */
+
     this->prev_angular_velocity = this->imu_output_.angular_velocity;
 
     if(this->p_publish_) 

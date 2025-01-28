@@ -3,15 +3,15 @@
     <arg name="robot_name" default="robot"/>
     <arg name="robot_name_slash" default="robot/"/>
     <arg name="simulation" default="false"/>
-    <arg name="LPF_alpha_x" default="0.6"/>
-    <arg name="LPF_alpha_y" default="0.6"/>
+    <arg name="LPF_alpha_x" default="1.0"/>
+    <arg name="LPF_alpha_y" default="1.0"/>
     <arg name="linear_cov_max" default="0.06"/>
     <arg name="angular_cov_max" default="0.05"/>
     <arg name="odom_param" default="1"/>
     <arg name="imu_param" default="0"/>
 
-    <group>
-        <push-ros-namespace namespace="$(var robot_name)"/>
+    <!-- <group> -->
+        <!-- <push-ros-namespace namespace="$(var robot_name)"/> -->
 
         <!-- <arg name="local_filter_whole_yaml" value="$(find local_filter)/param/local_filter_whole.yaml" /> -->
         <!-- <node pkg="local_filter" exec="local_filter_LPF" name="local_filter_LPF">
@@ -56,6 +56,6 @@
             <arg name="param" value="$(var imu_param)" />
             <arg name="simulation" value="$(var simulation)" />
         </include>
-    </group>
+    <!-- </group> -->
 
 </launch>

@@ -40,7 +40,7 @@ public:
         angular_cov_max_=nh_local_->get_parameter("angular_cov_max").as_double();
 
         setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initialpose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
-        odom_sub_ = nh_->create_subscription<nav_msgs::msg::Odometry>("odom", 10, std::bind(&GlobalFilterNode::odomCallback, this, std::placeholders::_1));
+        odom_sub_ = nh_->create_subscription<geometry_msgs::msg::Twist>("odoo_googoogoo", 10, std::bind(&GlobalFilterNode::odomCallback, this, std::placeholders::_1));
         imu_sub_ = nh_->create_subscription<sensor_msgs::msg::Imu>("imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this, std::placeholders::_1));
 
         global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 100);
@@ -67,7 +67,7 @@ public:
 
         d_state << (v_x * dt), (v_y * dt), (w * dt);
 
-        double theta_ = robotstate_.mu(2) + d_state(2) / 2;
+        double theta_ = robotstate_.mu(2) + d_state(2)/ 2; /* <!-- ADD --> */
         double s__theta = sin(theta_);
         double c__theta = cos(theta_);
 
@@ -110,21 +110,39 @@ public:
         robotstate_.sigma(2, 2) = pose_msg.pose.covariance[35];  // theta-theta
     }
 
-    void odomCallback(const nav_msgs::msg::Odometry & odom_msg) {
+    void odomCallback(const geometry_msgs::msg::Twist & odom_msg) {
+        // get pose data /* <!-- ADD --> */
+        // robotstate_.mu(0)=odom_msg.angular.x; /* <!-- ADD -->  */
+        // robotstate_.mu(1)=odom_msg.angular.y; /* <!-- ADD -->  */
+        // robotstate_.mu(2)=odom_msg.linear.z; /* <!-- ADD -->  */
         // get velocity data
-        twist_x_ = odom_msg.twist.twist.linear.x;
-        twist_y_ = odom_msg.twist.twist.linear.y;
+        // twist_x_ = odom_msg.linear.x;
+        // twist_y_ = odom_msg.linear.y;
         // Apply low-pass filter to linear xy from odom
-        linear_x_ = alpha_x * odom_msg.twist.twist.linear.x + (1 - alpha_x) * linear_x_;
-        linear_y_ = alpha_y * odom_msg.twist.twist.linear.y + (1 - alpha_y) * linear_y_;
-        linear_x_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[0]);
-        linear_y_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[7]);
+        linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
+        linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
+        // double alpha=alpha_x;
+        angular_z_=odom_msg.angular.z;
+        // if(odom_msg.linear.x>1000.0||odom_msg.linear.y>1000.0) alpha=0.6; /* <!-- ADD -->  */
+        // linear_x_ = alpha * odom_msg.linear.x + (1 - alpha) * linear_x_; /* <!-- ADD -->  */
+        // linear_y_ = alpha * odom_msg.linear.y + (1 - alpha) * linear_y_; /* <!-- ADD -->  */
+        // linear_x_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[0]);
+        // linear_y_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[7]);
+        rclcpp::Clock clock; /* <!-- ADD --> */
+        rclcpp::Time now=clock.now(); /* <!-- ADD --> */
+        double dt=now.seconds()-prev_stamp_.seconds(); /* <!-- ADD --> */
+        // RCLCPP_INFO(rclcpp::get_logger("local_filter_LPF"), "dt=%f", dt); /* <!-- ADD --> */
+        omni_model(linear_x_, linear_y_, angular_z_, dt); /* <!-- ADD -->  */
+        prev_stamp_=now; /* <!-- ADD -->  */
     }
 
     void imuCallback(const sensor_msgs::msg::Imu & imu_msg) {
-        angular_z_ = imu_msg.angular_velocity.z;
+        // angular_z_ = imu_msg.angular_velocity.z;
+        // rclcpp::Time stamp=imu_msg.header.stamp; /* <!-- ADD --> */
+        // double dt=stamp.seconds()-prev_stamp_.seconds(); /* <!-- ADD --> */
+        // omni_model(linear_x_, linear_y_, angular_z_, dt); /* <!-- ADD -->  */
         local_filter_pub(imu_msg.header.stamp, std::min(angular_cov_max_, imu_msg.angular_velocity_covariance[8])); //cov_max
-        prev_stamp_ = imu_msg.header.stamp;
+        // prev_stamp_ = imu_msg.header.stamp;
     }
 
     void local_filter_pub(rclcpp::Time stamp, double imu_cov)
@@ -167,7 +185,7 @@ public:
 private:
     std::shared_ptr<rclcpp::Node> nh_;
     std::shared_ptr<rclcpp::Node> nh_local_;
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr setpose_sub_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_filter_pub_;

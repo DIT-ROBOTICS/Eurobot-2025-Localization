@@ -41,9 +41,13 @@ install(TARGETS
 
 install(DIRECTORY 
   include
-  launch
   param
   DESTINATION include/${PROJECT_NAME}
+)
+
+install(DIRECTORY 
+    launch
+    DESTINATION share/${PROJECT_NAME}
 )
 
 # install(
