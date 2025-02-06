@@ -52,10 +52,11 @@ class EKFFootprintBroadcaster(Node):
         self.X = np.array([0.0, 0.0, 0.0])  # State vector: x, y, theta
         self.P_predict = np.eye(3) * 0.16
         self.P_update = np.eye(3) * 1e-2
-        self.Q = np.eye(3) * 1e-3
+        self.Q = np.eye(3) * 5 * 1e-11
+
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
-        self.R_camera[2, 2] = 0.25
+        self.R_camera[2, 2] = 9
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.cnt = 0
