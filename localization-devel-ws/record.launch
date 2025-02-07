@@ -1,0 +1,9 @@
+<launch>
+    <!-- Declare arguments -->
+    <arg name='name_of_bag_file' default='0207_first' />
+
+    <executable cmd="ros2 topic echo /odoo_googoogoo geometry_msgs/Twist"/>
+
+    <!-- record bag -->
+    <executable cmd="ros2 bag record --output /home/user/localization-ws/src/localization-devel-ws/bag/$(var name_of_bag_file) /odoo_googoogoo /raw_obstacles /imu/data_raw --max-bag-size 90000" />
+</launch>
