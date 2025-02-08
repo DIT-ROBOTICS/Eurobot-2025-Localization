@@ -6,9 +6,9 @@ rosserial_server_dp:
     port: "/dev/USB0-3" # not used?
 
 # ---------------------------
-# ------ Odometry ndoe ------
+# ------ Local filter ndoe ------
 # ---------------------------
-odometry_node:
+local_filter_LPF:
   ros__parameters:
     # Active this node
     active: true

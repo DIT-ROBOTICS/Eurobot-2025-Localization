@@ -30,14 +30,40 @@ public:
         angular_z_ = 0.0;
 
         nh_local_->declare_parameter("LPF_alpha_x", 0.5); // filter coefficient
-        nh_local_->declare_parameter("LPF_alpha_y", 0.5); // filter coefficient
-        nh_local_->declare_parameter("linear_cov_max", 0.1);
-        nh_local_->declare_parameter("angular_cov_max", 0.05);
-
         alpha_x=nh_local_->get_parameter("LPF_alpha_x").as_double();
+
+        nh_local_->declare_parameter("LPF_alpha_y", 0.5); // filter coefficient
         alpha_y=nh_local_->get_parameter("LPF_alpha_y").as_double();
+
+        nh_local_->declare_parameter("linear_cov_max", 0.1);
         linear_cov_max_=nh_local_->get_parameter("linear_cov_max").as_double();
+
+        nh_local_->declare_parameter("angular_cov_max", 0.05);
         angular_cov_max_=nh_local_->get_parameter("angular_cov_max").as_double();
+
+        for(int i=0;i<3;i++){
+            std::string str;
+            switch(i){
+                case 0: str="vx"; break;
+                case 1: str="vy"; break;
+                case 2: str="vz"; break;
+                default: break;
+            }
+            nh_local_->declare_parameter("covariance_"+str, 0.);
+            cov_backup_[i]=nh_local_->get_parameter("covariance_"+str).as_double();
+        }
+
+        for(int i=0;i<3;i++){
+            std::string str;
+            switch(i){
+                case 1: str="vx"; break;
+                case 2: str="vy"; break;
+                case 3: str="vz"; break;
+                default: break;
+            }
+            nh_local_->declare_parameter("covariance_multi_"+str, 0.);
+            cov_multi_[i]=nh_local_->get_parameter("covariance_multi_"+str).as_double();
+        }
 
         setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initialpose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
         odom_sub_ = nh_->create_subscription<geometry_msgs::msg::Twist>("odoo_googoogoo", 10, std::bind(&GlobalFilterNode::odomCallback, this, std::placeholders::_1));
@@ -111,23 +137,24 @@ public:
     }
 
     void odomCallback(const geometry_msgs::msg::Twist & odom_msg) {
-        // get pose data /* <!-- ADD --> */
-        // robotstate_.mu(0)=odom_msg.angular.x; /* <!-- ADD -->  */
-        // robotstate_.mu(1)=odom_msg.angular.y; /* <!-- ADD -->  */
-        // robotstate_.mu(2)=odom_msg.linear.z; /* <!-- ADD -->  */
         // get velocity data
         // twist_x_ = odom_msg.linear.x;
         // twist_y_ = odom_msg.linear.y;
         // Apply low-pass filter to linear xy from odom
         linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
         linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
-        // double alpha=alpha_x;
         angular_z_=odom_msg.angular.z;
-        // if(odom_msg.linear.x>1000.0||odom_msg.linear.y>1000.0) alpha=0.6; /* <!-- ADD -->  */
-        // linear_x_ = alpha * odom_msg.linear.x + (1 - alpha) * linear_x_; /* <!-- ADD -->  */
-        // linear_y_ = alpha * odom_msg.linear.y + (1 - alpha) * linear_y_; /* <!-- ADD -->  */
         // linear_x_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[0]);
         // linear_y_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[7]);
+        double cov_multi[3];
+        cov_multi[0]=cov_multi_[0]*abs(odom_msg.linear.x);
+        cov_multi[1]=cov_multi_[1]*abs(odom_msg.linear.y);
+        cov_multi[2]=cov_multi_[2]*abs(odom_msg.angular.z);
+        linear_x_cov_=std::min(linear_cov_max_, std::max(1e-8, cov_multi[0]+cov_backup_[0]));
+        linear_y_cov_=std::min(linear_cov_max_, std::max(1e-8, cov_multi[1]+cov_backup_[1]));
+        cov_backup_[0]=linear_x_cov_;
+        cov_backup_[1]=linear_y_cov_;
+
         rclcpp::Clock clock; /* <!-- ADD --> */
         rclcpp::Time now=clock.now(); /* <!-- ADD --> */
         double dt=now.seconds()-prev_stamp_.seconds(); /* <!-- ADD --> */
@@ -193,6 +220,8 @@ private:
     //raw
     double twist_x_;
     double twist_y_;
+    double cov_backup_[3];
+    double cov_multi_[3];
     //filtered
     double alpha_x; // filter coefficient
     double alpha_y; // filter coefficient
