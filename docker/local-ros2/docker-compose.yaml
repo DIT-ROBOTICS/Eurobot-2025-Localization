@@ -7,7 +7,7 @@ services:
       args:
         USERNAME: user
     image: jossiewang/eurobot2025-localization:local-ros2-wSensors
-    container_name: localization-2025-dev-ros2
+    container_name: noComm-localization-2025-dev-ros2
     stdin_open: true
     tty: true
     privileged: true
