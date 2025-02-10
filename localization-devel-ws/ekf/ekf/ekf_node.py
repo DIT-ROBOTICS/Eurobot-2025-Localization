@@ -53,10 +53,10 @@ class EKFFootprintBroadcaster(Node):
 
         self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
         self.P = np.eye(6) * 1e-2
-        self.P[5, 5] = 1
+        # self.P[5, 5] = 1
 
         self.Q = np.eye(6) * 5 * 1e-11
-        self.Q[5, 5] = 0.03
+        self.Q[5, 5] = 3 * 1e-8
 
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
@@ -170,6 +170,10 @@ class EKFFootprintBroadcaster(Node):
         F[1, 3] = dt * math.sin(theta)
         F[1, 4] = dt * math.cos(theta)
         F[2, 5] = dt
+
+        F[2, 2] = 1e-5
+        F[3, 3] = 1e-5
+        F[4, 4] = 1e-5
 
         self.X[0] += v_x * dt * math.cos(theta) - v_y * dt * math.sin(theta)
         self.X[1] += v_x * dt * math.sin(theta) + v_y * dt  * math.cos(theta)
