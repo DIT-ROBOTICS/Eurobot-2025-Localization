@@ -9,16 +9,12 @@
     <arg name="bag_folder" default="/home/user/localization-ws/src/localization-devel-ws/bag" />
     <!--                     PLAY                        -->
     <arg name='name_of_play_file' default='0207_first' />
-    <arg name="play_topic" default="/odoo_googoogoo /raw_obstacles /imu/data_raw" description="basic raw sensor data" />
-    <!-- <arg name="play_topic" default="/odoo_googoogoo /raw_obstacles /imu/data_raw /robot/scan" description="basic raw sensor data with robot scan rival" /> -->
     <!--                    RECORD                       -->
     <arg name='name_of_record_file' default='small_cov' />
-    <arg name="record_topic" default="/local_filter /final_pose /lidar_pose" description="basic raw sensor data" />
-
 
     <!-- functions -->
-    <executable cmd="ros2 bag play $(var bag_folder)/$(var name_of_play_file) --clock --topic $(var play_topic)" output="screen" if="$(var play_bag)"/>
-    <executable cmd="ros2 bag record --output $(var bag_folder)/$(var name_of_record_file) $(var record_topic)" output="screen" if="$(var record_bag)"/>
+    <executable cmd="ros2 bag play $(var bag_folder)/$(var name_of_play_file) --clock --topic /odoo_googoogoo /raw_obstacles /imu/data_raw" output="screen" if="$(var play_bag)"/>
+    <executable cmd="ros2 bag record --output $(var bag_folder)/$(var name_of_record_file) /local_filter /final_pose /lidar_pose" output="screen" if="$(var record_bag)"/>
 
     <node pkg="ekf" exec="ekf_node" name="ekf_node" output="screen">
         <param name="robot_parent_frame_id" value="map" />
