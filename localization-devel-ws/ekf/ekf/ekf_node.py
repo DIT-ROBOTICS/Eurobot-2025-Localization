@@ -52,11 +52,17 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose.header.frame_id = self.parent_frame_id
 
         self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
-        self.P = np.eye(6) * 1e-2
-        # self.P[5, 5] = 1
+        self.P = np.eye(6) * 9 * 1e-4
+        self.P[5, 5] = 0.1225
+        self.P[2, 2] = 1e-9
+        self.P[3, 3] = 1e-9
+        self.P[4, 4] = 1e-9
 
         self.Q = np.eye(6) * 5 * 1e-11
-        self.Q[5, 5] = 3 * 1e-8
+        self.Q[5, 5] = 0.03
+        self.Q[2, 2] = 1e-9
+        self.Q[3, 3] = 1e-9
+        self.Q[4, 4] = 1e-9
 
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
@@ -66,7 +72,7 @@ class EKFFootprintBroadcaster(Node):
         self.init_subscribers()
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
-        self.create_timer(1, self.camera_callback)
+        # self.create_timer(1, self.camera_callback)
         
         self.footprint_publish()
 
@@ -76,7 +82,6 @@ class EKFFootprintBroadcaster(Node):
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('camera_frame_id', 'marker_6')
         self.declare_parameter('camera_parent_id', 'map')
-        self.declare_parameter('update_rate', 50)
 
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
         self.child_frame_id = self.get_parameter('robot_frame_id').value
@@ -171,13 +176,10 @@ class EKFFootprintBroadcaster(Node):
         F[1, 4] = dt * math.cos(theta)
         F[2, 5] = dt
 
-        F[2, 2] = 1e-3
-        F[3, 3] = 1e-3
-        F[4, 4] = 1e-3
-
         self.X[0] += v_x * dt * math.cos(theta) - v_y * dt * math.sin(theta)
         self.X[1] += v_x * dt * math.sin(theta) + v_y * dt  * math.cos(theta)
-        self.X[5] = normalize_angle(self.X[5] + w * dt)
+        self.X[5] += w * dt
+        self.X[5] = normalize_angle(self.X[5])
        
         self.P = F @ self.P @ F.T + self.Q
      
@@ -232,7 +234,7 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose.pose.pose.orientation.w = quat[3]
         self.final_pose.pose.covariance[0] = self.P[0, 0]
         self.final_pose.pose.covariance[7] = self.P[1, 1]
-        self.final_pose.pose.covariance[35] = self.P[2, 2]
+        self.final_pose.pose.covariance[35] = self.P[5, 5]
         self.ekf_pose_publisher.publish(self.final_pose)
 
 
