@@ -158,7 +158,7 @@ class EKFFootprintBroadcaster(Node):
 
         delta_x = msg.linear.x * dt /1e3
         delta_y = msg.linear.y * dt /1e3
-        delta_theta = msg.angular.z * dt 
+        delta_theta = msg.angular.z * dt /1e3 
         # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
         self.ekf_predict(delta_x, delta_y, delta_theta) 
 
