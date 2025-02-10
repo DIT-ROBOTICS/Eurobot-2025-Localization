@@ -53,16 +53,16 @@ class EKFFootprintBroadcaster(Node):
 
         self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
         self.P = np.eye(6) * 9 * 1e-4
-        self.P[5, 5] = 0.1225
-        self.P[2, 2] = 1e-9
-        self.P[3, 3] = 1e-9
-        self.P[4, 4] = 1e-9
+        self.P[5, 5] = 1.2 * 1e-4
+        self.P[2, 2] = 1e-6
+        self.P[3, 3] = 1e-6
+        self.P[4, 4] = 1e-6
 
         self.Q = np.eye(6) * 5 * 1e-11
-        self.Q[5, 5] = 0.03
-        self.Q[2, 2] = 1e-9
-        self.Q[3, 3] = 1e-9
-        self.Q[4, 4] = 1e-9
+        self.Q[5, 5] = 3 * 1e-9
+        self.Q[2, 2] = 1e-6
+        self.Q[3, 3] = 1e-6
+        self.Q[4, 4] = 1e-6
 
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
@@ -87,29 +87,29 @@ class EKFFootprintBroadcaster(Node):
         self.child_frame_id = self.get_parameter('robot_frame_id').value
         self.camera_frame_id = self.get_parameter('camera_frame_id').value
         self.camera_parent_id = self.get_parameter('camera_parent_id').value
-        self.rate = self.get_parameter('update_rate').value
+        # self.rate = self.get_parameter('update_rate').value
 
     def init_subscribers(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
         self.create_subscription(Twist, 'odoo_googoogoo', self.odom_callback, 10)
-        self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,10)
+        # self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,10)
     
-    def init_callback(self, msg):
+    # def init_callback(self, msg):
 
-        theta = euler_from_quaternion(
-            msg.pose.orientation.x,
-            msg.pose.orientation.y,
-            msg.pose.orientation.z,
-            msg.pose.orientation.w
-        )
-        self.X[5] = theta
-        if msg.covariance[0] > 0:
-            if msg.covariance[0] < 1:
-                self.P[0, 0] = msg.covariance[0]
-                self.P[1, 1] = msg.covariance[7]
-                self.P[5, 5] = msg.covariance[35]
-        self.X[0] = msg.pose.position.x
-        self.X[1] = msg.pose.position.y
+    #     theta = euler_from_quaternion(
+    #         msg.pose.orientation.x,
+    #         msg.pose.orientation.y,
+    #         msg.pose.orientation.z,
+    #         msg.pose.orientation.w
+    #     )
+    #     self.X[5] = theta
+    #     if msg.covariance[0] > 0:
+    #         if msg.covariance[0] < 1:
+    #             self.P[0, 0] = msg.covariance[0]
+    #             self.P[1, 1] = msg.covariance[7]
+    #             self.P[5, 5] = msg.covariance[35]
+    #     self.X[0] = msg.pose.position.x
+    #     self.X[1] = msg.pose.position.y
 
 
     def gps_callback(self, msg):
