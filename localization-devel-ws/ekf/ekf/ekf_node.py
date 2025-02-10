@@ -171,9 +171,9 @@ class EKFFootprintBroadcaster(Node):
         F[1, 4] = dt * math.cos(theta)
         F[2, 5] = dt
 
-        F[2, 2] = 1e-5
-        F[3, 3] = 1e-5
-        F[4, 4] = 1e-5
+        F[2, 2] = 1e-3
+        F[3, 3] = 1e-3
+        F[4, 4] = 1e-3
 
         self.X[0] += v_x * dt * math.cos(theta) - v_y * dt * math.sin(theta)
         self.X[1] += v_x * dt * math.sin(theta) + v_y * dt  * math.cos(theta)
