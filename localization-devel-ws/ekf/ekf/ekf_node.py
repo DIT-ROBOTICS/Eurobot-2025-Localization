@@ -52,14 +52,14 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose.header.frame_id = self.parent_frame_id
 
         self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
-        self.P = np.eye(6) * 9 * 1e-5
+        self.P = np.eye(6) * 9 * 1e-4
         self.P[5, 5] = 0.003
         self.P[2, 2] = 1e-6
         self.P[3, 3] = 1e-6
         self.P[4, 4] = 1e-6
 
         self.Q = np.eye(6) * 5 * 1e-11
-        self.Q[5, 5] = 3 * 1e-7
+        self.Q[5, 5] = 3 * 1e-5
         self.Q[2, 2] = 1e-6
         self.Q[3, 3] = 1e-6
         self.Q[4, 4] = 1e-6
