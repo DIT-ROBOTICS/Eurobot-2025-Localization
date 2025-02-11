@@ -66,7 +66,7 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:testBot-ros2
+    image: jossiewang/eurobot2025-localization:testBot-ros2 # TODO: make a ros-ws-built image
     container_name: localization-2025-dev-ros2
     stdin_open: true
     tty: true
@@ -101,4 +101,7 @@ services:
       - /dev:/dev
       # Mount workspace
       - ../../../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
-    command: /bin/bash
+    command: /bin/bash -c "
+            source /opt/ros/humble/setup.bash && 
+            source /home/user/localization-ws/install/setup.bash &&
+            ros2 launch ekf run.launch"
