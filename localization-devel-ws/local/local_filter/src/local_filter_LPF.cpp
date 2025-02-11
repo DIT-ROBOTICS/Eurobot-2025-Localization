@@ -3,6 +3,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+#include "geometry_msgs/msg/pose.hpp"
 // matrix calulation
 #include <eigen3/Eigen/Dense>
 #include <math.h>
@@ -70,6 +71,8 @@ public:
         imu_sub_ = nh_->create_subscription<sensor_msgs::msg::Imu>("imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this, std::placeholders::_1));
 
         global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 100);
+        odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::Pose>("odom2map", 100);
+
     }
 
     void diff_model(double v, double w, double dt)
@@ -114,6 +117,13 @@ public:
     {
         double x = pose_msg.pose.pose.position.x;
         double y = pose_msg.pose.pose.position.y;
+        
+        init_pose.position.x=x;
+        init_pose.position.y=y;
+        init_pose.orientation.x=pose_msg.pose.pose.orientation.x;
+        init_pose.orientation.y=pose_msg.pose.pose.orientation.y;
+        init_pose.orientation.z=pose_msg.pose.pose.orientation.z;
+        init_pose.orientation.w=pose_msg.pose.pose.orientation.w;
 
         tf2::Quaternion q;
         tf2::fromMsg(pose_msg.pose.pose.orientation, q);
@@ -144,8 +154,7 @@ public:
         linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
         linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
         angular_z_=odom_msg.angular.z;
-        // linear_x_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[0]);
-        // linear_y_cov_ = std::min(linear_cov_max_, odom_msg.twist.covariance[7]);
+       
         double cov_multi[3];
         cov_multi[0]=cov_multi_[0]*abs(odom_msg.linear.x);
         cov_multi[1]=cov_multi_[1]*abs(odom_msg.linear.y);
@@ -155,12 +164,27 @@ public:
         cov_backup_[0]=linear_x_cov_;
         cov_backup_[1]=linear_y_cov_;
 
-        rclcpp::Clock clock; /* <!-- ADD --> */
-        rclcpp::Time now=clock.now(); /* <!-- ADD --> */
-        double dt=now.seconds()-prev_stamp_.seconds(); /* <!-- ADD --> */
-        // RCLCPP_INFO(rclcpp::get_logger("local_filter_LPF"), "dt=%f", dt); /* <!-- ADD --> */
-        omni_model(linear_x_, linear_y_, angular_z_, dt); /* <!-- ADD -->  */
-        prev_stamp_=now; /* <!-- ADD -->  */
+        rclcpp::Clock clock;
+        rclcpp::Time now=clock.now();
+        double dt=now.seconds()-prev_stamp_.seconds();
+        omni_model(linear_x_/1000, linear_y_/1000, angular_z_, dt);
+        prev_stamp_=now;
+
+        // publish absolute coordinate
+        coord_odom2map.position.x=init_pose.position.x+odom_msg.angular.x/1000;
+        coord_odom2map.position.y=init_pose.position.y+odom_msg.angular.y/1000;
+
+        tf2::Quaternion q;
+        tf2::fromMsg(init_pose.orientation, q);
+        tf2::Matrix3x3 qt(q);
+        double _, yaw;
+        qt.getRPY(_, _, yaw);
+        q.setRPY(0, 0, yaw+odom_msg.linear.z);
+        coord_odom2map.orientation.x=q.getX();
+        coord_odom2map.orientation.y=q.getY();
+        coord_odom2map.orientation.z=q.getZ();
+        coord_odom2map.orientation.w=q.getW();
+        odom2map_pub_->publish(coord_odom2map);
     }
 
     void imuCallback(const sensor_msgs::msg::Imu & imu_msg) {
@@ -216,12 +240,15 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr setpose_sub_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_filter_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr odom2map_pub_;
 
     //raw
     double twist_x_;
     double twist_y_;
     double cov_backup_[3];
     double cov_multi_[3];
+    geometry_msgs::msg::Pose init_pose;
+    geometry_msgs::msg::Pose coord_odom2map;
     //filtered
     double alpha_x; // filter coefficient
     double alpha_y; // filter coefficient
