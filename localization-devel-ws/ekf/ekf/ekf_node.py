@@ -161,8 +161,8 @@ class EKFFootprintBroadcaster(Node):
         dt = current_time - self.last_odom_time
         self.last_odom_time = current_time
 
-        v_x = msg.linear.x /1e3
-        v_y = msg.linear.y /1e3
+        v_x = msg.linear.x
+        v_y = msg.linear.y
         w = msg.angular.z 
         # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
         self.ekf_predict(v_x, v_y, w, dt) 
