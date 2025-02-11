@@ -102,6 +102,9 @@ services:
       # Mount workspace
       - ../../../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
     command: /bin/bash -c "
-            source /opt/ros/humble/setup.bash && 
-            source /home/user/localization-ws/install/setup.bash &&
-            ros2 launch ekf run.launch"
+        cd /home/user/localization-ws/src/localization-devel-ws &&
+        sudo chmod +x usb.sh &&
+        ./usb.sh &&
+        source /opt/ros/humble/setup.bash && 
+        source /home/user/localization-ws/install/setup.bash &&
+        ros2 launch ekf run.launch"
