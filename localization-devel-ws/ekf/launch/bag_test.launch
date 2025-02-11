@@ -8,7 +8,7 @@
     <!-- function settings -->
     <arg name="bag_folder" default="/home/user/localization-ws/src/localization-devel-ws/bag" />
     <!--                     PLAY                        -->
-    <arg name='name_of_play_file' default='0207_first' />
+    <arg name='name_of_play_file' default='0211_omni_fast_rotate' />
     <!--                    RECORD                       -->
     <arg name='name_of_record_file' default='small_cov' />
 
