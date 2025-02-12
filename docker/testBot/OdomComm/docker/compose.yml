@@ -66,7 +66,7 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:testBot-ros2 # TODO: make a ros-ws-built image
+    image: jossiewang/eurobot2025-localization:testBot-ros2-built # TODO: make a ros-ws-built image
     container_name: localization-2025-dev-ros2
     stdin_open: true
     tty: true
