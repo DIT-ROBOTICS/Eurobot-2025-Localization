@@ -15,7 +15,8 @@
     <!-- functions -->
     <executable cmd="ros2 bag play $(var bag_folder)/$(var name_of_play_file) --clock --topic /odoo_googoogoo /raw_obstacles /imu/data_raw" output="screen" if="$(var play_bag)"/>
     <executable cmd="ros2 bag record --output $(var bag_folder)/$(var name_of_record_file) /local_filter /final_pose /lidar_pose" output="screen" if="$(var record_bag)"/>
-
+    <executable cmd="ros2 topic echo /odoo_googoogoo geometry_msgs/Twist" output="screen" if="$(var record_bag)"/>
+    
     <node pkg="ekf" exec="ekf_node" name="ekf_node" output="screen">
         <param name="robot_parent_frame_id" value="map" />
         <param name="robot_frame_id" value="base_footprint" />
