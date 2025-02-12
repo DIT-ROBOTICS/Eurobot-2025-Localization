@@ -1,0 +1,110 @@
+services:
+  ros-core:
+    image: osrf/ros:noetic-desktop-full
+    container_name: ros-core
+    command: "rosmaster --core"
+    network_mode: host
+    stop_grace_period: 1s
+    healthcheck:
+      # The healthcheck is required for ros1-bridge to wait until roscore is ready.
+      test: /ros_entrypoint.sh bash -c "rostopic list || exit 1"
+      interval: 3s
+      timeout: 10s
+      retries: 5
+
+  ros1-bridge:
+    build:
+      context: .
+      target: release
+    image: pomelo925/ttennis-humble:communication
+    container_name: ros2-ros1-bridge-ws
+    stop_grace_period: 1s
+    depends_on:
+      ros-core:
+        # The healthcheck is required for ros1-bridge to wait until roscore is ready.
+        condition: service_healthy
+    command: ./start-bridge.sh
+    stdin_open: true
+    tty: true
+    network_mode: host
+    working_dir: /
+    volumes:
+      # Mount local timezone into container. ( Readonly )
+      # Reference: https://stackoverflow.com/questions/57607381/how-do-i-change-timezone-in-a-docker-container
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      # Direct Rendering Infrastructure
+      - /dev/dri:/dev/dri
+      # Shared Memory
+      - /dev/shm:/dev/shm
+    environment:
+      - ROS_DOMAIN_ID=42
+      # - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp=value
+
+  ros1:
+    image: jossiewang/eurobot2025-localization:ros1-serial
+    container_name: ros1
+    stdin_open: true
+    tty: true
+    network_mode: host
+    privileged: true
+    volumes:
+      - /dev:/dev
+    stop_grace_period: 1s
+    depends_on:
+      ros-core:
+        condition: service_healthy
+    command: /bin/bash -c "
+            source /opt/ros/noetic/setup.bash && 
+            source ~/ws/devel/setup.bash &&
+            sudo chmod 777 /dev/ttyACM0 &&
+            roslaunch odometry odometry_comm.launch"
+
+  ros2-localization-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USERNAME: user
+    image: jossiewang/eurobot2025-localization:testBot-ros2-built # TODO: make a ros-ws-built image
+    container_name: localization-2025-dev-ros2
+    stdin_open: true
+    tty: true
+    privileged: true
+    stop_grace_period: 1s
+    restart: no
+    # entrypoint: ["./start.sh"]
+
+    network_mode: host
+    working_dir: /home/user/localization-ws
+    environment:
+      - DISPLAY=${DISPLAY}
+      # Set ros2 environment variables.
+      # References:
+      # - https://docs.ros.org/en/humble/Concepts/Intermediate/About-Domain-ID.html
+      # - https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html
+      # - ROS_LOCALHOST_ONLY=1
+      - ROS_DOMAIN_ID=42
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - ROS_WS=/home/user/localization-ws
+    volumes:
+      # Mount local timezone into container. ( Readonly )
+      # Reference: https://stackoverflow.com/questions/57607381/how-do-i-change-timezone-in-a-docker-container
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      # Mount X11 server
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # Direct Rendering Infrastructure
+      # - /dev/dri:/dev/dri
+      # Mount sound card to prevent Gazebo warning.
+      # - /dev/snd:/dev/snd
+      - /dev:/dev
+      # Mount workspace
+      - ../../../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
+    command: /bin/bash -c "
+        cd /home/user/localization-ws/src/localization-devel-ws &&
+        sudo chmod +x usb.sh &&
+        ./usb.sh &&
+        source /opt/ros/humble/setup.bash && 
+        source /home/user/localization-ws/install/setup.bash &&
+        ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/yellow.launch"
