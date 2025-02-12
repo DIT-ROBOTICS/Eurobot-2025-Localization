@@ -1,8 +1,9 @@
 <launch>
+    <!-- CHANGE OF THIS FILE WILL AFFECT THE RELEASED VERSION ON TESTBOT -->
 
     <!-- launch settings, CHECK before launch -->
     <arg name="record_bag" default="false"/>
-    <arg name="use_foxglove" default="true" />
+    <arg name="use_foxglove" default="false" />
 
     <!-- function settings -->
     <arg name="bag_folder" default="/home/user/localization-ws/src/localization-devel-ws/bag" />
@@ -15,21 +16,21 @@
     <node pkg="ekf" exec="ekf_node" name="ekf_node" output="screen">
         <param name="robot_parent_frame_id" value="map" />
         <param name="robot_frame_id" value="base_footprint" />
-        <param name="/use_sim_time" value="true" />
+        <param name="/use_sim_time" value="false" />
     </node>
 
     <node pkg="lidar_localization_pkg" exec="lidar_localization" name="lidar_localization" output="screen">
         <param name="side" value="1"/>
         <param name="debug_mode" value="False"/>
         <param name="visualize_candidate" value="False"/>
-        <param name="likelihood_threshold" value="0.002"/>
+        <param name="likelihood_threshold" value="0.05"/>
         <param name="consistency_threshold" value="0.9"/>
     </node>
 
     <include file="$(find-pkg-share foxglove_bridge)/launch/foxglove_bridge_launch.xml" if="$(var use_foxglove)">
         <arg name="port" value="8765" />
     </include>
-    <executable cmd="ros2 topic echo /odoo_googoogoo geometry_msgs/Twist"/>
+    <!-- <executable cmd="ros2 topic echo /odoo_googoogoo geometry_msgs/Twist"/> -->
 
     <include file="$(find-pkg-share lidar_localization_pkg)/launch/view_obstacles_launch.xml" />
     
