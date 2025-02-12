@@ -49,5 +49,5 @@ services:
       # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
       # Mount workspace
       - ../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
-    # command: /bin/bash -c "echo 'export ROS_DOMAIN_ID=42' >> ~/.bashrc && /bin/bash"
-    command: /bin/bash
+    # command: /bin/bash
+    command: /bin/bash -c "ros2 launch /home/user/localization-ws/src/localization-devel-ws/cust_foxglove_launch.py"

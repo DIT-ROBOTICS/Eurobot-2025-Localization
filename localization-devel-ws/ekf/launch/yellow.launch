@@ -20,7 +20,7 @@
     </node>
 
     <node pkg="lidar_localization_pkg" exec="lidar_localization" name="lidar_localization" output="screen">
-        <param name="side" value="1"/>
+        <param name="side" value="0"/>
         <param name="debug_mode" value="False"/>
         <param name="visualize_candidate" value="False"/>
         <param name="likelihood_threshold" value="0.05"/>

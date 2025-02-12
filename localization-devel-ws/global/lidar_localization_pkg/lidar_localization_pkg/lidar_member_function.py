@@ -4,7 +4,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from obstacle_detector.msg import Obstacles
 from visualization_msgs.msg import Marker, MarkerArray
-from std_msgs.msg import ColorRGBA
+from std_msgs.msg import ColorRGBA, String
 
 import numpy as np
 
@@ -59,6 +59,13 @@ class LidarLocalization(Node): # inherit from Node
             self.pred_pose_callback,
             10
         )
+        # subscribe to set_lidar_side topic
+        self.subscription = self.create_subscription(
+            String,
+            'set_lidar_side',
+            self.set_lidar_side_callback,
+            10
+        )
         self.subscription  # prevent unused variable warning
 
         # ros debug logger
@@ -104,6 +111,28 @@ class LidarLocalization(Node): # inherit from Node
             [0, msg.pose.covariance[7], 0],
             [0, 0, msg.pose.covariance[35]]
         ])
+
+    def set_lidar_side_callback(self, msg):
+        side = msg.data.lower()
+        if side in ['0', '1', 'yellow', 'blue']:
+            if side == '0' or side == 'yellow':
+                self.side = 0
+                self.landmarks_map = [
+                    np.array([-0.094, 0.052]),
+                    np.array([-0.094, 1.948]),
+                    np.array([3.094, 1.0])
+                ]
+            elif side == '1' or side == 'blue':
+                self.side = 1
+                self.landmarks_map = [
+                    np.array([3.094, 0.052]),
+                    np.array([3.094, 1.948]),
+                    np.array([-0.094, 1.0])
+                ]
+            self.init_landmarks_map(self.landmarks_map)
+            self.get_logger().debug(f"Set lidar side to {self.side}")
+        else:
+            self.get_logger().warn("Invalid side value")
 
     def init_landmarks_map(self, landmarks_map):
         self.landmarks_map = landmarks_map

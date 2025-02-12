@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:testBot-ros2
+    image: jossiewang/eurobot2025-localization:testBot-ros2-built
     container_name: noComm-localization-2025-dev-ros2
     stdin_open: true
     tty: true
