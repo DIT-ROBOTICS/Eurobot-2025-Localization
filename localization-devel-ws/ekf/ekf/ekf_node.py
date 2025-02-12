@@ -48,21 +48,32 @@ class EKFFootprintBroadcaster(Node):
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.final_pose = PoseWithCovarianceStamped()
+        self.final_pose.header.frame_id = self.parent_frame_id
 
-        self.X = np.array([0.0, 0.0, 0.0])  # State vector: x, y, theta
-        self.P_predict = np.eye(3) * 0.16
-        self.P_update = np.eye(3) * 1e-2
-        self.Q = np.eye(3) * 1e-3
+        self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
+        self.P = np.eye(6) * 9 * 1e-4
+        self.P[5, 5] = 0.003
+        self.P[2, 2] = 1e-6
+        self.P[3, 3] = 1e-6
+        self.P[4, 4] = 1e-6
+
+        self.Q = np.eye(6) * 5 * 1e-11
+        self.Q[5, 5] = 3 * 1e-5
+        self.Q[2, 2] = 1e-6
+        self.Q[3, 3] = 1e-6
+        self.Q[4, 4] = 1e-6
+
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
-        self.R_camera[2, 2] = 0.25
+        self.R_camera[2, 2] = 9
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
-        self.cnt = 0
         self.init_subscribers()
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
-        self.create_timer(1, self.camera_callback)
+        # self.create_timer(1, self.camera_callback)
+        
         self.footprint_publish()
 
         
@@ -71,18 +82,18 @@ class EKFFootprintBroadcaster(Node):
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('camera_frame_id', 'marker_6')
         self.declare_parameter('camera_parent_id', 'map')
-        self.declare_parameter('update_rate', 50)
 
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
         self.child_frame_id = self.get_parameter('robot_frame_id').value
         self.camera_frame_id = self.get_parameter('camera_frame_id').value
         self.camera_parent_id = self.get_parameter('camera_parent_id').value
-        self.rate = self.get_parameter('update_rate').value
+        # self.rate = self.get_parameter('update_rate').value
 
     def init_subscribers(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
         self.create_subscription(Twist, 'odoo_googoogoo', self.odom_callback, 10)
         self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,10)
+        self.create_subscription(Odometry, 'local_filter', self.local_callback, 10)
     
     def init_callback(self, msg):
 
@@ -92,16 +103,14 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.orientation.z,
             msg.pose.orientation.w
         )
-        if self.cnt == 0:
-            self.X[2] = theta
-            if msg.covariance[0] > 0:
-                if msg.covariance[0] < 1:
-                    self.P_predict[0, 0] = msg.covariance[0]
-                    self.P_predict[1, 1] = msg.covariance[7]
-                    self.P_predict[2, 2] = msg.covariance[35]
-            self.X[0] = msg.pose.position.x
-            self.X[1] = msg.pose.position.y
-            self.cnt += 1
+        self.X[5] = theta
+        if msg.covariance[0] > 0:
+            if msg.covariance[0] < 1:
+                self.P[0, 0] = msg.covariance[0]
+                self.P[1, 1] = msg.covariance[7]
+                self.P[5, 5] = msg.covariance[35]
+        self.X[0] = msg.pose.position.x
+        self.X[1] = msg.pose.position.y
 
 
     def gps_callback(self, msg):
@@ -148,32 +157,47 @@ class EKFFootprintBroadcaster(Node):
         except TransformException as ex:
             self.get_logger().warn(f"TransformException in camera_callback: {ex}")
 
-    def odom_callback(self, msg):
+    # def odom_callback(self, msg):
+    #     current_time = self.get_clock().now().nanoseconds / 1e9
+    #     dt = current_time - self.last_odom_time
+    #     self.last_odom_time = current_time
+
+    #     v_x = msg.linear.x
+    #     v_y = msg.linear.y
+    #     w = msg.angular.z 
+    #     # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
+    #     self.ekf_predict(v_x, v_y, w, dt) 
+
+    def local_callback(self, msg):
         current_time = self.get_clock().now().nanoseconds / 1e9
         dt = current_time - self.last_odom_time
         self.last_odom_time = current_time
 
-        delta_x = msg.linear.x * dt /1e3
-        delta_y = msg.linear.y * dt /1e3
-        delta_theta = msg.angular.z * dt /1e3 
+        v_x = msg.twist.twist.linear.x
+        v_y = msg.twist.twist.linear.y
+        w = msg.twist.twist.angular.z 
         # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
-        self.ekf_predict(delta_x, delta_y, delta_theta) 
 
-    def ekf_predict(self, delta_x, delta_y, delta_theta):
-        theta = self.X[2]
-        F = np.eye(3)
-        F[0, 2] = -delta_x * math.sin(theta) - delta_y * math.cos(theta)
-        F[1, 2] = delta_x * math.cos(theta) - delta_y * math.sin(theta)
+        self.Q[5, 5] = msg.twist.covariance[35] 
 
-        self.X[0] += delta_x * math.cos(theta) - delta_y * math.sin(theta)
-        self.X[1] += delta_x * math.sin(theta) + delta_y * math.cos(theta)
-        self.X[2] += delta_theta
-        self.X[2] = normalize_angle(self.X[2])
-        # self.get_logger().info(f"predict-x{self.X[0]}")
-        self.P_predict = F @ self.P_update @ F.T + self.Q
-        if (self.P_predict[0, 0] > 1) | (self.P_predict[1, 1] > 1 ) | (self.P_predict[2, 2] > 1) :
-            self.get_logger().warn(f"large Cov_pred:{self.P_predict[0, 0]},{self.P_predict[1, 1]},{self.P_predict[2, 2]}")
-            self.P_predict = np.eye(3) * 1e-2
+        self.ekf_predict(v_x, v_y, w, dt) 
+
+    def ekf_predict(self, v_x, v_y, w, dt):
+        theta = self.X[5]
+        F = np.eye(6)
+        F[0, 3] = dt * math.cos(theta)
+        F[0, 4] = - dt * math.sin(theta)
+        F[1, 3] = dt * math.sin(theta)
+        F[1, 4] = dt * math.cos(theta)
+        F[2, 5] = dt
+
+        self.X[0] += v_x * dt * math.cos(theta) - v_y * dt * math.sin(theta)
+        self.X[1] += v_x * dt * math.sin(theta) + v_y * dt  * math.cos(theta)
+        self.X[5] += w * dt
+        self.X[5] = normalize_angle(self.X[5])
+       
+        self.P = F @ self.P @ F.T + self.Q
+     
         self.footprint_publish()
 
     def ekf_update(self, z, R):
@@ -181,15 +205,22 @@ class EKFFootprintBroadcaster(Node):
             self.get_logger().warn("Invalid measurement data received.")
             return
         
-        H = np.eye(3)  # Observation matrix
-        S = H @ self.P_predict @ H.T + R
-        K = self.P_predict @ H.T @ np.linalg.inv(S)
+        H = np.zeros((3, 6))
+        H[0, 0] = 1  
+        H[1, 1] = 1 
+        H[2, 5] = 1
+        S = H @ self.P @ H.T + R
+        K = self.P @ H.T @ np.linalg.inv(S)
+
         self.X += K @ (z - H @ self.X)
-        self.X[2] = normalize_angle(self.X[2])
-        self.P_update = (np.eye(3) - K @ H) @ self.P_predict
-        if (self.P_update[0] > 1) | (self.P_update[0] > 1 ) | (self.P_update[0] > 1) :
-            self.get_logger().warn(f"large Cov_update:{self.P_update[0, 0]},{self.P_update[1, 1]},{self.P_update[2, 2]}")
-            self.P_predict = np.eye(3) * 1e-2
+        self.X[5] = normalize_angle(self.X[5])
+
+        I = np.eye(6)
+        self.P = (I - K @ H) @ self.P @ (I - K @ H).T + K @ R @ K.T
+
+        # if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
+        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
+        #     self.P = np.eye(3) * 1e-2
             
     def footprint_publish(self):
         t = TransformStamped()
@@ -201,27 +232,25 @@ class EKFFootprintBroadcaster(Node):
         t.transform.translation.x = self.X[0]
         t.transform.translation.y = self.X[1]
         t.transform.translation.z = 0.0
-        quat = quaternion_from_euler(0, 0, self.X[2])
+        quat = quaternion_from_euler(0, 0, self.X[5])
         t.transform.rotation.x = quat[0]
         t.transform.rotation.y = quat[1]
         t.transform.rotation.z = quat[2]
         t.transform.rotation.w = quat[3]
         self.tf_static_broadcaster.sendTransform(t)
 
-        final_pose = PoseWithCovarianceStamped()
-        final_pose.header.stamp = self.get_clock().now().to_msg()
-        final_pose.header.frame_id = self.parent_frame_id
-        final_pose.pose.pose.position.x = self.X[0]
-        final_pose.pose.pose.position.y = self.X[1]
-        final_pose.pose.pose.position.z = 0.0
-        final_pose.pose.pose.orientation.x = quat[0]
-        final_pose.pose.pose.orientation.y = quat[1]
-        final_pose.pose.pose.orientation.z = quat[2]
-        final_pose.pose.pose.orientation.w = quat[3]
-        final_pose.pose.covariance[0] = self.P_predict[0, 0]
-        final_pose.pose.covariance[7] = self.P_predict[1, 1]
-        final_pose.pose.covariance[35] = self.P_predict[2, 2]
-        self.ekf_pose_publisher.publish(final_pose)
+        self.final_pose.header.stamp = self.get_clock().now().to_msg()
+        self.final_pose.pose.pose.position.x = self.X[0]
+        self.final_pose.pose.pose.position.y = self.X[1]
+        self.final_pose.pose.pose.position.z = 0.0
+        self.final_pose.pose.pose.orientation.x = quat[0]
+        self.final_pose.pose.pose.orientation.y = quat[1]
+        self.final_pose.pose.pose.orientation.z = quat[2]
+        self.final_pose.pose.pose.orientation.w = quat[3]
+        self.final_pose.pose.covariance[0] = self.P[0, 0]
+        self.final_pose.pose.covariance[7] = self.P[1, 1]
+        self.final_pose.pose.covariance[35] = self.P[5, 5]
+        self.ekf_pose_publisher.publish(self.final_pose)
 
 
 def main(args=None):
@@ -232,3 +261,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
