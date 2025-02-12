@@ -27,10 +27,12 @@ else
   ls -l $DEVICE_PATH
 
   # IMU udev rules
-  PACKAGES_PATH=/home/user/localization-ws-ros1/src
+  PACKAGES_PATH=/home/user/localization-ws/src
   sudo /lib/systemd/systemd-udevd --daemon
   cd $PACKAGES_PATH/phidgets_drivers/phidgets_api
   sudo cp debian/udev /etc/udev/rules.d/99-phidgets.rules
+  sudo udevadm control --reload-rules
+
 fi
 
 # RPLiDAR port
