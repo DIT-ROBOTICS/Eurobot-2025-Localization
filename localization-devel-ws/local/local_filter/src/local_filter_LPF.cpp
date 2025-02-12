@@ -66,7 +66,7 @@ public:
             cov_multi_[i]=nh_local_->get_parameter("covariance_multi_"+str).as_double();
         }
 
-        setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initialpose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
+        setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initial_pose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
         odom_sub_ = nh_->create_subscription<geometry_msgs::msg::Twist>("odoo_googoogoo", 10, std::bind(&GlobalFilterNode::odomCallback, this, std::placeholders::_1));
         imu_sub_ = nh_->create_subscription<sensor_msgs::msg::Imu>("imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this, std::placeholders::_1));
 
@@ -167,12 +167,12 @@ public:
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
         double dt=now.seconds()-prev_stamp_.seconds();
-        omni_model(linear_x_/1000, linear_y_/1000, angular_z_, dt);
+        omni_model(linear_x_, linear_y_, angular_z_, dt);
         prev_stamp_=now;
 
         // publish absolute coordinate
-        coord_odom2map.position.x=init_pose.position.x+odom_msg.angular.x/1000;
-        coord_odom2map.position.y=init_pose.position.y+odom_msg.angular.y/1000;
+        coord_odom2map.position.x=init_pose.position.x+odom_msg.angular.x;
+        coord_odom2map.position.y=init_pose.position.y+odom_msg.angular.y;
 
         tf2::Quaternion q;
         tf2::fromMsg(init_pose.orientation, q);
