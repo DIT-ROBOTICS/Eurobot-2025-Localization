@@ -30,10 +30,10 @@ void IMU::UpdateParams(){
     p_publish_ = this->get_parameter("publish").get_value<bool>();
     RCLCPP_INFO(this->get_logger(), "publish set to %d", p_publish_);
 
-    p_imu_sub_topic_ = "/imu/data_raw";
+    p_imu_sub_topic_ = "sub_topic";
     RCLCPP_INFO(this->get_logger(), "Current subscribe topic [ %s ]", p_imu_sub_topic_.c_str());
 
-    p_imu_pub_topic_ = "/imu/data_cov";
+    p_imu_pub_topic_ = "pub_topic";
     RCLCPP_INFO(this->get_logger(), "Current publish topic [ %s ]", p_imu_pub_topic_.c_str());
 
     p_covariance_ = this->get_parameter("covariance_vx").get_value<double>();
@@ -87,7 +87,7 @@ void IMU::IMUdataCallback(const sensor_msgs::msg::Imu::ConstPtr &msg){  //  from
 
     this->imu_output_.header.stamp = clock.now();
 
-    this->imu_output_.orientation = msg->orientation;
+    this->imu_output_.angular_velocity = msg->angular_velocity;
 
     this->imu_output_.linear_acceleration = msg->linear_acceleration;
 

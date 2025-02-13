@@ -64,6 +64,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     # ros-humble-laser-geometry \
     libsuitesparse-dev \
     ros-humble-libg2o \
+    ros-humble-rmw-cyclonedds-cpp\
     # ros-humble-imu-tools \
     libusb-1.0-0 libusb-1.0-0-dev -y && \
     rm -rf /var/lib/apt/lists/*
@@ -97,11 +98,22 @@ RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/loca
 RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
 
 ################################################################################################
+# - devel-ws build stage
+# 
+################################################################################################
+
+FROM lidar-dep AS devel-ws
+WORKDIR /home/user/temp
+RUN git clone -b devel https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
+RUN mv /home/user/temp/Eurobot-2025-Localization/localization-devel-ws /home/user/localization-ws/src/localization-devel-ws
+RUN rm -rf /home/user/temp
+
+################################################################################################
 # - Final stage
 # 
 ################################################################################################
 
-FROM lidar-dep AS final
+FROM devel-ws AS final
 
 ## Set working directory
 WORKDIR /home/${USERNAME}/localization-ws
@@ -112,6 +124,8 @@ RUN sudo apt-get update && \
     rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
     /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install' \
     && sudo rm -rf /var/lib/apt/lists/*
+
+RUN rm -rf /home/user/localization-ws/src/localization-devel-ws
 
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc

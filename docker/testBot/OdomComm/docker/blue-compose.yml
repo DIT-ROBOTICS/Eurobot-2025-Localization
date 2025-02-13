@@ -107,4 +107,4 @@ services:
         ./usb.sh &&
         source /opt/ros/humble/setup.bash && 
         source /home/user/localization-ws/install/setup.bash &&
-        ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/run.launch"
+        ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/blue.launch"
