@@ -21,6 +21,11 @@ struct RobotState
     Eigen::Matrix3d sigma;
 };
 
+struct DataWithStamped{
+    double value;
+    double time;
+};
+
 class GlobalFilterNode {
 public:
     GlobalFilterNode(std::shared_ptr<rclcpp::Node> nh, std::shared_ptr<rclcpp::Node> nh_local) :
@@ -35,6 +40,9 @@ public:
 
         nh_local_->declare_parameter("LPF_alpha_y", 0.5); // filter coefficient
         alpha_y=nh_local_->get_parameter("LPF_alpha_y").as_double();
+
+        nh_local_->declare_parameter("LPF_alpha_w", 0.5); // filter coefficient
+        alpha_w=nh_local_->get_parameter("LPF_alpha_w").as_double();
 
         nh_local_->declare_parameter("linear_cov_max", 0.1);
         linear_cov_max_=nh_local_->get_parameter("linear_cov_max").as_double();
@@ -96,7 +104,7 @@ public:
 
         d_state << (v_x * dt), (v_y * dt), (w * dt);
 
-        double theta_ = robotstate_.mu(2) + d_state(2)/ 2; /* <!-- ADD --> */
+        double theta_ = robotstate_.mu(2) + d_state(2)/ 2;
         double s__theta = sin(theta_);
         double c__theta = cos(theta_);
 
@@ -150,25 +158,27 @@ public:
         // get velocity data
         // twist_x_ = odom_msg.linear.x;
         // twist_y_ = odom_msg.linear.y;
+        // get pose data
+        robotstate_.mu(0)=odom_msg.angular.x;
+        robotstate_.mu(1)=odom_msg.angular.y;
+        robotstate_.mu(2)=odom_msg.linear.z;
         // Apply low-pass filter to linear xy from odom
         linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
         linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
-        angular_z_=odom_msg.angular.z;
+        curr_odom_w.value=odom_msg.angular.z;
        
-        double cov_multi[3];
-        cov_multi[0]=cov_multi_[0]*abs(odom_msg.linear.x);
-        cov_multi[1]=cov_multi_[1]*abs(odom_msg.linear.y);
-        cov_multi[2]=cov_multi_[2]*abs(odom_msg.angular.z);
-        linear_x_cov_=std::min(linear_cov_max_, std::max(1e-8, cov_multi[0]+cov_backup_[0]));
-        linear_y_cov_=std::min(linear_cov_max_, std::max(1e-8, cov_multi[1]+cov_backup_[1]));
-        cov_backup_[0]=linear_x_cov_;
-        cov_backup_[1]=linear_y_cov_;
+        // double cov_multi[3];
+        // cov_multi[0]=cov_multi_[0]*abs(odom_msg.linear.x);
+        // cov_multi[1]=cov_multi_[1]*abs(odom_msg.linear.y);
+        // cov_multi[2]=cov_multi_[2]*abs(odom_msg.angular.z);
+        // linear_x_cov_=std::min(linear_cov_max_, std::max(1e-8, cov_multi[0]+cov_backup_[0]));
+        // linear_y_cov_=std::min(linear_cov_max_, std::max(1e-8, cov_multi[1]+cov_backup_[1]));
+        // cov_backup_[0]=linear_x_cov_;
+        // cov_backup_[1]=linear_y_cov_;
 
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
-        double dt=now.seconds()-prev_stamp_.seconds();
-        omni_model(linear_x_/1000, linear_y_/1000, angular_z_, dt);
-        prev_stamp_=now;
+        curr_odom_w.time=now.seconds();
 
         // publish absolute coordinate
         coord_odom2map.position.x=init_pose.position.x+odom_msg.angular.x/1000;
@@ -188,12 +198,10 @@ public:
     }
 
     void imuCallback(const sensor_msgs::msg::Imu & imu_msg) {
-        // angular_z_ = imu_msg.angular_velocity.z;
-        // rclcpp::Time stamp=imu_msg.header.stamp; /* <!-- ADD --> */
-        // double dt=stamp.seconds()-prev_stamp_.seconds(); /* <!-- ADD --> */
-        // omni_model(linear_x_, linear_y_, angular_z_, dt); /* <!-- ADD -->  */
+        double odom_w_interpolation=prev_odom_w.value+(curr_odom_w.value-prev_odom_w.value)*(imu_msg.header.stamp.sec-prev_odom_w.time)/(curr_odom_w.time-prev_odom_w.time);
+        angular_z_=alpha_w*imu_msg.angular_velocity.z+(1-alpha_w)*odom_w_interpolation;
         local_filter_pub(imu_msg.header.stamp, std::min(angular_cov_max_, imu_msg.angular_velocity_covariance[8])); //cov_max
-        // prev_stamp_ = imu_msg.header.stamp;
+        prev_odom_w=curr_odom_w;
     }
 
     void local_filter_pub(rclcpp::Time stamp, double imu_cov)
@@ -214,8 +222,8 @@ public:
             global_filter_msg.pose.pose.orientation.z = quaternion_.getZ();
             global_filter_msg.pose.pose.orientation.w = quaternion_.getW();
         //covariance
-            global_filter_msg.twist.covariance[0] = linear_x_cov_; //x-x
-            global_filter_msg.twist.covariance[7] = linear_y_cov_; //y-y
+            global_filter_msg.twist.covariance[0] = linear_cov_max_; //x-x
+            global_filter_msg.twist.covariance[7] = linear_cov_max_; //y-y
             global_filter_msg.twist.covariance[35] = imu_cov; //theta-theta
             global_filter_pub_->publish(global_filter_msg);
     }
@@ -249,9 +257,12 @@ private:
     double cov_multi_[3];
     geometry_msgs::msg::Pose init_pose;
     geometry_msgs::msg::Pose coord_odom2map;
+    DataWithStamped prev_odom_w;
+    DataWithStamped curr_odom_w;
     //filtered
     double alpha_x; // filter coefficient
     double alpha_y; // filter coefficient
+    double alpha_w; // filter coefficient
     double linear_x_; 
     double linear_x_cov_;
     double linear_y_;
