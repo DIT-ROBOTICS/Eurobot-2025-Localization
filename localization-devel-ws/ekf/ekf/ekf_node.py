@@ -73,7 +73,8 @@ class EKFFootprintBroadcaster(Node):
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
         # self.create_timer(1, self.camera_callback)
-        
+        self.omega=0.0
+
         self.footprint_publish()
 
         
@@ -91,25 +92,25 @@ class EKFFootprintBroadcaster(Node):
 
     def init_subscribers(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
-        self.create_subscription(Twist, 'odoo_googoogoo', self.odom_callback, 10)
-        self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,10)
+        self.create_subscription(Odometry, 'local_filter', self.odom_callback, 10)
+        self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,10)
     
     def init_callback(self, msg):
 
         theta = euler_from_quaternion(
-            msg.pose.orientation.x,
-            msg.pose.orientation.y,
-            msg.pose.orientation.z,
-            msg.pose.orientation.w
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w
         )
         self.X[5] = theta
-        if msg.covariance[0] > 0:
-            if msg.covariance[0] < 1:
-                self.P[0, 0] = msg.covariance[0]
-                self.P[1, 1] = msg.covariance[7]
-                self.P[5, 5] = msg.covariance[35]
-        self.X[0] = msg.pose.position.x
-        self.X[1] = msg.pose.position.y
+        if msg.pose.covariance[0] > 0:
+            if msg.pose.covariance[0] < 1:
+                self.P[0, 0] = msg.pose.covariance[0]
+                self.P[1, 1] = msg.pose.covariance[7]
+                self.P[5, 5] = msg.pose.covariance[35]
+        self.X[0] = msg.pose.pose.position.x
+        self.X[1] = msg.pose.pose.position.y
 
 
     def gps_callback(self, msg):
@@ -161,11 +162,17 @@ class EKFFootprintBroadcaster(Node):
         dt = current_time - self.last_odom_time
         self.last_odom_time = current_time
 
-        v_x = msg.linear.x
-        v_y = msg.linear.y
-        w = msg.angular.z 
+        v_x = msg.twist.twist.linear.x
+        v_y = msg.twist.twist.linear.y
+        if not(np.isnan(msg.twist.twist.angular.z)):
+            self.omega=msg.twist.twist.angular.z
+        self.Q[5, 5]=msg.twist.covariance[35]
+        # v_x=msg.linear.x
+        # v_y=msg.linear.y
+        # w=msg.angular.z
+        
         # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
-        self.ekf_predict(v_x, v_y, w, dt) 
+        self.ekf_predict(v_x, v_y, self.omega, dt) 
 
     def ekf_predict(self, v_x, v_y, w, dt):
         theta = self.X[5]

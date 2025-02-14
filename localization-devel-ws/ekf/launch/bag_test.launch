@@ -3,12 +3,12 @@
     <!-- launch settings, CHECK before launch -->
     <arg name="play_bag" default="true"/>
     <arg name="record_bag" default="false"/>
-    <arg name="use_foxglove" default="true" />
+    <arg name="use_foxglove" default="false" />
 
     <!-- function settings -->
-    <arg name="bag_folder" default="/home/user/localization-ws/src/localization-devel-ws/bag" />
+    <arg name="bag_folder" default="/home/user/localization-ws/src/localization-devel-ws/bags" />
     <!--                     PLAY                        -->
-    <arg name='name_of_play_file' default='0211_omni_fast_rotate' />
+    <arg name='name_of_play_file' default='0207_first' />
     <!--                    RECORD                       -->
     <arg name='name_of_record_file' default='small_cov' />
 
@@ -18,7 +18,7 @@
     <executable cmd="ros2 topic echo /odoo_googoogoo geometry_msgs/Twist" output="screen" if="$(var record_bag)"/>
     
     <node pkg="ekf" exec="ekf_node" name="ekf_node" output="screen">
-        <param name="robot_parent_frame_id" value="map" />
+        <param name="robot_parent_frame_id" value="map"/>
         <param name="robot_frame_id" value="base_footprint" />
         <param name="/use_sim_time" value="true" />
     </node>
@@ -35,5 +35,8 @@
         <arg name="port" value="8765" />
     </include>
 
+    <include file="$(find-pkg-share local_filter)/launch/local_filter_whole.xml"/>
+    <executable cmd='ros2 topic pub --once /initial_pose geometry_msgs/msg/PoseWithCovarianceStamped "{ header: { stamp: { sec: 0, nanosec: 0 }, frame_id: "map" }, pose: { pose: { position: { x: 0.2, y: 0.3, z: 0.0 }, orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 } }, covariance: [1e-4, 0, 0, 0, 0, 0, 0, 1e-4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1e-4] } }" '/>
+    <executable cmd="ros2 run rqt_plot rqt_plot /final_pose/pose/pose/position/x /final_pose/pose/pose/position/y /odom2map/position/x /odom2map/position/y"/>
 
 </launch>

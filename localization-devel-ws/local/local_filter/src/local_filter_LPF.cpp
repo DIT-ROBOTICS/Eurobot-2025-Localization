@@ -50,29 +50,29 @@ public:
         nh_local_->declare_parameter("angular_cov_max", 0.05);
         angular_cov_max_=nh_local_->get_parameter("angular_cov_max").as_double();
 
-        for(int i=0;i<3;i++){
-            std::string str;
-            switch(i){
-                case 0: str="vx"; break;
-                case 1: str="vy"; break;
-                case 2: str="vz"; break;
-                default: break;
-            }
-            nh_local_->declare_parameter("covariance_"+str, 0.);
-            cov_backup_[i]=nh_local_->get_parameter("covariance_"+str).as_double();
-        }
+        // for(int i=0;i<3;i++){
+        //     std::string str;
+        //     switch(i){
+        //         case 0: str="vx"; break;
+        //         case 1: str="vy"; break;
+        //         case 2: str="vz"; break;
+        //         default: break;
+        //     }
+        //     nh_local_->declare_parameter("covariance_"+str, 0.);
+        //     cov_backup_[i]=nh_local_->get_parameter("covariance_"+str).as_double();
+        // }
 
-        for(int i=0;i<3;i++){
-            std::string str;
-            switch(i){
-                case 1: str="vx"; break;
-                case 2: str="vy"; break;
-                case 3: str="vz"; break;
-                default: break;
-            }
-            nh_local_->declare_parameter("covariance_multi_"+str, 0.);
-            cov_multi_[i]=nh_local_->get_parameter("covariance_multi_"+str).as_double();
-        }
+        // for(int i=0;i<3;i++){
+        //     std::string str;
+        //     switch(i){
+        //         case 1: str="vx"; break;
+        //         case 2: str="vy"; break;
+        //         case 3: str="vz"; break;
+        //         default: break;
+        //     }
+        //     nh_local_->declare_parameter("covariance_multi_"+str, 0.);
+        //     cov_multi_[i]=nh_local_->get_parameter("covariance_multi_"+str).as_double();
+        // }
 
         setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initial_pose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
         odom_sub_ = nh_->create_subscription<geometry_msgs::msg::Twist>("odoo_googoogoo", 10, std::bind(&GlobalFilterNode::odomCallback, this, std::placeholders::_1));
@@ -159,12 +159,12 @@ public:
         // twist_x_ = odom_msg.linear.x;
         // twist_y_ = odom_msg.linear.y;
         // get pose data
-        robotstate_.mu(0)=odom_msg.angular.x;
-        robotstate_.mu(1)=odom_msg.angular.y;
+        robotstate_.mu(0)=odom_msg.angular.x/1000.0;
+        robotstate_.mu(1)=odom_msg.angular.y/1000.0;
         robotstate_.mu(2)=odom_msg.linear.z;
         // Apply low-pass filter to linear xy from odom
-        linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
-        linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
+        linear_x_ = alpha_x * odom_msg.linear.x/1000.0 + (1 - alpha_x) * linear_x_;
+        linear_y_ = alpha_y * odom_msg.linear.y/1000.0 + (1 - alpha_y) * linear_y_;
         curr_odom_w.value=odom_msg.angular.z;
        
         // double cov_multi[3];
@@ -181,8 +181,8 @@ public:
         curr_odom_w.time=now.seconds();
 
         // publish absolute coordinate
-        coord_odom2map.position.x=init_pose.position.x+odom_msg.angular.x;
-        coord_odom2map.position.y=init_pose.position.y+odom_msg.angular.y;
+        coord_odom2map.position.x=init_pose.position.x+odom_msg.angular.x/1000;
+        coord_odom2map.position.y=init_pose.position.y+odom_msg.angular.y/1000;
 
         tf2::Quaternion q;
         tf2::fromMsg(init_pose.orientation, q);
@@ -198,7 +198,10 @@ public:
     }
 
     void imuCallback(const sensor_msgs::msg::Imu & imu_msg) {
-        double odom_w_interpolation=prev_odom_w.value+(curr_odom_w.value-prev_odom_w.value)*(imu_msg.header.stamp.sec-prev_odom_w.time)/(curr_odom_w.time-prev_odom_w.time);
+        double odom_w_interpolation=0.0;
+        if(curr_odom_w.time-prev_odom_w.time!=0) odom_w_interpolation=prev_odom_w.value+(curr_odom_w.value-prev_odom_w.value)*(imu_msg.header.stamp.sec-prev_odom_w.time)/(curr_odom_w.time-prev_odom_w.time);
+        // if(abs(odom_w_interpolation)>=5.0) alpha_w=1.0;
+        // else alpha_w=0.3;
         angular_z_=alpha_w*imu_msg.angular_velocity.z+(1-alpha_w)*odom_w_interpolation;
         local_filter_pub(imu_msg.header.stamp, std::min(angular_cov_max_, imu_msg.angular_velocity_covariance[8])); //cov_max
         prev_odom_w=curr_odom_w;
