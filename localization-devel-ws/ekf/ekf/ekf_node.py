@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import math
-from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, Twist, PoseWithCovariance
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, Twist, PoseWithCovariance, Pose
 from nav_msgs.msg import Odometry
 import numpy as np
 
@@ -67,6 +67,7 @@ class EKFFootprintBroadcaster(Node):
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
         self.R_camera[2, 2] = 9
+        self.R_odom=np.eye(3)*6e-2
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.init_subscribers()
@@ -92,7 +93,8 @@ class EKFFootprintBroadcaster(Node):
 
     def init_subscribers(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
-        self.create_subscription(Odometry, 'local_filter', self.odom_callback, 10)
+        self.create_subscription(Odometry, 'local_filter', self.localfilter_callback, 10)
+        self.create_subscription(Pose, 'odom2map', self.odom_callback, 10)
         self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,10)
     
     def init_callback(self, msg):
@@ -158,6 +160,20 @@ class EKFFootprintBroadcaster(Node):
             self.get_logger().warn(f"TransformException in camera_callback: {ex}")
 
     def odom_callback(self, msg):
+        current_time = self.get_clock().now().nanoseconds / 1e9
+        dt = current_time - self.last_odom_time
+        self.last_odom_time = current_time
+
+        theta = euler_from_quaternion(
+            msg.orientation.x,
+            msg.orientation.y,
+            msg.orientation.z,
+            msg.orientation.w
+        )
+        odom_measurement=np.array([msg.position.x, msg.position.y, theta])
+        self.ekf_update(odom_measurement, self.R_odom)
+
+    def localfilter_callback(self, msg):
         current_time = self.get_clock().now().nanoseconds / 1e9
         dt = current_time - self.last_odom_time
         self.last_odom_time = current_time
