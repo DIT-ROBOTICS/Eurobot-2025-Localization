@@ -1,0 +1,51 @@
+################################################################################################
+# - Base stage
+#   - This stage serves as the foundational stage for all other stages.
+#   - Base image: OSRF ROS noetic Desktop Full
+#       - https://hub.docker.com/r/osrf/ros/tags?page=1&name=noetic-desktop-full
+################################################################################################
+
+FROM osrf/ros:noetic-desktop-full AS base
+
+LABEL org.opencontainers.image.authors="yoseph.huang@gmail.com"
+
+ARG USERNAME=user
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+SHELL ["/bin/bash", "-c"]
+
+
+################################################################################################
+# - User Setup stage
+#   - In this stage, create a non-root user and configure passwordless sudo.
+################################################################################################
+
+FROM base AS user-setup
+
+## Create a non-root user
+RUN groupadd --gid $USER_GID $USERNAME && \
+    useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash && \
+    apt-get update && \
+    apt-get install -y sudo && \
+    echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME && \
+    rm -rf /var/lib/apt/lists/*
+
+FROM user-setup AS final
+
+USER ${USERNAME}
+# COPY comm-ws /home/$USERNAME/comm-ws
+RUN mkdir -p /home/$USERNAME/ws/src
+COPY odometry /home/$USERNAME/ws/src/odometry
+
+# catkin_make
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && \
+    rosdep update && \
+    cd /home/$USERNAME/ws && \
+    rosdep install -y -r -q --from-paths src --ignore-src --rosdistro noetic && \
+    catkin_make"
+
+## Final configurations
+USER $USERNAME
+CMD ["/bin/bash"]
