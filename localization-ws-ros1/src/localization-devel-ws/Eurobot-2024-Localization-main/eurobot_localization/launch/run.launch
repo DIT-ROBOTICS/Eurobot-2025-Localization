@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="robot_name" default="robot"/>
+    <group ns="$(arg robot_name)">
+        <node pkg="eurobot_localization" type="run" name="run">
+            <param name="robot_name" value="$(arg robot_name)"/>
+            <param name="frequency" value="20"/>
+            <param name="acceleration" value="0"/> <!-- 0.4 / 0.4 -->
+            <param name="max_velocity" value="0"/> <!-- 0.6 / 1.5 -->
+            <param name="max_distance" value="0"/> <!-- 1 / 1.57-->
+            <param name="mode" value="1"/> <!-- 0: linear_x, 1: linear_y, 2: rotation-->
+        </node>
+        
+    </group>
+</launch>

@@ -1,4 +1,3 @@
-
 import os  # Import os module
 from setuptools import find_packages, setup
 
@@ -12,7 +11,6 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-
         ('share/' + package_name + '/launch', 
          ['launch/' + f for f in os.listdir('launch') if f.endswith('.launch')])
     ],

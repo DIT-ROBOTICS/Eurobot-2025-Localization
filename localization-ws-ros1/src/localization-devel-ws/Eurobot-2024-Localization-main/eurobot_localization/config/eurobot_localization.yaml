@@ -1,0 +1,118 @@
+
+################################
+
+# use ready signal or not
+# side and initial_pose only used when ready_signal_active is false
+
+localization:
+  ready_signal_active: false
+  side: "0"
+  initial_pose:
+    x: 2.7
+    y: 1.0
+    z: 180.0
+  # side: "1"
+  # initial_pose:
+  #   x: 0.3
+  #   y: 1.0
+  #   z: 0.0
+
+################################
+
+# ekf.cpp
+
+ekf: 
+
+  chassis_type: 1 # diff: 0, omni: 1
+  odom_freq: 100 # Odometry = final_pose frequency
+  timer_frequency: 10 # gps frequency
+  velocity_lpf_gain: 0.5
+
+  # initial covariance
+  initial_cov_x: 0.0001
+  initial_cov_x_y: 0.0001
+  initial_cov_x_yaw: 0.0001
+  initial_cov_y_x: 0.0001
+  initial_cov_y_y: 0.0001
+  initial_cov_y_yaw: 0.0001
+  initial_cov_yaw_x: 0.0001
+  initial_cov_yaw_y: 0.0001
+  initial_cov_yaw_yaw: 0.0001
+
+  ################################
+
+  diff_drive: 
+
+    # differential drive model const for ucekf
+    predict_cov_a1: 1.5
+    predict_cov_a2: 2.5
+    predict_cov_a3: 1.5
+    predict_cov_a4: 2.5
+
+    # measurement covariance for ucekf
+    update_cov_1: 0.1
+    update_cov_2: 0.1
+    update_cov_3: 0.1
+
+  omni_drive:
+
+    # omnidrive model const for ucekf
+    predict_const_x: 0.5
+    predict_const_y: 0.5
+    predict_const_theta: 0.5
+
+    # measurement covariance for ucekf
+    update_cov_1: 0.1
+    update_cov_2: 0.1
+    update_cov_3: 0.1
+
+  # for ucekf
+  mini_likelihood: -10000.0
+  mini_likelihood_update: 0.35
+  max_obstacle_distance: 0.16 # Should be a little larger than "max_obstacle_distance" in global_filter_basic.yaml
+
+################################
+
+# two sides
+
+Blue:
+
+  # Blue
+  beacon_ax: -0.094
+  beacon_ay: 0.052
+
+  beacon_bx: -0.094
+  beacon_by: 1.948
+
+  beacon_cx: 3.094
+  beacon_cy: 1.0
+
+  #      y
+  #      ^
+  #      |
+  #     b|----------|
+  #      |          |
+  #      |          |c
+  #      |          |
+  # (0) a|----------|   -->x
+
+Yellow:
+
+  # Yellow
+  beacon_ax: 3.094
+  beacon_ay: 0.052
+
+  beacon_bx: 3.094
+  beacon_by: 1.948
+
+  beacon_cx: -0.094
+  beacon_cy: 1.0
+
+  #      y
+  #      ^
+  #      |
+  #      |----------|b
+  #      |          |
+  #     c|          |
+  #      |          |
+  # (0)  |----------|a  -->x

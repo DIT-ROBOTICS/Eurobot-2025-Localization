@@ -1,0 +1,35 @@
+<launch>
+
+	<arg name="robot_name" default="robot"/>
+	<arg name="robot_name_slash" default="robot/"/>
+	<arg name="active_rival_center" default="0"/>
+	<arg name="simulation" default="false" />
+    <arg name="use_min_angle" default="false"/>
+
+    <group ns="$(arg robot_name)">
+
+        <rosparam file="$(find eurobot_localization)/config/eurobot_localization.yaml"/>
+        
+        <node name="ekf" pkg="eurobot_localization" type="ekf" >
+			<param name="robot_name" value="$(arg robot_name_slash)"/>
+            <remap from="odom" to="local_filter"/>
+        </node>
+
+    </group>
+
+
+	<include file="$(find lidar_localization)/launch/lidar_with_driver.launch">
+		<arg name="robot_name" default="$(arg robot_name)"/>
+		<arg name="robot_name_slash" default="$(arg robot_name_slash)"/>
+        <arg name="active_rival_center" default="$(arg active_rival_center)"/>
+	    <arg name="simulation" default="$(arg simulation)" />
+        <arg name="use_min_angle" value="$(arg use_min_angle)"/>
+    </include>
+
+	<!-- <include file="$(find eurobot_localization)/launch/rival/rival_localization_plus.launch">
+        <arg name="robot_name" default="$(arg robot_name)"/>
+        <arg name="robot_name_slash" default="$(arg robot_name_slash)"/>
+        <arg name="active_rival_center" default="$(arg active_rival_center)"/>
+    </include> -->
+    
+</launch>

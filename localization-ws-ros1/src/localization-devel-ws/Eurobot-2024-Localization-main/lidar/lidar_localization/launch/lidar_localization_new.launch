@@ -1,0 +1,64 @@
+<launch>
+
+    <arg name="robot_name" default="robot" />
+    <arg name="robot_name_slash" default="robot/" />
+    <arg name="active_rival_center" default="0" />
+
+    <group ns="$(arg robot_name)">
+
+        <rosparam file="$(find lidar_localization)/params/lidar_global.yaml" command="load" />
+
+        <!-- link to laser -->
+        <node name="base_link_to_laser" pkg="tf2_ros" type="static_transform_publisher"
+            args="0 0 0 0 0 1 0 $(arg robot_name_slash)base_footprint $(arg robot_name_slash)laser_frame" />
+
+        <!-- scan processing -->
+        <node name="obstacle_detector_to_base" pkg="obstacle_detector"
+            type="obstacle_extractor_node">
+            <param name="frame_id" value="$(arg robot_name_slash)base_footprint" />
+            <remap from="raw_obstacles" to="obstacles_to_base" />
+        </node>
+        <!-- <node name="obstacle_tracker_to_base" pkg="obstacle_detector"
+            type="obstacle_tracker_node">
+            <remap from="raw_obstacles" to="detector_to_base" />
+            <remap from="tracked_obstacles" to="obstacles_to_base" />
+            <param name="frame_id" value="$(arg robot_name_slash)base_footprint" />
+        </node> -->
+
+        <!-- lidar localization -->
+        <node name="lidar_localization" pkg="lidar_localization" type="lidar_localization_node"
+            output="log">
+
+            <remap from="obstacles" to="obstacles_to_base" />
+
+            <remap from="ekf_pose" to="/$(arg robot_name_slash)final_pose" />
+            <remap from="odom" to="/$(arg robot_name_slash)local_filter"/>
+            <!-- <remap from="/Toposition" to="/$(arg robot_name_slash)Toposition"/> -->
+
+            <param name="beacon_parent_frame_id" value="$(arg robot_name_slash)map" />
+            <param name="beacon_frame_id_prefix" value="$(arg robot_name_slash)beacon" />
+            <param name="robot_parent_frame_id" value="$(arg robot_name_slash)map" />
+            <param name="robot_frame_id" value="$(arg robot_name_slash)base_footprint" />
+
+            <param name="beacon_predict_frame_id" value="$(arg robot_name_slash)predict" />
+        </node>
+
+        <!-- Area extractor -->
+        <!-- for multiple robots and rivals. not used in Eurobot2024. -->
+        <!-- <node name="area_obstacles_extractor" pkg="lidar_localization"
+        type="area_obstacles_extractor_node">
+
+            <param name="ally_obstacles_topic" value="/robot/obstacle_array"/>
+
+            <param name="central" value="true" if="$(eval arg('active_rival_center')==1)"/>
+            <param name="central" value="false" if="$(eval arg('active_rival_center')==0)"/>
+
+            <param name="parent_frame" value="$(arg robot_name_slash)map"/>
+
+            <remap from="robot_pose" to="/robot/ekf_pose"/>
+            <remap from="ally_pose" to="/robot/ekf_pose"/>
+        </node> -->
+
+    </group>
+
+</launch>

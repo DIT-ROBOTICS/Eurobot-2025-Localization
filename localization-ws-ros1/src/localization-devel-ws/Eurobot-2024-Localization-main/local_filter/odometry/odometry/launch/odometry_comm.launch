@@ -1,0 +1,31 @@
+<launch>
+
+	<arg name="robot_name" default=""/>
+	<arg name="robot_name_slash" default=""/>
+
+	<arg name="param" default="1"/>
+    <arg name="simulation" default="false" />
+
+    <node pkg="odometry" type="odometry_node" name="odometry_node">
+
+        <rosparam file="$(find odometry)/param/odometry_comm.yaml" if="$(eval arg('param')==1)"/>
+
+        <param name="twist_topic" value="/$(arg robot_name)/Toposition"/>
+        <param name="odom_topic" value="/$(arg robot_name)/odom"/>
+        <param name="fixed_frame" value="$(arg robot_name_slash)odom"/>
+        <param name="target_frame" value="$(arg robot_name_slash)base_footprint"/>
+
+    </node>
+    
+    <!-- Odometry communication (rosserial server) -->
+    <node pkg="rosserial_server" type="serial_node" name="rosserial_server_dp" unless="$(arg simulation)">
+        <param name="port" value="/dev/stm_00" if="$(eval arg('param')==1)"/>
+        <param name="baud" value="115200" />
+        <rosparam>
+            require:
+                publishers: [ Toposition ]
+                subscribers: [ cmd_vel ]
+        </rosparam>
+    </node>
+
+</launch>
