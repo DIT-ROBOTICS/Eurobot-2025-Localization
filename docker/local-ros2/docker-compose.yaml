@@ -48,6 +48,8 @@ services:
       # "source=${localWorkspaceFolder}/../cache/humble/install,target=/home/ws/install,type=bind",
       # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
       # Mount workspace
+
       - ../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
+      
     # command: /bin/bash
     command: /bin/bash -c "ros2 launch /home/user/localization-ws/src/localization-devel-ws/cust_foxglove_launch.py"

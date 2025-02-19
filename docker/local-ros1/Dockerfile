@@ -43,6 +43,10 @@ FROM user-setup AS tools
 ## Install necessary packages
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3-pip \
+    python3-rosdep \
+    python3-setuptools \
+    python3-numpy \
     apt-utils \
     git \
     nano \
@@ -53,8 +57,23 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     x11-apps \
     tmux \
     htop \ 
-    && rm -rf /var/lib/apt/lists/*
-
+    libsdl-image1.2-dev \
+    libarmadillo-dev \
+    libboost-all-dev \
+    libsdl-dev \
+    ros-noetic-laser-geometry \
+    ros-noetic-tf2-sensor-msgs \
+    ros-noetic-move-base-msgs \
+    ros-noetic-mbf-costmap-core \
+    ros-noetic-mbf-msgs \
+    libsuitesparse-dev \
+    ros-noetic-libg2o \
+    ros-noetic-teleop-twist-keyboard \
+    ros-noetic-costmap-converter \
+    ros-noetic-robot-localization \
+    ros-noetic-imu-tools \
+    libusb-1.0-0 libusb-1.0-0-dev -y && \
+    rm -rf /var/lib/apt/lists/*
 ################################################################################################
 # - ROS Installation stage
 ################################################################################################
@@ -81,8 +100,9 @@ FROM ros-dep AS final
 USER ${USERNAME}
 ## Set working directory
 WORKDIR /home/$USERNAME/localization-ws-ros1/src
-RUN git clone https://github.com/tysik/obstacle_detector.git /home/$USERNAME/localization-ws-ros1/src/obstacle_detector
-
+RUN mkdir -p /home/user/localization-ws-ros1/src/localization-devel-ws &&  \
+git clone https://github.com/tysik/obstacle_detector.git /home/user/localization-ws-ros1/src/obstacle_detector && \
+git clone https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws-ros1/src/rplidar-ros-driver
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
 

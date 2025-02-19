@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="lidar_localization" type="pose_publisher.py" name="pose_publisher" output="screen">
+        <rosparam file="$(find lidar_localization)/params/pose.yaml" />
+    </node>
+</launch>

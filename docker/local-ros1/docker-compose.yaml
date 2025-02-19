@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:local-ros1-nosensor
-    container_name: localization-2025-ros1-dev
+    image: wintera1233/eu25-localization:local-ros1-v2
+    container_name: localization-2025-ros1
     stdin_open: true
     tty: true
     privileged: true
@@ -14,7 +14,7 @@ services:
     restart: no
     # entrypoint: ["./start.sh"]
 
-    network_mode: host
+    # network_mode: host
     working_dir: /home/user/localization-ws-ros1
     environment:
       - DISPLAY=${DISPLAY}

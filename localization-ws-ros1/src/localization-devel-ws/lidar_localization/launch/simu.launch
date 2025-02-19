@@ -1,0 +1,32 @@
+<launch>
+    <arg name="robot_name" default="robot" />
+    <arg name="robot_name_slash" default="robot/" />
+    <!-- <arg name="active_rival_center" default="0" /> -->
+    <param name="/use_sim_time" value="true" />
+
+    <include file="$(find lidar_localization)/launch/ekf/fake_cam.launch" />
+    <include file="$(find lidar_localization)/launch/ekf/statictypee.launch" />
+    <group ns="$(arg robot_name)">
+
+        <rosparam file="$(find lidar_localization)/params/lidar_global.yaml" command="load" />
+
+        <node name="base_link_to_laser" pkg="tf2_ros" type="static_transform_publisher"
+              args="0 0 0 0 0 1 0 $(arg robot_name_slash)base_footprint $(arg robot_name_slash)laser_frame" />
+
+        <node name="lidar_localization" pkg="lidar_localization" type="lidar_localization_node" output="log">
+            <remap from="obstacles" to="obstacles_to_base" />
+            <remap from="ekf_pose" to="/$(arg robot_name_slash)final_pose" />
+            <remap from="odom" to="/$(arg robot_name_slash)local_filter" />
+
+            <param name="beacon_parent_frame_id" value="$(arg robot_name_slash)map" />
+            <param name="beacon_frame_id_prefix" value="$(arg robot_name_slash)beacon" />
+            <param name="robot_parent_frame_id" value="$(arg robot_name_slash)map" />
+            <param name="robot_frame_id" value="$(arg robot_name_slash)base_footprint" />
+            <param name="beacon_predict_frame_id" value="$(arg robot_name_slash)predict" />
+            <param name="use_sim_time" value="true" />
+        </node>
+    </group>
+
+    <node pkg="rosbag" type="play" name="rosbag_play" output="screen"
+          args="$(find ekf)/baggy/0502_omni_2.bag --clock --start 30 --topics /robot/local_filter /robot/obstacles_to_base /robot/final_pose " />
+</launch>
