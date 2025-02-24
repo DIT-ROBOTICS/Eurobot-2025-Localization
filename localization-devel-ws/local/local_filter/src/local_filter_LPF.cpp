@@ -3,7 +3,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
-#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 // matrix calulation
 #include <eigen3/Eigen/Dense>
 #include <math.h>
@@ -71,7 +71,7 @@ public:
         imu_sub_ = nh_->create_subscription<sensor_msgs::msg::Imu>("imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this, std::placeholders::_1));
 
         global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 10);
-        odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::Pose>("odom2map", 10);
+        odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::PoseStamped>("odom2map", 10);
 
     }
 
@@ -170,20 +170,19 @@ public:
         omni_model(linear_x_, linear_y_, angular_z_, dt);
         prev_stamp_=now;
 
-        // publish absolute coordinate
-        coord_odom2map.position.x=init_pose.position.x+odom_msg.angular.x;
-        coord_odom2map.position.y=init_pose.position.y+odom_msg.angular.y;
+        // // publish absolute coordinate
+        coord_odom2map.header.frame_id = "map";
+        coord_odom2map.header.stamp = now;
+        coord_odom2map.pose.position.x=robotstate_.mu(0);
+        coord_odom2map.pose.position.y=robotstate_.mu(1);
 
-        tf2::Quaternion q;
-        tf2::fromMsg(init_pose.orientation, q);
-        tf2::Matrix3x3 qt(q);
-        double _, yaw;
-        qt.getRPY(_, _, yaw);
-        q.setRPY(0, 0, yaw+odom_msg.linear.z);
-        coord_odom2map.orientation.x=q.getX();
-        coord_odom2map.orientation.y=q.getY();
-        coord_odom2map.orientation.z=q.getZ();
-        coord_odom2map.orientation.w=q.getW();
+        tf2::Quaternion quaternion_;
+        quaternion_.setRPY( 0, 0, robotstate_.mu(2) );
+        quaternion_ = quaternion_.normalize();
+        coord_odom2map.pose.orientation.x=quaternion_.getX();
+        coord_odom2map.pose.orientation.y=quaternion_.getY();
+        coord_odom2map.pose.orientation.z=quaternion_.getZ();
+        coord_odom2map.pose.orientation.w=quaternion_.getW();
         odom2map_pub_->publish(coord_odom2map);
     }
 
@@ -240,7 +239,7 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr setpose_sub_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_filter_pub_;
-    rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr odom2map_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr odom2map_pub_;
 
     //raw
     double twist_x_;
@@ -248,7 +247,7 @@ private:
     double cov_backup_[3];
     double cov_multi_[3];
     geometry_msgs::msg::Pose init_pose;
-    geometry_msgs::msg::Pose coord_odom2map;
+    geometry_msgs::msg::PoseStamped coord_odom2map;
     //filtered
     double alpha_x; // filter coefficient
     double alpha_y; // filter coefficient
