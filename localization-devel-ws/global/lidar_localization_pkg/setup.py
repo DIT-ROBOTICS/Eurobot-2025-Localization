@@ -49,6 +49,7 @@ setup(
             'lidar_localization = lidar_localization_pkg.lidar_member_function:main',
             'circle_publisher = lidar_localization_pkg.probability_circle_publisher:main',
             'pred_publisher = lidar_localization_pkg.pred_publisher:main',
+            'calibration = lidar_localization_pkg.lidar_calibration:main',
         ],
     },
 )
