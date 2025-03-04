@@ -58,170 +58,32 @@ class EKFFootprintBroadcaster(Node):
         self.P[4, 4] = 1e-6 # vy
         self.P[5, 5] = 1e-6 # w
 
-        self.Q = np.eye(6) * 5 * 1e-11
-        # self.Q[2, 2] = 3 * 1e-5
-        # self.Q[3, 3] = 1e-6
-        # self.Q[4, 4] = 1e-6
-        # self.Q[5, 5] = 1e-6
-
-        self.Q[3, 3] = 1e-5 # vx
-        self.Q[4, 4] = 1e-5 # vy
-        self.Q[5, 5] = 1e-11 # w
-
-        self.R_gps = np.eye(3) * 1e-2
-        self.R_camera = np.eye(3) * 1e-2
-        self.R_camera[2, 2] = 9
-
-        self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.init_subscribers()
-        self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 10)
-        # self.create_timer(1.0 / self.rate, self.footprint_publish)
-        # self.create_timer(1, self.camera_callback)
-        
         self.footprint_publish()
 
         
     def claim_parameters(self):
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('robot_frame_id', 'base_footprint')
-        self.declare_parameter('camera_frame_id', 'aruco_marker_frame')
-        self.declare_parameter('camera_parent_id', 'map')
 
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
         self.child_frame_id = self.get_parameter('robot_frame_id').value
-        self.camera_frame_id = self.get_parameter('camera_frame_id').value
-        self.camera_parent_id = self.get_parameter('camera_parent_id').value
-        # self.rate = self.get_parameter('update_rate').value
+ 
 
     def init_subscribers(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
-        self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,10)
-        self.create_subscription(Odometry, 'local_filter', self.local_callback, 10)
     
-    def init_callback(self, msg):
-
-        theta = euler_from_quaternion(
-            msg.pose.orientation.x,
-            msg.pose.orientation.y,
-            msg.pose.orientation.z,
-            msg.pose.orientation.w
-        )
-        self.X[2] = theta
-        if msg.covariance[0] > 0:
-            if msg.covariance[0] < 1:
-                self.P[0, 0] = msg.covariance[0]
-                self.P[1, 1] = msg.covariance[7]
-                self.P[2, 2] = msg.covariance[35]
-        self.X[0] = msg.pose.position.x
-        self.X[1] = msg.pose.position.y
-
-
     def gps_callback(self, msg):
-        gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-        current_time = self.get_clock().now().nanoseconds / 1e9
-        if abs(current_time - gps_time) > 1.5:  # GPS data too old
-            # self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
-            return
+        self.X[0] = msg.pose.pose.position.x
+        self.X[1] = msg.pose.pose.position.y
+        self.X[2] = euler_from_quaternion(msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)
 
-        if is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
-            # self.get_logger().info("Invalid GPS data received")
-            return
+        self.P[0, 0] = msg.pose.covariance[0]
+        self.P[1, 1] = msg.pose.covariance[7]
+        self.P[2, 2] = msg.pose.covariance[35]
 
-        theta = euler_from_quaternion(
-            msg.pose.pose.orientation.x,
-            msg.pose.pose.orientation.y,
-            msg.pose.pose.orientation.z,
-            msg.pose.pose.orientation.w
-        )
-        gps_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, theta])
-
-        self.R_gps[0, 0] = msg.pose.covariance[0]
-        self.R_gps[1, 1] = msg.pose.covariance[7]
-        self.R_gps[2, 2] = msg.pose.covariance[35]
-        self.ekf_update(gps_measurement, self.R_gps)
-
-
-    def camera_callback(self):
-        now = self.get_clock().now().nanoseconds / 1e9
-        # self.get_logger().info(f"Camera callback triggered at: {now}")
-        try:
-            t = self.tf_buffer.lookup_transform(
-                self.camera_parent_id,
-                self.camera_frame_id, 
-                rclpy.time.Time()      
-            )
-            trans = t.transform.translation
-            rot = t.transform.rotation
-            theta = euler_from_quaternion(rot.x, rot.y, rot.z, rot.w)
-
-            camera_measurement = np.array([trans.x, trans.y, theta])
-            # self.get_logger().info(f"Camera transform: x={trans.x}, y={trans.y}, theta={theta}")
-            self.ekf_update(camera_measurement, self.R_camera)
-        except TransformException as ex:
-            self.get_logger().warn(f"TransformException in camera_callback: {ex}")
-
-    # def odom_callback(self, msg):
-    #     current_time = self.get_clock().now().nanoseconds / 1e9
-    #     dt = current_time - self.last_odom_time
-    #     self.last_odom_time = current_time
-
-    #     v_x = msg.linear.x
-    #     v_y = msg.linear.y
-    #     w = msg.angular.z 
-    #     # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
-    #     self.ekf_predict(v_x, v_y, w, dt) 
-
-    def local_callback(self, msg):
-        current_time = self.get_clock().now().nanoseconds / 1e9
-        dt = current_time - self.last_odom_time
-        self.last_odom_time = current_time
-
-        v_x = msg.twist.twist.linear.x
-        v_y = msg.twist.twist.linear.y
-        w = msg.twist.twist.angular.z
-        # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
-        self.ekf_predict(v_x, v_y, w, dt) 
-
-    def ekf_predict(self, v_x, v_y, w, dt):
-        theta = self.X[2]
-        F = np.eye(6)
-        F[0, 3] = dt * math.cos(theta)
-        F[0, 4] = - dt * math.sin(theta)
-        F[1, 3] = dt * math.sin(theta)
-        F[1, 4] = dt * math.cos(theta)
-        F[2, 5] = dt
-
-        self.X[0] += v_x * dt * math.cos(theta) - v_y * dt * math.sin(theta)
-        self.X[1] += v_x * dt * math.sin(theta) + v_y * dt  * math.cos(theta)
-        self.X[2] += w * dt
-        self.X[2] = normalize_angle(self.X[2])
-       
-        self.P = F @ self.P @ F.T + self.Q
-     
         self.footprint_publish()
-
-    def ekf_update(self, z, R):
-        if np.any(np.isnan(z)):  # Check if the measurement is valid
-            self.get_logger().warn("Invalid measurement data received.")
-            return
-        
-        H = np.zeros((3, 6))
-        H[0, 0] = 1  
-        H[1, 1] = 1 
-        H[2, 2] = 1
-        S = H @ self.P @ H.T + R
-        K = self.P @ H.T @ np.linalg.inv(S)
-
-        self.X += K @ (z - H @ self.X)
-        self.X[2] = normalize_angle(self.X[2])
-
-        I = np.eye(6)
-        self.P = (I - K @ H) @ self.P @ (I - K @ H).T + K @ R @ K.T
-
-        # if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
-        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
-        #     self.P = np.eye(3) * 1e-2
-            
+      
     def footprint_publish(self):
         t = TransformStamped()
 
