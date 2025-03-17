@@ -163,9 +163,9 @@ public:
         // twist_x_ = odom_msg.linear.x;
         // twist_y_ = odom_msg.linear.y;
         // get pose data
-        robotstate_.mu(0)=odom_msg.angular.x;
-        robotstate_.mu(1)=odom_msg.angular.y;
-        robotstate_.mu(2)=odom_msg.linear.z;
+        // robotstate_.mu(0)=odom_msg.angular.x;
+        // robotstate_.mu(1)=odom_msg.angular.y;
+        // robotstate_.mu(2)=odom_msg.linear.z;
         // Apply low-pass filter to linear xy from odom
         linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
         linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
@@ -183,7 +183,7 @@ public:
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
         double dt=now.seconds()-prev_stamp_.seconds();
-        // omni_model(linear_x_, linear_y_, angular_z_, dt);
+        omni_model(linear_x_, linear_y_, angular_z_, dt);
         prev_stamp_=now;
 
         // publish absolute coordinate
@@ -207,8 +207,9 @@ public:
     }
 
     void imuCallback(const sensor_msgs::msg::Imu & imu_msg) {
-        double odom_w_interpolation=prev_odom_w.value+(curr_odom_w.value-prev_odom_w.value)*(imu_msg.header.stamp.sec-prev_odom_w.time)/(curr_odom_w.time-prev_odom_w.time);
-        angular_z_=alpha_w*imu_msg.angular_velocity.z+(1-alpha_w)*odom_w_interpolation;
+        angular_z_=imu_msg.angular_velocity.z;
+        // double odom_w_interpolation=prev_odom_w.value+(curr_odom_w.value-prev_odom_w.value)*(imu_msg.header.stamp.sec-prev_odom_w.time)/(curr_odom_w.time-prev_odom_w.time);
+        // angular_z_=alpha_w*imu_msg.angular_velocity.z+(1-alpha_w)*odom_w_interpolation;
         local_filter_pub(imu_msg.header.stamp, std::min(angular_cov_max_, imu_msg.angular_velocity_covariance[8])); //cov_max
         prev_odom_w=curr_odom_w;
     }
