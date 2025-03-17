@@ -163,9 +163,9 @@ public:
         // twist_x_ = odom_msg.linear.x;
         // twist_y_ = odom_msg.linear.y;
         // get pose data
-        // robotstate_.mu(0)=odom_msg.angular.x;
-        // robotstate_.mu(1)=odom_msg.angular.y;
-        // robotstate_.mu(2)=odom_msg.linear.z;
+        robotstate_.mu(0)=odom_msg.angular.x;
+        robotstate_.mu(1)=odom_msg.angular.y;
+        robotstate_.mu(2)=odom_msg.linear.z;
         // Apply low-pass filter to linear xy from odom
         linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
         linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
@@ -183,7 +183,7 @@ public:
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
         double dt=now.seconds()-prev_stamp_.seconds();
-        omni_model(linear_x_, linear_y_, angular_z_, dt);
+        // omni_model(linear_x_, linear_y_, angular_z_, dt);
         prev_stamp_=now;
 
         // publish absolute coordinate
