@@ -41,7 +41,7 @@ public:
         nh_local_->declare_parameter("LPF_alpha_y", 0.5); // filter coefficient
         alpha_y=nh_local_->get_parameter("LPF_alpha_y").as_double();
 
-        nh_local_->declare_parameter("LPF_alpha_w", 0.5); // filter coefficient
+        nh_local_->declare_parameter("LPF_alpha_w", 1.0); // filter coefficient
         alpha_w=nh_local_->get_parameter("LPF_alpha_w").as_double();
 
         nh_local_->declare_parameter("linear_cov_max", 0.1);
@@ -183,7 +183,7 @@ public:
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
         double dt=now.seconds()-prev_stamp_.seconds();
-        omni_model(linear_x_, linear_y_, angular_z_, dt);
+        // omni_model(linear_x_, linear_y_, angular_z_, dt);
         prev_stamp_=now;
 
         // publish absolute coordinate
