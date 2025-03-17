@@ -81,12 +81,6 @@ public:
         global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 10);
         odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::PoseStamped>("odom2map", 10);
 
-        // coord_odom2map.position.x=0;
-        // coord_odom2map.position.y=0;
-        // coord_odom2map.orientation.x=0;
-        // coord_odom2map.orientation.y=0;
-        // coord_odom2map.orientation.z=0;
-        // coord_odom2map.orientation.w=0;
     }
 
     void diff_model(double v, double w, double dt)
@@ -138,6 +132,13 @@ public:
         init_pose.orientation.y=pose_msg.pose.orientation.y;
         init_pose.orientation.z=pose_msg.pose.orientation.z;
         init_pose.orientation.w=pose_msg.pose.orientation.w;
+
+        coord_odom2map.pose.position.x=x;
+        coord_odom2map.pose.position.y=y;
+        coord_odom2map.pose.orientation.x=pose_msg.pose.orientation.x;
+        coord_odom2map.pose.orientation.y=pose_msg.pose.orientation.y;
+        coord_odom2map.pose.orientation.z=pose_msg.pose.orientation.z;
+        coord_odom2map.pose.orientation.w=pose_msg.pose.orientation.w;
         
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
