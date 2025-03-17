@@ -81,12 +81,12 @@ public:
         global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 10);
         odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::PoseStamped>("odom2map", 10);
 
-        coord_odom2map.position.x=0;
-        coord_odom2map.position.y=0;
-        coord_odom2map.orientation.x=0;
-        coord_odom2map.orientation.y=0;
-        coord_odom2map.orientation.z=0;
-        coord_odom2map.orientation.w=0;
+        // coord_odom2map.position.x=0;
+        // coord_odom2map.position.y=0;
+        // coord_odom2map.orientation.x=0;
+        // coord_odom2map.orientation.y=0;
+        // coord_odom2map.orientation.z=0;
+        // coord_odom2map.orientation.w=0;
     }
 
     void diff_model(double v, double w, double dt)
