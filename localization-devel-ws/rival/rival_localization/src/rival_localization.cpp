@@ -1,5 +1,14 @@
 #include "rival_localization/rival_localization.h"
 
+Rival::Rival() : Node("rival_localization"){
+
+    IMM imm;
+    model = imm;
+    initial = true;
+
+    initialize();
+}
+
 void Rival::initialize() {
 
     this->declare_parameter<std::string>("robot_name", "default");
@@ -27,13 +36,15 @@ void Rival::initialize() {
     RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
     obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("obstacles_to_map", 10, std::bind(&Rival::obstacles_callback, this, _1));
-    rival_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
+    rival_raw_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
+    rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("final_pose", 10);
+
     br = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
     timer_ = this->create_wall_timer(std::chrono::duration<double>(1.0 / freq), std::bind(&Rival::timerCallback, this));
   
     obstacle_ok = false;
     locking_rad = p_locking_rad;
-}
+}        
 
 bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
 
@@ -48,7 +59,8 @@ bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
 bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point cur, double dt) {
 
     bool ok = true;
-    locking_rad = locking_rad + sqrt(pow(rival_vel.x, 2) + pow(rival_vel.y, 2)) * dt;
+
+    locking_rad = locking_rad + sqrt(pow(rival_final_vel.x, 2) + pow(rival_final_vel.y, 2)) * dt;
     double distance = sqrt(pow((pre.x - cur.x), 2) + pow((pre.y - cur.y), 2));
 
     if (distance > locking_rad) ok = false;
@@ -63,6 +75,46 @@ geometry_msgs::msg::Vector3 Rival::lpf(double gain, geometry_msgs::msg::Vector3 
     out.y = gain * cur.y + (1.0 - gain) * pre.y;
 
     return out;
+}
+
+void Rival::imm_filter() {
+
+    double px, py, vx, vy;
+    
+    px = rival_raw_pose.x;
+    py = rival_raw_pose.y;
+    vx = rival_raw_vel.x;
+    vy = rival_raw_vel.y;
+    
+    if (!initial) {
+
+        Eigen::VectorXd z;
+
+        z.resize(4);
+
+        z << px, py, vx, vy;
+
+        model.updateOnce(rival_stamp.seconds(), &z);
+    }
+    else {
+
+        Eigen::VectorXd x;
+        ModelGenerator gen;
+
+        x.resize(6);
+
+        //initial state
+        x << px, py, vx, vy, 0, 0;
+
+        gen.generateIMMModel(rival_stamp.seconds(), x, model);
+
+        initial = false;
+    }
+
+    rival_final_pose.x = model.x_[0];
+    rival_final_pose.y = model.x_[1];
+    rival_final_vel.x  = model.x_[2];
+    rival_final_vel.y  = model.x_[3];
 }
 
 void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr& msg) {
@@ -86,13 +138,11 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
 
             obstacle_stamp = msg->header.stamp;
             obstacle_pose = circle.center;
-            // obstacle_vel.x = (obstacle_pose.x - obstacle_pose_pre.x) / (obstacle_stamp.toSec() - obstacle_stamp_pre.toSec());
-            // obstacle_vel.y = (obstacle_pose.y - obstacle_pose_pre.y) / (obstacle_stamp.toSec() - obstacle_stamp_pre.toSec());
             first = true;
             continue;
         }
 
-        double distance_ = sqrt(pow((circle.center.x - rival_pose.x), 2) + pow((circle.center.y, rival_pose.y), 2));
+        double distance_ = sqrt(pow((circle.center.x - rival_final_pose.x), 2) + pow((circle.center.y, rival_final_pose.y), 2));
 
         obstacle_ok = true;
 
@@ -101,16 +151,16 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
             min_distance = distance_;
             obstacle_stamp = msg->header.stamp;
             obstacle_pose = circle.center;
-
-            if(obstacle_stamp.seconds() != obstacle_stamp_pre.seconds()){
-
-                obstacle_vel.x = (obstacle_pose.x - obstacle_pose_pre.x) / (obstacle_stamp.seconds() - obstacle_stamp_pre.seconds());
-                obstacle_vel.y = (obstacle_pose.y - obstacle_pose_pre.y) / (obstacle_stamp.seconds() - obstacle_stamp_pre.seconds());
-                obstacle_pose_pre = obstacle_pose;
-                obstacle_vel_pre = obstacle_vel;
-                obstacle_stamp_pre = obstacle_stamp;
-            }
         }
+    }
+
+    if(obstacle_stamp.seconds() != obstacle_stamp_pre.seconds()){
+
+        obstacle_vel.x = (obstacle_pose.x - obstacle_pose_pre.x) / (obstacle_stamp.seconds() - obstacle_stamp_pre.seconds());
+        obstacle_vel.y = (obstacle_pose.y - obstacle_pose_pre.y) / (obstacle_stamp.seconds() - obstacle_stamp_pre.seconds());
+        obstacle_pose_pre = obstacle_pose;
+        obstacle_vel_pre = obstacle_vel;
+        obstacle_stamp_pre = obstacle_stamp;
     }
 
     if (!obstacle_ok){
@@ -130,8 +180,8 @@ void Rival::fusion() {
     rival_ok = true;
 
     if(obstacle_ok){
-        rival_pose = obstacle_pose;
-        rival_vel = obstacle_vel;
+        rival_raw_pose = obstacle_pose;
+        rival_raw_vel = obstacle_vel;
     }
     else
         rival_ok = false;
@@ -140,39 +190,68 @@ void Rival::fusion() {
     obstacle_ok = false;
 }
 
-void Rival::timerCallback(){
+
+void Rival::timerCallback() {
 
     static geometry_msgs::msg::Point rival_pose_pre;
     static geometry_msgs::msg::Vector3 rival_vel_pre;
-    rclcpp::Clock clock;
 
     fusion();
 
     if(rival_ok){
 
         rival_stamp = clock.now();
-        rival_vel = lpf(vel_lpf_gain, rival_vel_pre, rival_vel);
-        publish_rival();
+
+        rival_raw_vel = lpf(vel_lpf_gain, rival_vel_pre, rival_raw_vel);
+
+        // 比較是否有 imm filter 的差異
+        publish_rival_raw();
+        publish_rival_final();
+
         broadcast_rival_tf();
-        rival_pose_pre = rival_pose;
-        rival_vel_pre = rival_vel;
-        RCLCPP_INFO(this->get_logger(),"rival_pose: %f, %f", rival_pose.x, rival_pose.y);
-        RCLCPP_INFO(this->get_logger(),"rival_vel: %f, %f", rival_vel.x, rival_vel.y);
+        rival_pose_pre = rival_final_pose;
+        rival_vel_pre = rival_final_vel;
         rival_ok = false;
     }
 }
 
-void Rival::publish_rival() {
+void Rival::publish_rival_raw() {
 
-    nav_msgs::msg::Odometry msg;
-    msg.header.stamp = rival_stamp;
-    msg.header.frame_id = robot_name + "/map";
-    msg.child_frame_id = rival_name + "/final_pose";
-    msg.pose.pose.position = rival_pose;
-    msg.pose.pose.orientation.w = 1;
-    msg.twist.twist.linear = rival_vel;
+    rival_output.header.stamp = rival_stamp;
+    rival_output.header.frame_id = "/map";
+    rival_output.child_frame_id = rival_name + "/raw_pose";
+    rival_output.pose.pose.position = rival_raw_pose;
+    rival_output.pose.pose.orientation.w = 1;
+    rival_output.twist.twist.linear = rival_raw_vel;
 
-    rival_pub->publish(msg);
+    rival_raw_pub->publish(rival_output);
+
+    // RCLCPP_INFO(this->get_logger(),"raw Publish:");
+    // RCLCPP_INFO(this->get_logger(),"center:( %f , %f )",rival_raw_pose.x, rival_raw_pose.y);
+    // RCLCPP_INFO(this->get_logger(),"velocity:( %f , %f )", rival_raw_vel.x, rival_raw_vel.y);
+    // RCLCPP_INFO(this->get_logger(),"time stamp: %f", rival_stamp.seconds());
+    // RCLCPP_INFO(this->get_logger(),"-------------");
+}
+
+void Rival::publish_rival_final() {                    
+
+    imm_filter();
+
+    rival_output.header.stamp = rival_stamp;
+    rival_output.header.frame_id = "/map";
+    rival_output.child_frame_id = rival_name + "/final_pose";
+    rival_output.pose.pose.position = rival_final_pose;
+    rival_output.pose.pose.orientation.w = 1;
+    rival_output.twist.twist.linear = rival_final_vel;
+
+    rival_final_pub->publish(rival_output);
+
+    // RCLCPP_INFO(this->get_logger(),"final Publish:");
+    // RCLCPP_INFO(this->get_logger(),"center:( %f , %f )",rival_final_pose.x, rival_final_pose.y);
+    // RCLCPP_INFO(this->get_logger(),"velocity:( %f , %f )", rival_final_vel.x, rival_final_vel.y);
+    // RCLCPP_INFO(this->get_logger(),"time stamp: %f", rival_stamp.seconds());
+    // RCLCPP_INFO(this->get_logger(),"-------------");
+
 }
 
 void Rival::broadcast_rival_tf() {
@@ -184,12 +263,11 @@ void Rival::broadcast_rival_tf() {
         geometry_msgs::msg::TransformStamped transformStamped;
 
         transformStamped.header.stamp = rival_stamp;
-        transformStamped.header.frame_id = robot_name + "/map";
+        transformStamped.header.frame_id = "/map";
         transformStamped.child_frame_id = rival_name + "/base_footprint";
-
-        transformStamped.transform.translation.x = rival_pose.x;
-        transformStamped.transform.translation.y = rival_pose.y;
-        transformStamped.transform.translation.z = rival_pose.z;
+        transformStamped.transform.translation.x = rival_final_pose.x;
+        transformStamped.transform.translation.y = rival_final_pose.y;
+        transformStamped.transform.translation.z = rival_final_pose.z;
 
         tf2::Quaternion q;
         q.setRPY(0, 0, 0); // Roll, Pitch, Yaw

@@ -37,9 +37,12 @@ services:
       - /dev/dri:/dev/dri
       # Shared Memory
       - /dev/shm:/dev/shm
+    environment:
+      - ROS_DOMAIN_ID=42
+      # - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp=value
 
   ros1:
-    image: jossiewang/eurobot2025-localization:ros1-serial
+    image: jossiewang/eurobot2025-localization:rosserial-ttyusb0
     container_name: ros1
     stdin_open: true
     tty: true
@@ -54,7 +57,7 @@ services:
     command: /bin/bash -c "
             source /opt/ros/noetic/setup.bash && 
             source ~/ws/devel/setup.bash &&
-            sudo chmod 777 /dev/ttyACM0 &&
+            sudo chmod 777 /dev/ttyUSB0 &&
             roslaunch odometry odometry_comm.launch"
 
   ros2-localization-dev:
@@ -63,7 +66,7 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:testBot-ros2
+    image: jossiewang/eurobot2025-localization:testbot-release # TODO: make a ros-ws-built image
     container_name: localization-2025-dev-ros2
     stdin_open: true
     tty: true
@@ -81,7 +84,8 @@ services:
       # - https://docs.ros.org/en/humble/Concepts/Intermediate/About-Domain-ID.html
       # - https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html
       # - ROS_LOCALHOST_ONLY=1
-      # - ROS_DOMAIN_ID=42
+      - ROS_DOMAIN_ID=42
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - ROS_WS=/home/user/localization-ws
     volumes:
       # Mount local timezone into container. ( Readonly )
@@ -97,4 +101,10 @@ services:
       - /dev:/dev
       # Mount workspace
       - ../../../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
-    command: /bin/bash
+    command: /bin/bash -c "
+        cd /home/user/localization-ws/src/localization-devel-ws &&
+        sudo chmod +x usb.sh &&
+        ./usb.sh &&
+        source /opt/ros/humble/setup.bash && 
+        source /home/user/localization-ws/install/setup.bash &&
+        ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/run.launch"

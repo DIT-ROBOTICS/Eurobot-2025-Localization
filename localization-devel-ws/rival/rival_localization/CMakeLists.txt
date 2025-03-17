@@ -11,6 +11,8 @@ find_package(rclcpp REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(obstacle_detector REQUIRED)
 
@@ -19,10 +21,16 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+add_library(rival_lib lib/EKF.cpp lib/IMM.cpp lib/ModelGenerator.cpp)
+target_include_directories(rival_lib PUBLIC include)
+ament_target_dependencies(rival_lib rclcpp sensor_msgs geometry_msgs nav_msgs std_msgs tf2 tf2_ros)
+
 add_executable(rival_localization src/rival_localization.cpp)
-ament_target_dependencies(rival_localization rclcpp tf2 tf2_ros geometry_msgs nav_msgs obstacle_detector)
+ament_target_dependencies(rival_localization rclcpp tf2 tf2_ros geometry_msgs nav_msgs obstacle_detector sensor_msgs std_msgs)
+target_link_libraries(rival_localization rival_lib)
 
 install(TARGETS
+  rival_lib
   rival_localization
 
   DESTINATION lib/${PROJECT_NAME})

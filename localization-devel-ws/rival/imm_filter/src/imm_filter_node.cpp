@@ -29,10 +29,10 @@ void filter::obstacles_callback(const nav_msgs::msg::Odometry::ConstPtr& msg){
     sub_vx_ = msg->twist.twist.linear.x;
     sub_vy_ = msg->twist.twist.linear.y;
 
-    RCLCPP_INFO(this->get_logger(),"Subscribe:");
-    RCLCPP_INFO(this->get_logger(),"center:( %f , %f )", sub_px_, sub_py_);
-    RCLCPP_INFO(this->get_logger(),"velocity:( %f , %f )", sub_vx_, sub_vy_);
-    RCLCPP_INFO(this->get_logger(),"-------------");
+    // RCLCPP_INFO(this->get_logger(),"Subscribe:");
+    // RCLCPP_INFO(this->get_logger(),"center:( %f , %f )", sub_px_, sub_py_);
+    // RCLCPP_INFO(this->get_logger(),"velocity:( %f , %f )", sub_vx_, sub_vy_);
+    // RCLCPP_INFO(this->get_logger(),"-------------");
 
     if (!first_) {
 
@@ -67,7 +67,7 @@ void filter::broadcast_rival_tf() {
         geometry_msgs::msg::TransformStamped transformStamped;
 
         transformStamped.header.stamp = rival_stamp;
-        transformStamped.header.frame_id = robot_name + "/map";
+        transformStamped.header.frame_id = "/map";
         transformStamped.child_frame_id = rival_name + "/base_footprint";
 
         transformStamped.transform.translation.x = sub_px_;
@@ -99,11 +99,11 @@ void filter::IMM_publisher(double point_x, double point_y, double velocity_x, do
     broadcast_rival_tf();
     imm_pub->publish(odom);
 
-    RCLCPP_INFO(this->get_logger(),"Publish:");
-    RCLCPP_INFO(this->get_logger(),"center:( %f , %f )", point_x, point_y);
-    RCLCPP_INFO(this->get_logger(),"velocity:( %f , %f )", velocity_x, velocity_y);
-    RCLCPP_INFO(this->get_logger(),"time stamp: %f", time.seconds());
-    RCLCPP_INFO(this->get_logger(),"-------------");
+    // RCLCPP_INFO(this->get_logger(),"Publish:");
+    // RCLCPP_INFO(this->get_logger(),"center:( %f , %f )", point_x, point_y);
+    // RCLCPP_INFO(this->get_logger(),"velocity:( %f , %f )", velocity_x, velocity_y);
+    // RCLCPP_INFO(this->get_logger(),"time stamp: %f", time.seconds());
+    // RCLCPP_INFO(this->get_logger(),"-------------");
 }
 
 int main(int argc, char * argv[]) {

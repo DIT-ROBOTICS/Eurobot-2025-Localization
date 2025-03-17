@@ -19,12 +19,12 @@
     
     <!-- Odometry communication (rosserial server) -->
     <node pkg="rosserial_server" type="serial_node" name="rosserial_server_dp" unless="$(arg simulation)">
-        <param name="port" value="/dev/ttyACM0" if="$(eval arg('param')==1)"/>
+        <param name="port" value="/dev/chassis" if="$(eval arg('param')==1)"/>
         <!-- <param name="port" value="/dev/stm_00" if="$(eval arg('param')==1)"/> -->
         <param name="baud" value="115200" />
         <rosparam>
             require:
-                publishers: [ odoo_googoogoo ]
+                publishers: [ driving_duaiduaiduai, odoo_googoogoo ]
                 subscribers: [ ]
         </rosparam>
     </node>

@@ -3,7 +3,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
-#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 // matrix calulation
 #include <eigen3/Eigen/Dense>
 #include <math.h>
@@ -74,12 +74,12 @@ public:
             cov_multi_[i]=nh_local_->get_parameter("covariance_multi_"+str).as_double();
         }
 
-        setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initialpose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
+        setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovariance>("initial_pose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
         odom_sub_ = nh_->create_subscription<geometry_msgs::msg::Twist>("odoo_googoogoo", 10, std::bind(&GlobalFilterNode::odomCallback, this, std::placeholders::_1));
         imu_sub_ = nh_->create_subscription<sensor_msgs::msg::Imu>("imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this, std::placeholders::_1));
 
-        global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 100);
-        odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::Pose>("odom2map", 100);
+        global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 10);
+        odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::PoseStamped>("odom2map", 10);
 
     }
 
@@ -121,20 +121,24 @@ public:
         robotstate_.mu = A * robotstate_.mu + B * d_state;
     }
 
-    void setposeCallback(const geometry_msgs::msg::PoseWithCovarianceStamped & pose_msg)
+    void setposeCallback(const geometry_msgs::msg::PoseWithCovariance & pose_msg)
     {
-        double x = pose_msg.pose.pose.position.x;
-        double y = pose_msg.pose.pose.position.y;
+        double x = pose_msg.pose.position.x;
+        double y = pose_msg.pose.position.y;
         
         init_pose.position.x=x;
         init_pose.position.y=y;
-        init_pose.orientation.x=pose_msg.pose.pose.orientation.x;
-        init_pose.orientation.y=pose_msg.pose.pose.orientation.y;
-        init_pose.orientation.z=pose_msg.pose.pose.orientation.z;
-        init_pose.orientation.w=pose_msg.pose.pose.orientation.w;
+        init_pose.orientation.x=pose_msg.pose.orientation.x;
+        init_pose.orientation.y=pose_msg.pose.orientation.y;
+        init_pose.orientation.z=pose_msg.pose.orientation.z;
+        init_pose.orientation.w=pose_msg.pose.orientation.w;
+        
+        rclcpp::Clock clock;
+        rclcpp::Time now=clock.now();
+        prev_stamp_=now;
 
         tf2::Quaternion q;
-        tf2::fromMsg(pose_msg.pose.pose.orientation, q);
+        tf2::fromMsg(pose_msg.pose.orientation, q);
         tf2::Matrix3x3 qt(q);
         double _, yaw;
         qt.getRPY(_, _, yaw);
@@ -143,15 +147,15 @@ public:
         robotstate_.mu(1) = y;
         robotstate_.mu(2) = yaw;
 
-        robotstate_.sigma(0, 0) = pose_msg.pose.covariance[0];   // x-x
-        robotstate_.sigma(0, 1) = pose_msg.pose.covariance[1];   // x-y
-        robotstate_.sigma(0, 2) = pose_msg.pose.covariance[5];   // x-theta
-        robotstate_.sigma(1, 0) = pose_msg.pose.covariance[6];   // y-x
-        robotstate_.sigma(1, 1) = pose_msg.pose.covariance[7];   // y-y
-        robotstate_.sigma(1, 2) = pose_msg.pose.covariance[11];  // y-theta
-        robotstate_.sigma(2, 0) = pose_msg.pose.covariance[30];  // theta-x
-        robotstate_.sigma(2, 1) = pose_msg.pose.covariance[31];  // theta-y
-        robotstate_.sigma(2, 2) = pose_msg.pose.covariance[35];  // theta-theta
+        robotstate_.sigma(0, 0) = pose_msg.covariance[0];   // x-x
+        robotstate_.sigma(0, 1) = pose_msg.covariance[1];   // x-y
+        robotstate_.sigma(0, 2) = pose_msg.covariance[5];   // x-theta
+        robotstate_.sigma(1, 0) = pose_msg.covariance[6];   // y-x
+        robotstate_.sigma(1, 1) = pose_msg.covariance[7];   // y-y
+        robotstate_.sigma(1, 2) = pose_msg.covariance[11];  // y-theta
+        robotstate_.sigma(2, 0) = pose_msg.covariance[30];  // theta-x
+        robotstate_.sigma(2, 1) = pose_msg.covariance[31];  // theta-y
+        robotstate_.sigma(2, 2) = pose_msg.covariance[35];  // theta-theta
     }
 
     void odomCallback(const geometry_msgs::msg::Twist & odom_msg) {
@@ -165,7 +169,7 @@ public:
         // Apply low-pass filter to linear xy from odom
         linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
         linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
-        curr_odom_w.value=odom_msg.angular.z;
+        // angular_z_=odom_msg.angular.z;
        
         // double cov_multi[3];
         // cov_multi[0]=cov_multi_[0]*abs(odom_msg.linear.x);
@@ -178,22 +182,25 @@ public:
 
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
-        curr_odom_w.time=now.seconds();
+        double dt=now.seconds()-prev_stamp_.seconds();
+        omni_model(linear_x_, linear_y_, angular_z_, dt);
+        prev_stamp_=now;
 
         // publish absolute coordinate
-        coord_odom2map.position.x=init_pose.position.x+odom_msg.angular.x/1000;
-        coord_odom2map.position.y=init_pose.position.y+odom_msg.angular.y/1000;
+        coord_odom2map.header.stamp= now;
+        coord_odom2map.pose.position.x=robotstate_.mu[0];
+        coord_odom2map.pose.position.y=robotstate_.mu[1];
 
         tf2::Quaternion q;
         tf2::fromMsg(init_pose.orientation, q);
         tf2::Matrix3x3 qt(q);
         double _, yaw;
-        qt.getRPY(_, _, yaw);
-        q.setRPY(0, 0, yaw+odom_msg.linear.z);
-        coord_odom2map.orientation.x=q.getX();
-        coord_odom2map.orientation.y=q.getY();
-        coord_odom2map.orientation.z=q.getZ();
-        coord_odom2map.orientation.w=q.getW();
+        qt.getRPY(_, _, robotstate_.mu[2]);
+        q.setRPY(0, 0, robotstate_.mu[2]);
+        coord_odom2map.pose.orientation.x=q.getX();
+        coord_odom2map.pose.orientation.y=q.getY();
+        coord_odom2map.pose.orientation.z=q.getZ();
+        coord_odom2map.pose.orientation.w=q.getW();
         odom2map_pub_->publish(coord_odom2map);
     }
 
@@ -246,9 +253,9 @@ private:
     std::shared_ptr<rclcpp::Node> nh_local_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
-    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr setpose_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovariance>::SharedPtr setpose_sub_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_filter_pub_;
-    rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr odom2map_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr odom2map_pub_;
 
     //raw
     double twist_x_;

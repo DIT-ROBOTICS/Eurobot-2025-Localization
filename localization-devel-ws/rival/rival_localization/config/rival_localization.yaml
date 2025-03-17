@@ -10,8 +10,8 @@ obstacle_detector_to_map:
     circles_from_visibles: true
     discard_converted_segments: false
     transform_coordinates: true
-
-    min_group_points: 50
+    
+    min_group_points: 5
 
     max_group_distance: 0.04
     distance_proportion: 0.00628
@@ -31,6 +31,7 @@ rival_localization:
     y_max: 1.9
     y_min: 0.1   
     vel_lpf_gain: 0.9
-    locking_rad: 0.5
-    lockrad_growing_rate: 0.5 # m/s
+    locking_rad: 0.3
+    lockrad_growing_rate: 0.3 # m/s
+
     

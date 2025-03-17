@@ -24,8 +24,8 @@
         <param name="baud" value="115200" />
         <rosparam>
             require:
-                publishers: [ odoo_googoogoo ]
-                subscribers: [ ]
+                publishers: [ odoo_googoogoo, driving_duaiduaiduai ]
+                subscribers: [ cmd_vel ]
         </rosparam>
     </node>
 

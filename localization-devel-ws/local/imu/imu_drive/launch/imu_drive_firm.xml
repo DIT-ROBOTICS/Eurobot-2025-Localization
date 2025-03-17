@@ -17,8 +17,8 @@
 
         <param from="$(find-pkg-share imu_drive)/config/imu_drive_firm.yaml" />
 
-        <param name="sub_topic" value="/imu/data_raw"/>
-        <param name="pub_topic" value="/imu/data_cov"/>
+        <remap from="sub_topic" to="/imu/data_raw"/>
+        <remap from="pub_topic" to="/imu/data_cov"/>
         <remap from="/cmd_vel" to="/cmd_vel"/>
 
         <param name="frame" value="imu_link"/>
