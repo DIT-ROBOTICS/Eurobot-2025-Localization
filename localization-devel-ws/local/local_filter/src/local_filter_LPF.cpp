@@ -188,8 +188,8 @@ public:
 
         // publish absolute coordinate
         coord_odom2map.header.stamp= now;
-        coord_odom2map.pose.position.x=robotstate_.mu[0];
-        coord_odom2map.pose.position.y=robotstate_.mu[1];
+        coord_odom2map.pose.position.x=init_pose.position.x+robotstate_.mu[0];
+        coord_odom2map.pose.position.y=init_pose.position.y+robotstate_.mu[1];
 
         tf2::Quaternion q;
         tf2::fromMsg(init_pose.orientation, q);
@@ -263,7 +263,7 @@ private:
     double cov_backup_[3];
     double cov_multi_[3];
     geometry_msgs::msg::Pose init_pose;
-    geometry_msgs::msg::Pose coord_odom2map;
+    geometry_msgs::msg::PoseStamped coord_odom2map;
     DataWithStamped prev_odom_w;
     DataWithStamped curr_odom_w;
     //filtered
