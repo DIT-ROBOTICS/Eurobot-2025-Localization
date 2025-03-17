@@ -195,8 +195,10 @@ public:
         tf2::fromMsg(init_pose.orientation, q);
         tf2::Matrix3x3 qt(q);
         double _, yaw;
-        qt.getRPY(_, _, robotstate_.mu[2]);
-        q.setRPY(0, 0, robotstate_.mu[2]);
+        qt.getRPY(_, _, yaw);
+        double abs_yaw=yaw+robotstate_.mu(2);
+        q.setRPY(0, 0, abs_yaw);
+        q=q.normalize();
         coord_odom2map.pose.orientation.x=q.getX();
         coord_odom2map.pose.orientation.y=q.getY();
         coord_odom2map.pose.orientation.z=q.getZ();
