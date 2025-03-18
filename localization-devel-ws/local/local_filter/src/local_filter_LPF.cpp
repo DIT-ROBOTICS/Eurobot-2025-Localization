@@ -169,7 +169,7 @@ public:
         // Apply low-pass filter to linear xy from odom
         linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
         linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
-        angular_z_=odom_msg.angular.z;
+        // angular_z_=odom_msg.angular.z;
        
         // double cov_multi[3];
         // cov_multi[0]=cov_multi_[0]*abs(odom_msg.linear.x);
@@ -180,37 +180,42 @@ public:
         // cov_backup_[0]=linear_x_cov_;
         // cov_backup_[1]=linear_y_cov_;
 
-        rclcpp::Clock clock;
-        rclcpp::Time now=clock.now();
-        double dt=now.seconds()-prev_stamp_.seconds();
-        omni_model(linear_x_, linear_y_, angular_z_, dt);
-        prev_stamp_=now;
+        // rclcpp::Clock clock;
+        // rclcpp::Time now=clock.now();
+        // double dt=now.seconds()-prev_stamp_.seconds();
+        // omni_model(linear_x_, linear_y_, angular_z_, dt);
+        // prev_stamp_=now;
 
         // publish absolute coordinate
-        coord_odom2map.header.stamp= now;
-        coord_odom2map.pose.position.x=init_pose.position.x+odom_msg.angular.x;
-        coord_odom2map.pose.position.y=init_pose.position.y+odom_msg.angular.y;
+        // coord_odom2map.header.stamp= now;
+    }
 
+    void imuCallback(const sensor_msgs::msg::Imu & imu_msg) {
+        angular_z_=imu_msg.angular_velocity.z;
+        rclcpp::Time stamp=imu_msg.header.stamp;
+        double dt=stamp.seconds()-prev_stamp_.seconds();
+        omni_model(linear_x_, linear_y_, angular_z_, dt);
+
+
+        coord_odom2map.pose.position.x=init_pose.position.x+robotstate_.mu(0);
+        coord_odom2map.pose.position.y=init_pose.position.y+robotstate_.mu(1);
         tf2::Quaternion q;
         tf2::fromMsg(init_pose.orientation, q);
         tf2::Matrix3x3 qt(q);
         double _, yaw;
         qt.getRPY(_, _, yaw);
-        q.setRPY(0, 0, yaw+odom_msg.linear.z);
+        q.setRPY(0, 0, yaw+robotstate_.mu(2));
         q=q.normalize();
         coord_odom2map.pose.orientation.x=q.getX();
         coord_odom2map.pose.orientation.y=q.getY();
         coord_odom2map.pose.orientation.z=q.getZ();
         coord_odom2map.pose.orientation.w=q.getW();
         odom2map_pub_->publish(coord_odom2map);
-    }
 
-    void imuCallback(const sensor_msgs::msg::Imu & imu_msg) {
-        angular_z_=imu_msg.angular_velocity.z;
-        // double odom_w_interpolation=prev_odom_w.value+(curr_odom_w.value-prev_odom_w.value)*(imu_msg.header.stamp.sec-prev_odom_w.time)/(curr_odom_w.time-prev_odom_w.time);
-        // angular_z_=alpha_w*imu_msg.angular_velocity.z+(1-alpha_w)*odom_w_interpolation;
+        
         local_filter_pub(imu_msg.header.stamp, std::min(angular_cov_max_, imu_msg.angular_velocity_covariance[8])); //cov_max
-        prev_odom_w=curr_odom_w;
+        prev_stamp_ = imu_msg.header.stamp;
+        // prev_odom_w=curr_odom_w;
     }
 
     void local_filter_pub(rclcpp::Time stamp, double imu_cov)
