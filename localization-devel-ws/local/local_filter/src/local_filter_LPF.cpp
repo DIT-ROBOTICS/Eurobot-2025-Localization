@@ -188,8 +188,8 @@ public:
 
         // publish absolute coordinate
         coord_odom2map.header.stamp= now;
-        coord_odom2map.pose.position.x=init_pose.position.x+odom_msg.angular.x;
-        coord_odom2map.pose.position.y=init_pose.position.y+odom_msg.angular.y;
+        coord_odom2map.pose.position.x=init_pose.position.x+odom_msg.angular.x*cos(odom_msg.linear.z)-odom_msg.angular.y*sin(odom_msg.linear.z);
+        coord_odom2map.pose.position.y=init_pose.position.y+odom_msg.angular.y*sin(odom_msg.linear.z)+odom_msg.angular.x*cos(odom_msg.linear.z);
 
         tf2::Quaternion q;
         tf2::fromMsg(init_pose.orientation, q);
