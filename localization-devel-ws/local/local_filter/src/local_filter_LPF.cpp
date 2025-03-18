@@ -132,13 +132,6 @@ public:
         init_pose.orientation.y=pose_msg.pose.orientation.y;
         init_pose.orientation.z=pose_msg.pose.orientation.z;
         init_pose.orientation.w=pose_msg.pose.orientation.w;
-
-        coord_odom2map.pose.position.x=x;
-        coord_odom2map.pose.position.y=y;
-        coord_odom2map.pose.orientation.x=pose_msg.pose.orientation.x;
-        coord_odom2map.pose.orientation.y=pose_msg.pose.orientation.y;
-        coord_odom2map.pose.orientation.z=pose_msg.pose.orientation.z;
-        coord_odom2map.pose.orientation.w=pose_msg.pose.orientation.w;
         
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
