@@ -33,5 +33,6 @@ rival_localization:
     vel_lpf_gain: 0.9
     locking_rad: 0.3
     lockrad_growing_rate: 0.3 # m/s
+    cam_weight: 0.5
 
     

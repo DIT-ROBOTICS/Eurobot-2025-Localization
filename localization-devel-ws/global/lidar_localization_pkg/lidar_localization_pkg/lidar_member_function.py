@@ -214,45 +214,45 @@ class LidarLocalization(Node): # inherit from Node
             likelihood = np.exp(-0.5 * di_square)
             if likelihood > self.likelihood_threshold:
                 obs_candidates.append({'position': obs, 'probability': likelihood})
-                if self.visualize_candidate and self.beacon_no == 1:
-                    marker = Marker()
-                    marker.header.frame_id = "robot_predict"
-                    marker.header.stamp = self.get_clock().now().to_msg()
-                    marker.ns = "candidates"
-                    marker.type = Marker.SPHERE
-                    marker.action = Marker.ADD
-                    marker.scale.x = 0.1
-                    marker.scale.y = 0.1
-                    marker.scale.z = 0.01
+        #         if self.visualize_candidate and self.beacon_no == 1:
+        #             marker = Marker()
+        #             marker.header.frame_id = "robot_predict"
+        #             marker.header.stamp = self.get_clock().now().to_msg()
+        #             marker.ns = "candidates"
+        #             marker.type = Marker.SPHERE
+        #             marker.action = Marker.ADD
+        #             marker.scale.x = 0.1
+        #             marker.scale.y = 0.1
+        #             marker.scale.z = 0.01
 
-                    text_marker = Marker()
-                    text_marker.header.frame_id = "robot_predict"
-                    text_marker.header.stamp = self.get_clock().now().to_msg()
-                    text_marker.ns = "text"
-                    text_marker.type = Marker.TEXT_VIEW_FACING
-                    text_marker.action = Marker.ADD
-                    text_marker.scale.z = 0.1
-                    text_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)  # White text
+        #             text_marker = Marker()
+        #             text_marker.header.frame_id = "robot_predict"
+        #             text_marker.header.stamp = self.get_clock().now().to_msg()
+        #             text_marker.ns = "text"
+        #             text_marker.type = Marker.TEXT_VIEW_FACING
+        #             text_marker.action = Marker.ADD
+        #             text_marker.scale.z = 0.1
+        #             text_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)  # White text
 
-                    # use visualization_msgs to visualize the likelihood
-                    marker.pose.position.x = obs[0]
-                    marker.pose.position.y = obs[1]
-                    marker.pose.position.z = 0.0
-                    marker.color = ColorRGBA(r=0.0, g=0.5, b=1.0, a=likelihood)
-                    marker_id += 1
-                    marker.id = marker_id
-                    marker_array.markers.append(marker)
-                    text_marker.pose.position.x = obs[0]
-                    text_marker.pose.position.y = obs[1]
-                    text_marker.pose.position.z = 0.1
-                    text_marker.text = f"{likelihood:.2f}"
-                    text_marker.id = marker_id
-                    marker_array.markers.append(text_marker)
-        if self.visualize_candidate and self.beacon_no == 1:
-            self.circles_pub.publish(marker_array)
-            self.get_logger().debug("Published marker array")
-            # clean up
-            marker_array.markers.clear()
+        #             # use visualization_msgs to visualize the likelihood
+        #             marker.pose.position.x = obs[0]
+        #             marker.pose.position.y = obs[1]
+        #             marker.pose.position.z = 0.0
+        #             marker.color = ColorRGBA(r=0.0, g=0.5, b=1.0, a=likelihood)
+        #             marker_id += 1
+        #             marker.id = marker_id
+        #             marker_array.markers.append(marker)
+        #             text_marker.pose.position.x = obs[0]
+        #             text_marker.pose.position.y = obs[1]
+        #             text_marker.pose.position.z = 0.1
+        #             text_marker.text = f"{likelihood:.2f}"
+        #             text_marker.id = marker_id
+        #             marker_array.markers.append(text_marker)
+        # if self.visualize_candidate and self.beacon_no == 1:
+        #     self.circles_pub.publish(marker_array)
+        #     self.get_logger().debug("Published marker array")
+        #     # clean up
+        #     marker_array.markers.clear()
 
         return obs_candidates
 
@@ -379,6 +379,31 @@ class LidarLocalization(Node): # inherit from Node
 
             except np.linalg.LinAlgError as e:
                 self.get_logger().warn("Linear algebra error: {}".format(e))
+            
+            # use markerarray to show the landmarks it used
+            if self.visualize_candidate:
+                marker_array = MarkerArray()
+                for i, beacon in enumerate(beacons):
+                    marker = Marker()
+                    marker.header.frame_id = "base_footprint"
+                    marker.header.stamp = self.get_clock().now().to_msg()
+                    marker.ns = "chosen_landmarks"
+                    marker.type = Marker.SPHERE
+                    marker.action = Marker.ADD
+                    marker.scale.x = 0.1
+                    marker.scale.y = 0.1
+                    marker.scale.z = 0.01
+                    marker.pose.position.x = beacon[0]
+                    marker.pose.position.y = beacon[1]
+                    marker.pose.position.z = 0.0
+                    marker.color = ColorRGBA(r=0.0, g=0.5, b=0.5, a=1.0)
+                    marker.id = i
+                    marker_array.markers.append(marker)
+                self.circles_pub.publish(marker_array)
+                self.get_logger().debug("Published marker array")
+                # clean up
+                marker_array.markers.clear()
+            
         else:
             self.get_logger().debug("not enough beacons")
 

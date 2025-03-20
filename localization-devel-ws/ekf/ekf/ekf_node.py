@@ -66,10 +66,12 @@ class EKFFootprintBroadcaster(Node):
         self.init_topics()
 
         self.footprint_publish()
-        self.create_timer(1.0 / self.rate, self.camera_update)
+        if self.use_cam:
+            self.create_timer(1.0 / self.rate, self.camera_update)
         
         
     def claim_parameters(self):
+        self.declare_parameter('use_cam', 0)
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('update_rate', 1)
@@ -88,7 +90,7 @@ class EKFFootprintBroadcaster(Node):
         self.R_camera[0, 0] = self.get_parameter('r_camera_linear').value
         self.R_camera[1, 1] = self.get_parameter('r_camera_linear').value
         self.R_camera[2, 2] = self.get_parameter('r_camera_angular').value
-       
+        self.use_cam = self.get_parameter('use_cam').value
         self.r_threshold_xy = self.get_parameter('r_threshold_xy').value
         self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
     def init_topics(self):
@@ -235,7 +237,7 @@ class EKFFootprintBroadcaster(Node):
         self.t.transform.rotation.y = quat[1]
         self.t.transform.rotation.z = quat[2]
         self.t.transform.rotation.w = quat[3]
-        self.tf_static_broadcaster.sendTransform(t)
+        self.tf_static_broadcaster.sendTransform(self.t)
 
         
         self.final_pose.pose.pose.position.x = self.X[0]
