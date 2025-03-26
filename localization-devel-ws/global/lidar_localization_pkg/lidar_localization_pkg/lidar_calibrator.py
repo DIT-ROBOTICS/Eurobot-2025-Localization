@@ -10,51 +10,64 @@ class LidarCalibrator(Node):
     def __init__(self):
         super().__init__('lidar_calibrator')
 
-        # 訂閱障礙物資料
+        self.pose_sub = self.create_subscription(
+            Point,
+            'pose',
+            self.pose_callback,
+            10)
+
         self.obstacle_sub = self.create_subscription(
             Obstacles, 
             'raw_obstacles', 
             self.obstacle_callback, 
             10)
         
-        # 發布計算出的距離
         self.distance_pub = self.create_publisher(
             Point,
             'distance',
             10)
-        
-        # 發布 Marker
+       
         self.marker_pub = self.create_publisher(
             Marker,
             'nearest_obstacle',
             10)
 
+        self.target_pose = None  
         self.dis = Point()
         self.create_timer(1, self.distance_publisher)
 
-    def obstacle_callback(self, msg):
-        self.get_logger().info('Received obstacles')
+    def pose_callback(self, msg):
+        self.target_pose = np.array([msg.x, msg.y])
+        # self.get_logger().info(f'Target pose set to x: {msg.x:.2f}, y: {msg.y:.2f}')
 
-        if msg.circles:  # 確保有障礙物
-            # 找到最近的障礙物
-            nearest_obs = min(msg.circles, key=lambda obs: np.sqrt(obs.center.x**2 + obs.center.y**2))
-            distance = np.sqrt(nearest_obs.center.x**2 + nearest_obs.center.y**2)
+    def obstacle_callback(self, msg):
+        if self.target_pose is None:
+            self.get_logger().warn("No target pose received yet. Skipping obstacle processing.")
+            return
+
+        if msg.circles:  
+            distances = [
+                np.linalg.norm(np.array([obs.center.x, obs.center.y]) - self.target_pose)
+                for obs in msg.circles
+            ]
+            min_index = np.argmin(distances)  
+            nearest_obs = msg.circles[min_index]
+            distance = distances[min_index]
 
             self.get_logger().info(
-                f'Nearest obstacle at x: {nearest_obs.center.x:.2f}, y: {nearest_obs.center.y:.2f}, distance: {distance:.2f}'
+                f'Nearest obstacle to target at x: {nearest_obs.center.x:.5f}, y: {nearest_obs.center.y:.5f}, '
+                f'distance: {distance:.5f}, radius: {nearest_obs.radius:.5f}'
             )
 
-            # 更新 Point 訊息
             self.dis.x = nearest_obs.center.x
             self.dis.y = nearest_obs.center.y
-            self.dis.z = distance  # 設定 z 為距離
+            self.dis.z = distance  
 
-            # 發布 Marker
-            self.publish_marker(nearest_obs.center.x, nearest_obs.center.y)
-
-    def publish_marker(self, x, y):
+            self.publish_marker(nearest_obs.center.x, nearest_obs.center.y, nearest_obs.radius)
+    
+    def publish_marker(self, x, y, radius):
         marker = Marker()
-        marker.header.frame_id = "map"  # 根據你的 TF 設定，可能需要改成 "odom" 或其他
+        marker.header.frame_id = "map"  
         marker.header.stamp = self.get_clock().now().to_msg()
         marker.ns = "nearest_obstacle"
         marker.id = 0
@@ -63,11 +76,11 @@ class LidarCalibrator(Node):
         marker.pose.position.x = x
         marker.pose.position.y = y
         marker.pose.position.z = 0.0
-        marker.scale.x = 0.1  # 調整大小
-        marker.scale.y = 0.1
-        marker.scale.z = 0.1
-        marker.color = ColorRGBA(r=0.0, g=0.0, b=1.0, a=1.0)  # 設定為藍色
-        marker.lifetime.sec = 1  # 1 秒後自動消失
+        marker.scale.x = radius * 2  # 確保顯示的圓球與實際障礙物大小一致
+        marker.scale.y = radius * 2
+        marker.scale.z = radius * 2
+        marker.color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0)  
+        marker.lifetime.sec = 1  
 
         self.marker_pub.publish(marker)
 
