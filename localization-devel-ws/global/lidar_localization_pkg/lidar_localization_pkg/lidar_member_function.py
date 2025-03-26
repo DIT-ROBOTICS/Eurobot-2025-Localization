@@ -23,7 +23,7 @@ class LidarLocalization(Node): # inherit from Node
         self.declare_parameter('consistency_threshold', 0.9)
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('robot_parent_frame_id', 'map')
-        self.declare_parameter('beacon_radius', 0.1)
+        self.declare_parameter('beacon_radius', 0.04)
         self.declare_parameter('radius_compensation', True)
 
         # Get parameters
@@ -216,10 +216,12 @@ class LidarLocalization(Node): # inherit from Node
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
             if likelihood > self.likelihood_threshold:
-                if self.radius_compensation:
-                    obs[0] = obs[0] + obs[2]*np.cos(theta_z) -self.beacon_radius*np.cos(theta_z)
+                if (r_z < 0.4 and self.radius_compensation == True):
+                    self.get_logger().info(f'measured{obs[0]},{obs[1]},radius{obs[2]}')
+                    obs[0] = obs[0] + obs[2]*np.cos(theta_z) - self.beacon_radius*np.cos(theta_z)
                     obs[1] = obs[1] + obs[2]*np.sin(theta_z) - self.beacon_radius*np.sin(theta_z)
-                obs_candidates.append({'position': obs[:2], 'probability': likelihood, 'radius': obs[2]})
+                    self.get_logger().info(f'calculated{obs[0]},{obs[1]}')
+                obs_candidates.append({'position': obs[:2], 'probability': likelihood})
         #         if self.visualize_candidate and self.beacon_no == 1:
         #             marker = Marker()
         #             marker.header.frame_id = "robot_predict"
