@@ -23,6 +23,8 @@ class LidarLocalization(Node): # inherit from Node
         self.declare_parameter('consistency_threshold', 0.9)
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('robot_parent_frame_id', 'map')
+        self.declare_parameter('beacon_radius', 0.1)
+        self.declare_parameter('radius_compensation', True)
 
         # Get parameters
         self.side = self.get_parameter('side').get_parameter_value().integer_value
@@ -32,7 +34,8 @@ class LidarLocalization(Node): # inherit from Node
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
         self.robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
         self.robot_parent_frame_id = self.get_parameter('robot_parent_frame_id').get_parameter_value().string_value
-
+        self.beacon_radius = self.get_parameter('beacon_radius').get_parameter_value().double_value
+        self.radius_compensation = self.get_parameter('radius_compensation').get_parameter_value().bool_value
         # Set the landmarks map based on the side
         if self.side == 0:
             self.landmarks_map = [
@@ -93,7 +96,7 @@ class LidarLocalization(Node): # inherit from Node
         self.get_logger().debug('obstacle detected')
         self.obs_raw = []
         for obs in msg.circles:
-            self.obs_raw.append(np.array([obs.center.x, obs.center.y]))
+            self.obs_raw.append(np.array([obs.center.x, obs.center.y, obs.radius]))
         self.obs_time = msg.header.stamp
         # check if TF is available. If true, use the TF. If false, use the latest topic
         try:
@@ -213,7 +216,10 @@ class LidarLocalization(Node): # inherit from Node
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
             if likelihood > self.likelihood_threshold:
-                obs_candidates.append({'position': obs, 'probability': likelihood})
+                if self.radius_compensation:
+                    obs[0] = obs[0] + obs[2]*np.cos(theta_z) -self.beacon_radius*np.cos(theta_z)
+                    obs[1] = obs[1] + obs[2]*np.sin(theta_z) - self.beacon_radius*np.sin(theta_z)
+                obs_candidates.append({'position': obs[:2], 'probability': likelihood, 'radius': obs[2]})
         #         if self.visualize_candidate and self.beacon_no == 1:
         #             marker = Marker()
         #             marker.header.frame_id = "robot_predict"
