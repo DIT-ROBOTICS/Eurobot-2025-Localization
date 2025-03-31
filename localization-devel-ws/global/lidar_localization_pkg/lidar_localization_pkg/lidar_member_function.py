@@ -71,7 +71,7 @@ class LidarLocalization(Node): # inherit from Node
         # ros debug logger
         self.get_logger().debug('Lidar Localization Node has been initialized')
 
-        self.init_landmarks_map(self.landmarks_map)
+        self.init_landmarks_map()
         self.robot_pose = []
         self.P_pred = []
         self.newPose = False
@@ -129,22 +129,26 @@ class LidarLocalization(Node): # inherit from Node
                     np.array([3.094, 1.948]),
                     np.array([-0.094, 1.0])
                 ]
-            self.init_landmarks_map(self.landmarks_map)
+            self.init_landmarks_map()
             self.get_logger().debug(f"Set lidar side to {self.side}")
         else:
             self.get_logger().warn("Invalid side value")
 
-    def init_landmarks_map(self, landmarks_map):
-        self.landmarks_map = landmarks_map
+    def init_landmarks_map(self):
         # calculate the geometry description of landmarks
         self.geometry_description_map = {}
-        NUM_LANDMARKS = len(landmarks_map)
+        NUM_LANDMARKS = len(self.landmarks_map)
         for i in range(NUM_LANDMARKS):
             for j in range(i + 1, NUM_LANDMARKS):
                 if i == j:
                     continue
-                d_ij = np.linalg.norm(landmarks_map[i] - landmarks_map[j])
+                d_ij = np.linalg.norm(self.landmarks_map[i] - self.landmarks_map[j])
                 self.geometry_description_map[(i, j)] = d_ij
+        # calculate the landmark sequence, mark clockwise or counter-clockwise (clockwise for yellow, counter-clockwise for blue)
+        if np.cross(self.landmarks_map[1] - self.landmarks_map[0], self.landmarks_map[2] - self.landmarks_map[0]) > 0:
+            self.geometry_description_map[(3,3)] = 1 # blue
+        else:
+            self.geometry_description_map[(3,3)] = -1 # yellow
                 
     def clear_data(self):
         self.obs_raw = []
