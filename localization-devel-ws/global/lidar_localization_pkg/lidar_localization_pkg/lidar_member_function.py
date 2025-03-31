@@ -33,6 +33,9 @@ class LidarLocalization(Node): # inherit from Node
         self.robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
         self.robot_parent_frame_id = self.get_parameter('robot_parent_frame_id').get_parameter_value().string_value
 
+        self.adjust_factor = 1.8
+        self.compensate_factor = 0.01
+
         # Set the landmarks map based on the side
         if self.side == 0:
             self.landmarks_map = [
@@ -213,6 +216,8 @@ class LidarLocalization(Node): # inherit from Node
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
             if likelihood > self.likelihood_threshold:
+                obs[0] = obs[0] + (1-obs[0]) * self.adjust_factor * self.compensate_factor * np.cos(theta_z)
+                obs[1] = obs[1] + (1-obs[0]) * self.adjust_factor * self.compensate_factor * np.sin(theta_z)
                 obs_candidates.append({'position': obs, 'probability': likelihood})
         #         if self.visualize_candidate and self.beacon_no == 1:
         #             marker = Marker()
