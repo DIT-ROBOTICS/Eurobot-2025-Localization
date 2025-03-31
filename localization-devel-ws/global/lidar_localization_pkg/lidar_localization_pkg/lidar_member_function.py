@@ -13,12 +13,15 @@ class LidarLocalization(Node): # inherit from Node
     def __init__(self):
         super().__init__('lidar_localization_node')
 
-        # Declare parameters
+        # Declare mode parameters
         self.declare_parameter('side', 0)
         self.declare_parameter('debug_mode', False)
         self.declare_parameter('visualize_candidate', True)
+
+        # Declare algorithm parameters
         self.declare_parameter('likelihood_threshold', 0.001)
         self.declare_parameter('consistency_threshold', 0.9)
+        self.declare_parameter('R', [0.0025, 0.0025]) # measurement noise covariance matrix
 
         # Get parameters
         self.side = self.get_parameter('side').get_parameter_value().integer_value
@@ -26,6 +29,7 @@ class LidarLocalization(Node): # inherit from Node
         self.visualize_candidate = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
         self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
+        self.R = np.array(self.get_parameter('R').get_parameter_value().double_array_value)
 
         # Set the landmarks map based on the side
         if self.side == 0:
@@ -46,8 +50,10 @@ class LidarLocalization(Node): # inherit from Node
 
         # ros settings
         self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
+
         if self.visualize_candidate:
             self.circles_pub = self.create_publisher(MarkerArray, 'candidates', 10)
+
         self.subscription = self.create_subscription(
             Obstacles,
             'raw_obstacles',
@@ -59,7 +65,6 @@ class LidarLocalization(Node): # inherit from Node
             self.pred_pose_callback,
             10
         )
-        # subscribe to set_lidar_side topic
         self.subscription = self.create_subscription(
             String,
             'set_lidar_side',
@@ -68,14 +73,12 @@ class LidarLocalization(Node): # inherit from Node
         )
         self.subscription  # prevent unused variable warning
 
-        # ros debug logger
-        self.get_logger().debug('Lidar Localization Node has been initialized')
+        self.get_logger().debug('Lidar Localization Node initialized')
 
         self.init_landmarks_map()
         self.robot_pose = []
         self.P_pred = []
         self.newPose = False
-        self.R = np.array([[0.05**2, 0.0], [0.0, 0.05**2]]) # R: measurement noise; TODO: tune the value
         self.lidar_pose_msg = PoseWithCovarianceStamped()
     
     def obstacle_callback(self, msg):
