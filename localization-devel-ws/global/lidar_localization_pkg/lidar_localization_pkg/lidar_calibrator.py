@@ -9,7 +9,7 @@ from std_msgs.msg import ColorRGBA
 class LidarCalibrator(Node):
     def __init__(self):
         super().__init__('lidar_calibrator')
-
+        self.adjust_factor = 1.8
         self.pose_sub = self.create_subscription(
             Point,
             'pose',
@@ -38,7 +38,7 @@ class LidarCalibrator(Node):
 
     def pose_callback(self, msg):
         self.target_pose = np.array([msg.x, msg.y])
-        # self.get_logger().info(f'Target pose set to x: {msg.x:.2f}, y: {msg.y:.2f}')
+        self.get_logger().info(f'Target pose set to x: {msg.x:.2f}, y: {msg.y:.2f}')
 
     def obstacle_callback(self, msg):
         if self.target_pose is None:
@@ -54,17 +54,24 @@ class LidarCalibrator(Node):
             nearest_obs = msg.circles[min_index]
             distance = distances[min_index]
 
-            self.get_logger().info(
-                f'Nearest obstacle to target at x: {nearest_obs.center.x:.5f}, y: {nearest_obs.center.y:.5f}, '
-                f'distance: {distance:.5f}, radius: {nearest_obs.radius:.5f}'
-            )
-
             self.dis.x = nearest_obs.center.x
             self.dis.y = nearest_obs.center.y
             self.dis.z = distance  
 
             self.publish_marker(nearest_obs.center.x, nearest_obs.center.y, nearest_obs.radius)
-    
+        
+            self.dis.x = nearest_obs.center.x + (1-nearest_obs.center.x) * self.adjust_factor *0.01 * np.cos(theta)
+            self.dis.y = nearest_obs.center.y + (1-nearest_obs.center.y) * self.adjust_factor *0.01 * np.sin(theta)
+
+            theta = np.arctan2(self.dis.y - self.target_pose[1], self.dis.x - self.target_pose[0])
+
+             self.get_logger().info(
+                f'target obs at x: {self.target_pose[0]:.5f}, y: {self.target_pose[1]:.5f}, '
+                f'Nearest obstacle to target at x: {nearest_obs.center.x:.5f}, y: {nearest_obs.center.y:.5f}, '
+                f'adjusted x: {self.dis.x:.5f}, y: {self.dis.y:.5f}, '
+                f'distance: {distance:.5f}, radius: {nearest_obs.radius:.5f}'
+            )
+
     def publish_marker(self, x, y, radius):
         marker = Marker()
         marker.header.frame_id = "map"  
