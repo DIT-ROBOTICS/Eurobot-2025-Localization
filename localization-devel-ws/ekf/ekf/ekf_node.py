@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import math
-from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped, PoseWithCovariance, Twist
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped, Twist
 # from nav_msgs.msg import Odometry
 import numpy as np
-
 import rclpy
 from rclpy.node import Node
-
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 from sensor_msgs.msg import Imu
 
@@ -15,28 +13,14 @@ def quaternion_from_euler(roll, pitch, yaw):
     cy, sy = math.cos(yaw), math.sin(yaw)
     cp, sp = math.cos(pitch), math.sin(pitch)
     cr, sr = math.cos(roll), math.sin(roll)
-    return [sr * cp * cy - cr * sp * sy,
-            cr * sp * cy + sr * cp * sy,
+    return [
             cr * cp * sy - sr * sp * cy,
             cr * cp * cy + sr * sp * sy]
 
 def euler_from_quaternion(x, y, z, w):
-    t0, t1 = +2.0 * (w * x + y * z), +1.0 - 2.0 * (x * x + y * y)
-    roll = math.atan2(t0, t1)
-
-    t2 = +2.0 * (w * y - z * x)
-    t2 = +1.0 if t2 > +1.0 else -1.0 if t2 < -1.0 else t2
-    pitch = math.asin(t2)
-
     t3, t4 = +2.0 * (w * z + x * y), +1.0 - 2.0 * (y * y + z * z)
     yaw = math.atan2(t3, t4) 
     return yaw
-
-def normalize_angle(angle):
-    return math.atan2(math.sin(angle), math.cos(angle))
-
-def is_invalid_data(x, y):
-    return np.isnan(x) or np.isnan(y)
 
 class EKFFootprintBroadcaster(Node):
     def __init__(self):
@@ -54,6 +38,7 @@ class EKFFootprintBroadcaster(Node):
         self.w = 0.0
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.gps_time = self.get_clock().now().nanoseconds / 1e9
+        self.cam_time = self.get_clock().now().nanoseconds / 1e9
         self.claim_parameters()
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
         self.t = TransformStamped()
@@ -62,7 +47,6 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose = PoseWithCovarianceStamped()
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
-        self.cam_time = 0
         self.init_topics()
 
         self.footprint_publish()
@@ -97,10 +81,8 @@ class EKFFootprintBroadcaster(Node):
     def init_topics(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
         self.create_subscription(PoseWithCovarianceStamped, 'initialpose', self.init_callback, 1)
-        
         self.create_subscription(Twist, 'odoo_googoogoo', self.odomcallback, 1)
         self.create_subscription(Imu, '/imu/data_cov', self.imu_callback, 1)
-        # self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
         self.create_subscription(PoseStamped, '/ceiling_robot/pose', self.camera_callback, 1)
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
 
@@ -118,7 +100,6 @@ class EKFFootprintBroadcaster(Node):
         )
         self.X[2] = theta
         if msg.pose.covariance[0] > 0 and msg.pose.covariance[7] > 0 and msg.pose.covariance[35] > 0:
-            if msg.pose.covariance[0] < 1 and msg.pose.covariance[7] < 1 and msg.pose.covariance[35] < 1:
                 self.P[0, 0] = msg.pose.covariance[0]
                 self.P[1, 1] = msg.pose.covariance[7]
                 self.P[2, 2] = msg.pose.covariance[35]
@@ -129,16 +110,12 @@ class EKFFootprintBroadcaster(Node):
         if abs(current_time - self.gps_time) > 1.5:
             return
 
-        if is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
-            return
-
         theta = euler_from_quaternion(
             msg.pose.pose.orientation.x,
             msg.pose.pose.orientation.y,
             msg.pose.pose.orientation.z,
             msg.pose.pose.orientation.w
         )
-
         gps_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, theta])
         self.R_gps[0, 0] = msg.pose.covariance[0]    
         self.R_gps[1, 1] = msg.pose.covariance[7]
@@ -152,9 +129,6 @@ class EKFFootprintBroadcaster(Node):
 
     def camera_callback(self, msg):
         self.cam_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-        if is_invalid_data(msg.pose.position.x, msg.pose.position.y):
-            return
-
         theta = euler_from_quaternion(
             msg.pose.orientation.x,
             msg.pose.orientation.y,
@@ -168,8 +142,7 @@ class EKFFootprintBroadcaster(Node):
         if abs(current_time - self.cam_time) > 1.5:  
             self.cam_measurement = [-100, -100, -100]
             return
-        if self.cam_measurement[0]==-100:  # Check if the measurement is valid
-            self.get_logger().warn("Invalid cam measurement data received.")
+        if self.cam_measurement[0]==-100:  
             return
         null_time = abs(current_time - self.gps_time)
         if null_time > 0.2:
@@ -180,17 +153,6 @@ class EKFFootprintBroadcaster(Node):
         self.R_camera[1,1] = 1e-2
         self.R_camera[2,2] = 0.15
 
-    def local_callback(self, msg):
-        current_time = self.get_clock().now().nanoseconds / 1e9
-        dt = current_time - self.last_odom_time
-        self.last_odom_time = current_time
-
-        v_x = msg.twist.twist.linear.x
-        v_y = msg.twist.twist.linear.y
-        w = msg.twist.twist.angular.z
-        # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
-        self.ekf_predict(v_x, v_y, w, dt) 
-
     def imu_callback(self, msg):
         dt = self.get_clock().now().nanoseconds / 1e9 - self.last_odom_time
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
@@ -200,7 +162,6 @@ class EKFFootprintBroadcaster(Node):
     def odomcallback(self, msg):    
         self.v_x = msg.linear.x
         self.v_y = msg.linear.y
-        # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
        
 
     def ekf_predict(self, v_x, v_y, w, dt):
@@ -249,10 +210,10 @@ class EKFFootprintBroadcaster(Node):
         self.t.transform.translation.y = self.X[1]
         self.t.transform.translation.z = 0.0
         quat = quaternion_from_euler(0, 0, self.X[2])
-        self.t.transform.rotation.x = quat[0]
-        self.t.transform.rotation.y = quat[1]
-        self.t.transform.rotation.z = quat[2]
-        self.t.transform.rotation.w = quat[3]
+        self.t.transform.rotation.x = 0
+        self.t.transform.rotation.y = 0
+        self.t.transform.rotation.z = quat[0]
+        self.t.transform.rotation.w = quat[1]
         self.tf_static_broadcaster.sendTransform(self.t)
 
         
