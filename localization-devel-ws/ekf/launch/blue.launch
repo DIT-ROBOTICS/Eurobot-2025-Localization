@@ -25,8 +25,8 @@
         <param name="side" value="$(var side)"/>
         <param name="debug_mode" value="False"/>
         <param name="visualize_candidate" value="False"/>
-        <param name="likelihood_threshold" value="0.001"/>
-        <param name="consistency_threshold" value="0.97"/>
+        <param name="likelihood_threshold" value="0.07"/>
+        <param name="consistency_threshold" value="0.9"/>
     </node>
 
     <node pkg="tf2_ros" exec="static_transform_publisher" name="robot_to_laser" output="screen" args="--x 0 --y 0 --z 0 --roll 0 --pitch 0 --yaw 1.57 --frame-id /base_footprint --child-frame-id /laser" />
@@ -36,7 +36,7 @@
 
     <!-- local filter -->
 
-    <include file="/home/user/localization-ws/src/localization-devel-ws/local/local_filter/launch/local_filter_whole.xml" />
+    <!-- <include file="/home/user/localization-ws/src/localization-devel-ws/local/local_filter/launch/local_filter_whole.xml" /> -->
 
 
     <!-- rival localization -->

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import math
-from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped, PoseWithCovariance
-from nav_msgs.msg import Odometry
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped, PoseWithCovariance, Twist
+# from nav_msgs.msg import Odometry
 import numpy as np
 
 import rclpy
 from rclpy.node import Node
 
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
+from sensor_msgs.msg import Imu
 
 def quaternion_from_euler(roll, pitch, yaw):
     roll, pitch, yaw = roll / 2.0, pitch / 2.0, yaw / 2.0
@@ -42,13 +43,14 @@ class EKFFootprintBroadcaster(Node):
         super().__init__('ekf')
         
         self.X = np.array([0.0, 0.0, 0.0])  # State vector: x, y, theta
-        self.P = np.eye(3) * 9 * 1e-4
+        self.P = np.eye(3) * 9 * 1e-4 #init cov
         self.P[2, 2] = 0.003 
         self.Q = np.eye(3) 
         self.R_gps = np.eye(3) * 1e-2
         self.R_gps[2, 2] = 0.09
         self.R_camera = np.eye(3) * 1e-2
 
+        self.w = 0.0
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.gps_time = self.get_clock().now().nanoseconds / 1e9
         self.claim_parameters()
@@ -90,31 +92,35 @@ class EKFFootprintBroadcaster(Node):
         self.use_cam = self.get_parameter('use_cam').value
         self.r_threshold_xy = self.get_parameter('r_threshold_xy').value
         self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
+
     def init_topics(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
-        self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,1)
-        self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
+        self.create_subscription(PoseWithCovarianceStamped, 'initialpose', self.init_callback, 1)
+        
+        self.create_subscription(Twist, 'odoo_googoogoo', self.odomcallback, 1)
+        self.create_subscription(Imu, '/imu/data_cov', self.imu_callback, 1)
+        # self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
         self.create_subscription(PoseStamped, '/ceiling_robot/pose', self.camera_callback, 1)
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
 
     
     def init_callback(self, msg):
         
-        self.X[0] = msg.pose.position.x
-        self.X[1] = msg.pose.position.y
+        self.X[0] = msg.pose.pose.position.x
+        self.X[1] = msg.pose.pose.position.y
 
         theta = euler_from_quaternion(
-            msg.pose.orientation.x,
-            msg.pose.orientation.y,
-            msg.pose.orientation.z,
-            msg.pose.orientation.w
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w
         )
         self.X[2] = theta
-        if msg.covariance[0] > 0 and msg.covariance[7] > 0 and msg.covariance[35] > 0:
-            if msg.covariance[0] < 1 and msg.covariance[7] < 1 and msg.covariance[35] < 1:
-                self.P[0, 0] = msg.covariance[0]
-                self.P[1, 1] = msg.covariance[7]
-                self.P[2, 2] = msg.covariance[35]
+        if msg.pose.covariance[0] > 0 and msg.pose.covariance[7] > 0 and msg.pose.covariance[35] > 0:
+            if msg.pose.covariance[0] < 1 and msg.pose.covariance[7] < 1 and msg.pose.covariance[35] < 1:
+                self.P[0, 0] = msg.pose.covariance[0]
+                self.P[1, 1] = msg.pose.covariance[7]
+                self.P[2, 2] = msg.pose.covariance[35]
 
     def gps_callback(self, msg):
         self.gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
@@ -183,6 +189,18 @@ class EKFFootprintBroadcaster(Node):
         w = msg.twist.twist.angular.z
         # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
         self.ekf_predict(v_x, v_y, w, dt) 
+
+    def imu_callback(self, msg):
+        dt = self.get_clock().now().nanoseconds / 1e9 - self.last_odom_time
+        self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
+        self.w = msg.angular_velocity.z
+        self.ekf_predict(self.v_x, self.v_y, self.w, dt)
+
+    def odomcallback(self, msg):    
+        self.v_x = msg.linear.x
+        self.v_y = msg.linear.y
+        # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
+       
 
     def ekf_predict(self, v_x, v_y, w, dt):
         theta = self.X[2]
