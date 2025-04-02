@@ -185,10 +185,19 @@ class LidarLocalization(Node): # inherit from Node
             y = np.array([r_z - r_prime, angle_limit_checking(theta_z - theta_prime)])
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
+           
             if likelihood > self.likelihood_threshold:
-                obs[0] = obs[0] + (1-obs[0]) * self.adjust_factor * self.compensate_factor * np.cos(theta_z)
-                obs[1] = obs[1] + (1-obs[0]) * self.adjust_factor * self.compensate_factor * np.sin(theta_z)
-                obs_candidates.append({'position': obs, 'probability': likelihood})
+                self.get_logger().info(f"Likelihood: {likelihood}, obs:{obs}")
+                if obs[0] <1:
+                    obs[0] = obs[0] + (1-obs[0]) * self.adjust_factor * self.compensate_factor * np.cos(theta_z)
+                if obs[1] <1:
+                    obs[1] = obs[1] + (1-obs[0]) * self.adjust_factor * self.compensate_factor * np.sin(theta_z)
+                self.get_logger().info(f"Adjusted obs: {obs}")
+                likelihood = np.exp(-0.5 * di_square)
+                if likelihood > self.likelihood_threshold:
+                    obs_candidates.append({'position': obs, 'probability': likelihood})
+                else:
+                    self.get_logger().info(f"Likelihood after adjustment NOT OK")
         #         if self.visualize_candidate and self.beacon_no == 1:
         #             marker = Marker()
         #             marker.header.frame_id = "robot_predict"
