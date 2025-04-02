@@ -5,11 +5,11 @@ import numpy as np
 from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker
 from std_msgs.msg import ColorRGBA
+from geometry_msgs.msg import Twist
 
 class LidarCalibrator(Node):
     def __init__(self):
         super().__init__('lidar_calibrator')
-        self.adjust_factor = 1.8
         self.pose_sub = self.create_subscription(
             Point,
             'pose',
@@ -23,7 +23,7 @@ class LidarCalibrator(Node):
             10)
         
         self.distance_pub = self.create_publisher(
-            Point,
+            Twist,
             'distance',
             10)
        
@@ -33,7 +33,8 @@ class LidarCalibrator(Node):
             10)
 
         self.target_pose = None  
-        self.dis = Point()
+        self.dis = Twist()
+        self.pose = np.array([2.83, 0.03])
         self.create_timer(1, self.distance_publisher)
 
     def pose_callback(self, msg):
@@ -52,25 +53,20 @@ class LidarCalibrator(Node):
             ]
             min_index = np.argmin(distances)  
             nearest_obs = msg.circles[min_index]
-            distance = distances[min_index]
-
-            self.dis.x = nearest_obs.center.x
-            self.dis.y = nearest_obs.center.y
-            self.dis.z = distance  
+            distance = distances[min_index] 
 
             self.publish_marker(nearest_obs.center.x, nearest_obs.center.y, nearest_obs.radius)
-        
-            self.dis.x = nearest_obs.center.x + (1-nearest_obs.center.x) * self.adjust_factor *0.01 * np.cos(theta)
-            self.dis.y = nearest_obs.center.y + (1-nearest_obs.center.y) * self.adjust_factor *0.01 * np.sin(theta)
 
-            theta = np.arctan2(self.dis.y - self.target_pose[1], self.dis.x - self.target_pose[0])
-
-             self.get_logger().info(
-                f'target obs at x: {self.target_pose[0]:.5f}, y: {self.target_pose[1]:.5f}, '
-                f'Nearest obstacle to target at x: {nearest_obs.center.x:.5f}, y: {nearest_obs.center.y:.5f}, '
-                f'adjusted x: {self.dis.x:.5f}, y: {self.dis.y:.5f}, '
-                f'distance: {distance:.5f}, radius: {nearest_obs.radius:.5f}'
-            )
+            ideal_vector = np.array([self.target_pose[0] - self.pose[0], self.target_pose[1] - self.pose[1]])
+            nearest_obs_vector = np.array([nearest_obs.center.x - self.pose[0] , nearest_obs.center.y - self.pose[1]])
+            theta = np.arctan2(ideal_vector[1], ideal_vector[0])
+            self.dis.linear.x = ideal_vector[0]
+            self.dis.linear.y = ideal_vector[1]
+            self.dis.angular.x = nearest_obs_vector[0]
+            self.dis.angular.y = nearest_obs_vector[1]
+            self.get_logger().info(f"wanted obs:{self.target_pose}, nearest_obs:{nearest_obs.center.x, nearest_obs.center.y}")
+            self.get_logger().info(f"ideal_vector: {ideal_vector}, nearest_obs_vector: {nearest_obs_vector}")
+            self.get_logger().info(f"theta: {theta}")
 
     def publish_marker(self, x, y, radius):
         marker = Marker()
