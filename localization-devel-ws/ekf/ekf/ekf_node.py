@@ -210,8 +210,8 @@ class EKFFootprintBroadcaster(Node):
         self.t.transform.translation.y = self.X[1]
         self.t.transform.translation.z = 0.0
         quat = quaternion_from_euler(0, 0, self.X[2])
-        self.t.transform.rotation.x = 0
-        self.t.transform.rotation.y = 0
+        self.t.transform.rotation.x = 0.0
+        self.t.transform.rotation.y = 0.0
         self.t.transform.rotation.z = quat[0]
         self.t.transform.rotation.w = quat[1]
         self.tf_static_broadcaster.sendTransform(self.t)
@@ -220,10 +220,10 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose.pose.pose.position.x = self.X[0]
         self.final_pose.pose.pose.position.y = self.X[1]
         self.final_pose.pose.pose.position.z = 0.0
-        self.final_pose.pose.pose.orientation.x = quat[0]
-        self.final_pose.pose.pose.orientation.y = quat[1]
-        self.final_pose.pose.pose.orientation.z = quat[2]
-        self.final_pose.pose.pose.orientation.w = quat[3]
+        self.final_pose.pose.pose.orientation.x = 0.0
+        self.final_pose.pose.pose.orientation.y = 0.0
+        self.final_pose.pose.pose.orientation.z = quat[0]
+        self.final_pose.pose.pose.orientation.w = quat[1]
         self.final_pose.pose.covariance[0] = self.P[0, 0]
         self.final_pose.pose.covariance[7] = self.P[1, 1]
         self.final_pose.pose.covariance[35] = self.P[2, 2]
