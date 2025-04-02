@@ -49,7 +49,8 @@ class EKFFootprintBroadcaster(Node):
         self.R_gps = np.eye(3) * 1e-2
         self.R_gps[2, 2] = 0.09
         self.R_camera = np.eye(3) * 1e-2
-
+        self.v_x = 0.0
+        self.v_y = 0.0
         self.w = 0.0
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.gps_time = self.get_clock().now().nanoseconds / 1e9
