@@ -39,7 +39,7 @@ class EKFFootprintBroadcaster(Node):
         self.last_odom_time = now
         self.gps_time = now
         self.cam_time = now
-        self.last_pose = np.array([0.0, 0.0, 0.0])
+        self.last_pose = np.array([-1.0, 0.0, 0.0])
         self.claim_parameters()
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
         self.t = TransformStamped()
@@ -178,20 +178,9 @@ class EKFFootprintBroadcaster(Node):
         # self.get_logger().info(f"EKF update took: {end_time - start_time:.6f} s")
 
     def footprint_publish(self):
-        if np.allclose(self.X, self.last_pose, atol=1e-4):
-            return
-        self.last_pose = self.X.copy()
-
         now = self.get_clock().now().to_msg()
         self.final_pose.header.stamp = now
         self.t.header.stamp = now
-        self.t.transform.translation.x = self.X[0]
-        self.t.transform.translation.y = self.X[1]
-        self.t.transform.translation.z = 0.0
-        quat = quaternion_from_euler(0, 0, self.X[2])
-        self.t.transform.rotation.z = quat[0]
-        self.t.transform.rotation.w = quat[1]
-        self.tf_static_broadcaster.sendTransform(self.t)
 
         self.final_pose.pose.pose.position.x = self.X[0]
         self.final_pose.pose.pose.position.y = self.X[1]
@@ -201,6 +190,20 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose.pose.covariance[7] = self.P[1, 1]
         self.final_pose.pose.covariance[35] = self.P[2, 2]
         self.ekf_pose_publisher.publish(self.final_pose)
+        
+        if np.allclose(self.X, self.last_pose, atol=1e-4):
+            return
+        self.last_pose = self.X.copy()
+
+        self.t.transform.translation.x = self.X[0]
+        self.t.transform.translation.y = self.X[1]
+        self.t.transform.translation.z = 0.0
+        quat = quaternion_from_euler(0, 0, self.X[2])
+        self.t.transform.rotation.x = 0.0
+        self.t.transform.rotation.y = 0.0
+        self.t.transform.rotation.z = quat[0]
+        self.t.transform.rotation.w = quat[1]
+        self.tf_static_broadcaster.sendTransform(self.t)
 
 def main(args=None):
     rclpy.init(args=args)
