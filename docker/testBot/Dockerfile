@@ -95,7 +95,8 @@ FROM imu-dep AS lidar-dep
 USER ${USERNAME}
 WORKDIR /home/user/localization-ws/src/rplidar-ros-driver
 RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/rplidar-ros-driver/
-RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
+# RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
+RUN git clone -b humble-devel https://github.com/yjHuang251/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
 
 WORKDIR /home/${USERNAME}/localization-ws
 # RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws

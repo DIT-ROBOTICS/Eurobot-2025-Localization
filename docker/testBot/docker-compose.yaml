@@ -1,13 +1,13 @@
-version: '3'
 services:
-  noComm-ros2-localization-dev:
+  noComm2-ros2-localization-dev:
     build: 
       context: .
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:testBot-ros2-built
-    container_name: noComm-localization-2025-dev-ros2
+    # image: jossiewang/eurobot2025-localization:testBot-ros2-built
+    image: distortion:ver1
+    container_name: noComm2-localization-2025-dev-ros2
     stdin_open: true
     tty: true
     privileged: true
