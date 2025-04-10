@@ -181,7 +181,8 @@ class EKFFootprintBroadcaster(Node):
         now = self.get_clock().now().to_msg()
         self.final_pose.header.stamp = now
         self.t.header.stamp = now
-
+        quat = quaternion_from_euler(0, 0, self.X[2])
+        
         self.final_pose.pose.pose.position.x = self.X[0]
         self.final_pose.pose.pose.position.y = self.X[1]
         self.final_pose.pose.pose.orientation.z = quat[0]
@@ -198,7 +199,7 @@ class EKFFootprintBroadcaster(Node):
         self.t.transform.translation.x = self.X[0]
         self.t.transform.translation.y = self.X[1]
         self.t.transform.translation.z = 0.0
-        quat = quaternion_from_euler(0, 0, self.X[2])
+        
         self.t.transform.rotation.x = 0.0
         self.t.transform.rotation.y = 0.0
         self.t.transform.rotation.z = quat[0]
