@@ -65,7 +65,7 @@ bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point
     locking_rad = locking_rad + sqrt(pow(rival_final_vel.x, 2) + pow(rival_final_vel.y, 2)) * dt;
     double distance = sqrt(pow((pre.x - cur.x), 2) + pow((pre.y - cur.y), 2));
 
-    return !(distance > locking_rad) 
+    return !(distance > locking_rad) ;
 
 }
 
