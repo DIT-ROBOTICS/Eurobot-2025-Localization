@@ -11,7 +11,7 @@ Rival::Rival() : Node("rival_localization"){
 
 void Rival::initialize() {
 
-    this->declare_parameter<std::string>("robot_name", "robot");
+    this->declare_parameter<std::string>("robot_name", "");
     this->declare_parameter<std::string>("rival_name", "rival");
     this->declare_parameter<double>("frequency", 10.);
     this->declare_parameter<double>("x_max", 3.);
@@ -37,7 +37,7 @@ void Rival::initialize() {
     
     RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
-    obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("obstacles_to_map", 10, std::bind(&Rival::obstacles_callback, this, _1));
+    obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("raw_obstacles", 10, std::bind(&Rival::obstacles_callback, this, _1));
     cam_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/ceiling_rival/pose", 10, std::bind(&Rival::cam_callback, this, _1));
     rival_raw_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
     rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("final_pose", 10);
@@ -61,14 +61,12 @@ bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
 
 bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point cur, double dt) {
 
-    bool ok = true;
-
+   
     locking_rad = locking_rad + sqrt(pow(rival_final_vel.x, 2) + pow(rival_final_vel.y, 2)) * dt;
     double distance = sqrt(pow((pre.x - cur.x), 2) + pow((pre.y - cur.y), 2));
 
-    if (distance > locking_rad) ok = false;
+    return !(distance > locking_rad) 
 
-    return ok;
 }
 
 geometry_msgs::msg::Vector3 Rival::lpf(double gain, geometry_msgs::msg::Vector3 pre, geometry_msgs::msg::Vector3 cur) {
@@ -247,7 +245,7 @@ void Rival::timerCallback() {
 void Rival::publish_rival_raw() {
 
     rival_output.header.stamp = rival_stamp;
-    rival_output.header.frame_id = "/map";
+    rival_output.header.frame_id = "/base_footprint";
     rival_output.child_frame_id = rival_name + "/raw_pose";
     rival_output.pose.pose.position = rival_raw_pose;
     rival_output.pose.pose.orientation.w = 1;
@@ -267,7 +265,7 @@ void Rival::publish_rival_final() {
     imm_filter();
 
     rival_output.header.stamp = rival_stamp;
-    rival_output.header.frame_id = "/map";
+    rival_output.header.frame_id = "/base_footprint";
     rival_output.child_frame_id = rival_name + "/final_pose";
     rival_output.pose.pose.position = rival_final_pose;
     rival_output.pose.pose.orientation.w = 1;
@@ -292,7 +290,7 @@ void Rival::broadcast_rival_tf() {
         geometry_msgs::msg::TransformStamped transformStamped;
 
         transformStamped.header.stamp = rival_stamp;
-        transformStamped.header.frame_id = "/map";
+        transformStamped.header.frame_id = "/base_footprint";
         transformStamped.child_frame_id = rival_name + "/base_footprint";
         transformStamped.transform.translation.x = rival_final_pose.x;
         transformStamped.transform.translation.y = rival_final_pose.y;
