@@ -49,7 +49,7 @@
 
 
     <!-- rival localization -->
-    <group>
+    <!-- <group>
         <push-ros-namespace namespace="$(var rival_name)" />
             <node name="obstacle_detector_to_map" pkg="obstacle_detector" exec="obstacle_extractor_node">
                 <param from="/home/user/localization-ws/src/localization-devel-ws/rival/rival_localization/config/rival_localization.yaml"/>
@@ -57,9 +57,10 @@
                 <remap from="raw_obstacles" to="/obstacles_to_map" />
                 <remap from="scan" to="/scan" />
             </node>
-     </group>
+     </group> -->
     <node pkg="rival_localization" exec="rival_localization" name="rival_localization" output="screen">
         <param from="/home/user/localization-ws/src/localization-devel-ws/rival/rival_localization/config/rival_localization.yaml"/>
+        <param name="robot_name" value="$(var robot_name)"/>
         <remap from="raw_pose" to="/$(var rival_name)/raw_pose" />
         <remap from="final_pose" to="/$(var rival_name)/final_pose"/>
     </node>
