@@ -1,4 +1,6 @@
 #include "rival_localization/rival_localization.h"
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 Rival::Rival() : Node("rival_localization"){
 
@@ -7,6 +9,9 @@ Rival::Rival() : Node("rival_localization"){
     initial = true;
 
     initialize();
+
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock(), tf2::Duration(std::chrono::duration<double>(0.2)));
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }
 
 void Rival::initialize() {
@@ -49,7 +54,7 @@ void Rival::initialize() {
     locking_rad = p_locking_rad;
 }        
 
-bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
+bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) { // TODO: this also has to be changed to 'base_footprint' as the parent frame
 
     bool ok = true;
 
@@ -243,21 +248,30 @@ void Rival::timerCallback() {
 }
 
 void Rival::publish_rival_raw() {
+    try {
+        // Lookup the transform from "map" to "rival_name + /base_footprint"
+        std::string target_frame = rival_name + "/base_footprint";
+        geometry_msgs::msg::TransformStamped transformStamped = tf_buffer_->lookupTransform(
+            "map", target_frame, tf2::TimePointZero);
 
-    rival_output.header.stamp = rival_stamp;
-    rival_output.header.frame_id = "/base_footprint";
-    rival_output.child_frame_id = rival_name + "/raw_pose";
-    rival_output.pose.pose.position = rival_raw_pose;
-    rival_output.pose.pose.orientation.w = 1;
-    rival_output.twist.twist.linear = rival_raw_vel;
+        // Update rival_output with the transform
+        rival_output.header.stamp = transformStamped.header.stamp;
+        rival_output.header.frame_id = "map";
+        rival_output.child_frame_id = target_frame;
+        rival_output.pose.pose.position.x = transformStamped.transform.translation.x;
+        rival_output.pose.pose.position.y = transformStamped.transform.translation.y;
+        rival_output.pose.pose.position.z = transformStamped.transform.translation.z;
+        rival_output.pose.pose.orientation = transformStamped.transform.rotation;
 
-    rival_raw_pub->publish(rival_output);
+        // Publish the updated rival_output
+        rival_raw_pub->publish(rival_output);
 
-    // RCLCPP_INFO(this->get_logger(),"raw Publish:");
-    // RCLCPP_INFO(this->get_logger(),"center:( %f , %f )",rival_raw_pose.x, rival_raw_pose.y);
-    // RCLCPP_INFO(this->get_logger(),"velocity:( %f , %f )", rival_raw_vel.x, rival_raw_vel.y);
-    // RCLCPP_INFO(this->get_logger(),"time stamp: %f", rival_stamp.seconds());
-    // RCLCPP_INFO(this->get_logger(),"-------------");
+        // Optional debug info
+        RCLCPP_INFO(this->get_logger(), "Published rival pose from tf2 lookup.");
+    } catch (const tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "Could not transform 'map' to '%s': %s", 
+                    (rival_name + "/base_footprint").c_str(), ex.what());
+    }
 }
 
 void Rival::publish_rival_final() {                    
