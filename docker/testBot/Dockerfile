@@ -113,7 +113,7 @@ RUN sudo apt-get update && \
 
 FROM lidar-dep AS devel-ws
 WORKDIR /home/user/temp
-RUN git clone -b devel https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
+RUN git clone -b compensateOnBoardTest https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
 RUN mv /home/user/temp/Eurobot-2025-Localization/localization-devel-ws /home/user/localization-ws/src/localization-devel-ws
 RUN rm -rf /home/user/temp
 
