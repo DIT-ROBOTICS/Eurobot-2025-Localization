@@ -27,6 +27,8 @@ class LidarLocalization(Node): # inherit from Node
         self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
 
+        self.adjust_factor = 1
+
         # Set the landmarks map based on the side
         if self.side == 0:
             self.landmarks_map = [
@@ -182,7 +184,18 @@ class LidarLocalization(Node): # inherit from Node
             y = np.array([r_z - r_prime, angle_limit_checking(theta_z - theta_prime)])
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
+           
             if likelihood > self.likelihood_threshold:
+                # self.get_logger().info(f"Likelihood: {likelihood}, obs:{obs}")
+                if r_z < 1.3:
+                    obs[0] = obs[0] + (1-obs[0]) * self.adjust_factor * 0.01414 * np.cos(theta_z)
+                    obs[1] = obs[1] + (1-obs[0]) * self.adjust_factor * 0.01414 * np.sin(theta_z)
+                r_z = np.sqrt(obs[0] ** 2 + obs[1] ** 2)
+                theta_z = np.arctan2(obs[1], obs[0])
+                y = np.array([r_z - r_prime, angle_limit_checking(theta_z - theta_prime)])
+                di_square = y.T @ S_inv @ y
+                likelihood = np.exp(-0.5 * di_square)
+                # self.get_logger().info(f"adjLikelihood: {likelihood}, obs:{obs}")
                 obs_candidates.append({'position': obs, 'probability': likelihood})
         #         if self.visualize_candidate and self.beacon_no == 1:
         #             marker = Marker()

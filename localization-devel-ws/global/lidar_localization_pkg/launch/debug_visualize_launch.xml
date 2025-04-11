@@ -6,7 +6,7 @@
         <param name="side" value="0"/>
         <param name="debug_mode" value="False"/>
         <param name="visualize_candidate" value="True"/>
-        <param name="likelihood_threshold" value="0.002"/>
+        <param name="likelihood_threshold" value="0.07"/>
         <param name="consistency_threshold" value="0.9"/>
     </node>
 
