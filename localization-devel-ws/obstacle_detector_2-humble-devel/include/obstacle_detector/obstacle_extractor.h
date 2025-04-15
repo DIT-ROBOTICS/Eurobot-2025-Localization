@@ -145,6 +145,8 @@ private:
   double p_min_y_limit_;
   double p_max_y_limit_;
 
+  double p_max_range_ = 3.6;
+
   std::string p_frame_id_;
   std::string published_obstacles_frame_id_ = "";
 };

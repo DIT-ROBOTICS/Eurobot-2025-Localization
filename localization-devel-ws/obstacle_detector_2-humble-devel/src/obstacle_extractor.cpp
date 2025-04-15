@@ -88,6 +88,7 @@ void ObstacleExtractor::updateParamsUtil(){
   nh_->declare_parameter("min_y_limit", rclcpp::PARAMETER_DOUBLE);
   nh_->declare_parameter("max_y_limit", rclcpp::PARAMETER_DOUBLE);
   nh_->declare_parameter("frame_id", rclcpp::PARAMETER_STRING);
+  nh_->declare_parameter("max_range", rclcpp::PARAMETER_DOUBLE);
 
   nh_->get_parameter_or("active", p_active_, true);
   nh_->get_parameter_or("use_scan", p_use_scan_, true);
@@ -112,6 +113,7 @@ void ObstacleExtractor::updateParamsUtil(){
   nh_->get_parameter_or("min_y_limit", p_min_y_limit_, -10.0);
   nh_->get_parameter_or("max_y_limit", p_max_y_limit_,  10.0);
   nh_->get_parameter_or("frame_id", p_frame_id_, std::string{"map"});
+  nh_->get_parameter_or("max_range", p_max_range_, 3.6);
 
   if (p_active_ != prev_active) {
     if (p_active_) {
@@ -154,7 +156,7 @@ void ObstacleExtractor::scanCallback(const sensor_msgs::msg::LaserScan& scan_msg
   double phi = scan_msg.angle_min;
 
   for (const float r : scan_msg.ranges) {
-    if (r >= scan_msg.range_min && r <= scan_msg.range_max)
+    if (r >= scan_msg.range_min && r <= p_max_range_)
       input_points_.push_back(Point::fromPoolarCoords(r, phi));
 
     phi += scan_msg.angle_increment;
