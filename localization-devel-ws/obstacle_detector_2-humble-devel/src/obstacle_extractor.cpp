@@ -131,7 +131,8 @@ void ObstacleExtractor::updateParamsUtil(){
             "pcl2", 10, std::bind(&ObstacleExtractor::pcl2Callback, this, std::placeholders::_1));
       }
       obstacles_pub_ = nh_->create_publisher<obstacle_detector::msg::Obstacles>("raw_obstacles", 10);
-      obstacles_vis_pub_ = nh_->create_publisher<visualization_msgs::msg::MarkerArray>("raw_obstacles_visualization", 10);
+      // obstacles_vis_pub_ = nh_->create_publisher<visualization_msgs::msg::MarkerArray>("raw_obstacles_visualization", 10);
+      obstacles_vis_pcl_pub_ = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("raw_obstacles_visualization_pcl", 10);
     }
     else {
       // Send empty message
@@ -220,7 +221,8 @@ void ObstacleExtractor::processPoints() {
 
   transformObstacles();
   publishObstacles();
-  publishVisualizationObstacles();
+  // publishVisualizationObstacles();
+  publishPointCloud2Obstacles();
 
   input_points_.clear();
 }
@@ -457,81 +459,81 @@ bool ObstacleExtractor::compareCircles(const Circle& c1, const Circle& c2, Circl
   return false;
 }
 
-void ObstacleExtractor::publishVisualizationObstacles(){
-  auto obstacles_vis_msg = visualization_msgs::msg::MarkerArray();
-  int id = 0;
-  for (const Segment& s : segments_) {
-    auto seg_marker = visualization_msgs::msg::Marker();
-    seg_marker.header.stamp = stamp_;
-    seg_marker.header.frame_id = published_obstacles_frame_id_;
-    seg_marker.action = visualization_msgs::msg::Marker::ADD;
-    seg_marker.id = id++;
-    seg_marker.ns = "raw_obstacles";
-    seg_marker.scale.x = 0.1;
-    seg_marker.color.g = 1.0;
-    seg_marker.color.a = 1.0;
-    seg_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+// void ObstacleExtractor::publishVisualizationObstacles(){
+//   auto obstacles_vis_msg = visualization_msgs::msg::MarkerArray();
+//   int id = 0;
+//   for (const Segment& s : segments_) {
+//     auto seg_marker = visualization_msgs::msg::Marker();
+//     seg_marker.header.stamp = stamp_;
+//     seg_marker.header.frame_id = published_obstacles_frame_id_;
+//     seg_marker.action = visualization_msgs::msg::Marker::ADD;
+//     seg_marker.id = id++;
+//     seg_marker.ns = "raw_obstacles";
+//     seg_marker.scale.x = 0.1;
+//     seg_marker.color.g = 1.0;
+//     seg_marker.color.a = 1.0;
+//     seg_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
 
-    auto seg_fp = geometry_msgs::msg::Point();
-    seg_fp.x = s.first_point.x;
-    seg_fp.y = s.first_point.y;
-    seg_fp.z = s.first_point.z;
-    auto seg_lp = geometry_msgs::msg::Point();
-    seg_lp.x = s.last_point.x;
-    seg_lp.y = s.last_point.y;
-    seg_lp.z = s.last_point.z;
-    seg_marker.points.push_back(seg_fp);
-    seg_marker.points.push_back(seg_lp);
+//     auto seg_fp = geometry_msgs::msg::Point();
+//     seg_fp.x = s.first_point.x;
+//     seg_fp.y = s.first_point.y;
+//     seg_fp.z = s.first_point.z;
+//     auto seg_lp = geometry_msgs::msg::Point();
+//     seg_lp.x = s.last_point.x;
+//     seg_lp.y = s.last_point.y;
+//     seg_lp.z = s.last_point.z;
+//     seg_marker.points.push_back(seg_fp);
+//     seg_marker.points.push_back(seg_lp);
 
-    seg_marker.pose.orientation.w = 1.0;   
-    obstacles_vis_msg.markers.push_back(seg_marker);
-  }
+//     seg_marker.pose.orientation.w = 1.0;   
+//     obstacles_vis_msg.markers.push_back(seg_marker);
+//   }
 
-  for (const Circle& c : circles_) {
-    if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
-        c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_) {
-        auto circ_marker = visualization_msgs::msg::Marker();
-        circ_marker.header.stamp = stamp_;
-        circ_marker.header.frame_id = published_obstacles_frame_id_;
-        circ_marker.action = visualization_msgs::msg::Marker::ADD;
-        circ_marker.id = id++;
-        circ_marker.ns = "raw_obstacles";
-        // fake a bigger obstacle radius for visualization purposes
-        double rad = c.radius;
-        if (rad < 0.2){rad = 0.2;}
-        circ_marker.scale.x = rad;
-        circ_marker.scale.y = rad;
-        circ_marker.scale.z = 0.01;
-        circ_marker.color.g = 1.0;
-        circ_marker.color.a = 1.0;
-        circ_marker.type = visualization_msgs::msg::Marker::CYLINDER;
+//   for (const Circle& c : circles_) {
+//     if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
+//         c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_) {
+//         auto circ_marker = visualization_msgs::msg::Marker();
+//         circ_marker.header.stamp = stamp_;
+//         circ_marker.header.frame_id = published_obstacles_frame_id_;
+//         circ_marker.action = visualization_msgs::msg::Marker::ADD;
+//         circ_marker.id = id++;
+//         circ_marker.ns = "raw_obstacles";
+//         // fake a bigger obstacle radius for visualization purposes
+//         double rad = c.radius;
+//         if (rad < 0.2){rad = 0.2;}
+//         circ_marker.scale.x = rad;
+//         circ_marker.scale.y = rad;
+//         circ_marker.scale.z = 0.01;
+//         circ_marker.color.g = 1.0;
+//         circ_marker.color.a = 1.0;
+//         circ_marker.type = visualization_msgs::msg::Marker::CYLINDER;
         
-        circ_marker.pose.position.x = c.center.x;
-        circ_marker.pose.position.y = c.center.y;
-        circ_marker.pose.position.z = c.center.z;
+//         circ_marker.pose.position.x = c.center.x;
+//         circ_marker.pose.position.y = c.center.y;
+//         circ_marker.pose.position.z = c.center.z;
 
-        circ_marker.pose.orientation.x = 0.0;
-        circ_marker.pose.orientation.y = 0.0;
-        circ_marker.pose.orientation.z = 0.0;
-        circ_marker.pose.orientation.w = 1.0;
-        obstacles_vis_msg.markers.push_back(circ_marker);
-    }
-  }
+//         circ_marker.pose.orientation.x = 0.0;
+//         circ_marker.pose.orientation.y = 0.0;
+//         circ_marker.pose.orientation.z = 0.0;
+//         circ_marker.pose.orientation.w = 1.0;
+//         obstacles_vis_msg.markers.push_back(circ_marker);
+//     }
+// }
 
-  // clean up remaining ids
-  while(id < num_active_markers_){
-    visualization_msgs::msg::Marker markerD;
-    markerD.header.stamp = stamp_;
-    markerD.header.frame_id = published_obstacles_frame_id_;
-    markerD.ns = "raw_obstacles";
-    markerD.id = id++;  
-    markerD.action = visualization_msgs::msg::Marker::DELETE;
-    obstacles_vis_msg.markers.push_back(markerD);
-  }
-  num_active_markers_ = id + 1;
-  obstacles_vis_pub_->publish(obstacles_vis_msg);
-  time_last_marker_published_ = nh_->get_clock()->now();
-}
+//   // clean up remaining ids
+//   while(id < num_active_markers_){
+//     visualization_msgs::msg::Marker markerD;
+//     markerD.header.stamp = stamp_;
+//     markerD.header.frame_id = published_obstacles_frame_id_;
+//     markerD.ns = "raw_obstacles";
+//     markerD.id = id++;  
+//     markerD.action = visualization_msgs::msg::Marker::DELETE;
+//     obstacles_vis_msg.markers.push_back(markerD);
+//   }
+//   num_active_markers_ = id + 1;
+//   obstacles_vis_pub_->publish(obstacles_vis_msg);
+//   time_last_marker_published_ = nh_->get_clock()->now();
+// }
 
 void ObstacleExtractor::transformObstacles() {
   if (p_transform_coordinates_) {
@@ -565,6 +567,87 @@ void ObstacleExtractor::transformObstacles() {
   }
 
 }
+
+void ObstacleExtractor::publishPointCloud2Obstacles() {
+  sensor_msgs::msg::PointCloud2 obstacles_pcl_msg;
+  obstacles_pcl_msg.header.stamp = stamp_;
+  obstacles_pcl_msg.header.frame_id = published_obstacles_frame_id_;
+  obstacles_pcl_msg.height = 1;
+  obstacles_pcl_msg.is_dense = false;
+  obstacles_pcl_msg.is_bigendian = false;
+
+  sensor_msgs::msg::PointField f_x, f_y, f_z, f_rgb;
+
+  f_x.name = "x";
+  f_x.offset = 0;
+  f_x.datatype = sensor_msgs::msg::PointField::FLOAT32;
+  f_x.count = 1;
+  
+  f_y.name = "y";
+  f_y.offset = 4;
+  f_y.datatype = sensor_msgs::msg::PointField::FLOAT32;
+  f_y.count = 1;
+  
+  f_z.name = "z";
+  f_z.offset = 8;
+  f_z.datatype = sensor_msgs::msg::PointField::FLOAT32;
+  f_z.count = 1;
+  
+  f_rgb.name = "rgb";
+  f_rgb.offset = 12;
+  f_rgb.datatype = sensor_msgs::msg::PointField::FLOAT32;
+  f_rgb.count = 1;
+  
+  obstacles_pcl_msg.fields = {f_x, f_y, f_z, f_rgb};
+  
+  obstacles_pcl_msg.point_step = 16;
+
+  std::vector<uint8_t> data;
+
+  auto add_point = [&](float x, float y, float z, uint8_t r, uint8_t g, uint8_t b) {
+    uint32_t rgb_int = (r << 16) | (g << 8) | b;
+    float rgb;
+    std::memcpy(&rgb, &rgb_int, sizeof(float));
+    std::array<float, 4> point = {x, y, z, rgb};
+    for (float v : point) {
+      uint8_t* p = reinterpret_cast<uint8_t*>(&v);
+      data.insert(data.end(), p, p + sizeof(float));
+    }
+  };
+
+  auto add_circle_outline = [&](const geometry_msgs::msg::Point& center, float radius, int num_points = 36) {
+    for (int i = 0; i < num_points; ++i) {
+      float theta = 2.0f * M_PI * i / num_points;
+      float x = center.x + radius * std::cos(theta);
+      float y = center.y + radius * std::sin(theta);
+      float z = center.z;
+      add_point(x, y, z, 255, 105, 180);  
+    }
+  };
+ 
+  for (const Segment& s : segments_) {
+    add_point(s.first_point.x, s.first_point.y, s.first_point.z, 0, 0, 255);
+    add_point(s.last_point.x, s.last_point.y, s.last_point.z, 0, 0, 255);
+  }
+
+  for (const Circle& c : circles_) {
+    if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
+        c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_) {
+    geometry_msgs::msg::Point center;
+    center.x = c.center.x;
+    center.y = c.center.y;
+    center.z = c.center.z;
+    add_circle_outline(center, c.radius);
+    }
+  }
+
+  obstacles_pcl_msg.data = std::move(data);
+  obstacles_pcl_msg.width = obstacles_pcl_msg.data.size() / obstacles_pcl_msg.point_step;
+  obstacles_pcl_msg.row_step = obstacles_pcl_msg.width * obstacles_pcl_msg.point_step;
+
+  obstacles_vis_pcl_pub_->publish(obstacles_pcl_msg);
+}
+
 
 void ObstacleExtractor::publishObstacles() {
   auto obstacles_msg = obstacle_detector::msg::Obstacles();
