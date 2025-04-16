@@ -53,7 +53,8 @@ services:
       target: devel-ws
       args:
         USERNAME: user
-        SELECT_PACKAGE: obstacle_detector
+        PACKAGE_SELECT: obstacle_detector
+        BRANCH_SELECT: devel
     container_name: localization_devel
     <<: 
       - *ros2-vars

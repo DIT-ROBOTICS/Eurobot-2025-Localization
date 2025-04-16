@@ -68,6 +68,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     # ros-humble-imu-tools \
     libusb-1.0-0 libusb-1.0-0-dev -y && \
     rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir rotop
     
 ################################################################################################
 # - IMU Installation stage
@@ -90,7 +92,7 @@ WORKDIR /home/user/localization-ws/src/rplidar-ros-driver
 RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/rplidar-ros-driver/
 # RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
 
-WORKDIR /home/${USERNAME}/localization-ws
+WORKDIR /home/user/localization-ws
 # RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
 RUN sudo apt-get update && \
     rosdep update && \
@@ -105,17 +107,9 @@ RUN sudo apt-get update && \
 
 FROM sensor-dep AS ros-ws
 WORKDIR /home/user/temp
-RUN git clone -b ft.removeUnused https://github.com/jossiewang/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
-RUN git clone -b release https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
+RUN git clone -b Release https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
 RUN mv /home/user/temp/Eurobot-2025-Localization/localization-devel-ws /home/user/localization-ws/src/localization-devel-ws
 RUN rm -rf /home/user/temp
-
-################################################################################################
-# - Final stage
-# 
-################################################################################################
-
-FROM ros-ws AS final
 
 ## Set working directory
 WORKDIR /home/${USERNAME}/localization-ws
@@ -127,7 +121,14 @@ RUN sudo apt-get update && \
     /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install --packages-ignore imm_filter' \
     && sudo rm -rf /var/lib/apt/lists/*
 
-RUN rm -rf /home/user/localization-ws/src/localization-devel-ws /home/user/localization-ws/src/obstacle_detector_2
+RUN rm -rf /home/user/localization-ws/src/localization-devel-ws
+
+################################################################################################
+# - Final stage
+# 
+################################################################################################
+
+FROM ros-ws AS final
 
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
@@ -142,23 +143,25 @@ CMD ["/bin/bash"]
 
 FROM jossiewang/eurobot2025-localization:sensor-dep AS devel-ws
 
+ARG USERNAME
+ARG BRANCH_SELECT
+ARG PACKAGE_SELECT
+
 WORKDIR /home/user/temp
-RUN git clone -b ft.removeUnused https://github.com/jossiewang/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
-RUN git clone -b release https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
+RUN git clone -b ${BRANCH_SELECT} https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
 RUN mv /home/user/temp/Eurobot-2025-Localization/localization-devel-ws /home/user/localization-ws/src/localization-devel-ws
 RUN rm -rf /home/user/temp
 
 ## Set working directory
 WORKDIR /home/${USERNAME}/localization-ws
-# RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
 USER ${USERNAME}
 RUN sudo apt-get update && \
     rosdep update && \
     rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
-    /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install --packages-select ${SELECT_PACKAGE}' \
+    /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install --packages-select ${PACKAGE_SELECT}' \
     && sudo rm -rf /var/lib/apt/lists/*
 
-RUN rm -rf /home/user/localization-ws/src/localization-devel-ws /home/user/localization-ws/src/obstacle_detector_2
+RUN rm -rf /home/user/localization-ws/src/localization-devel-ws
 
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
