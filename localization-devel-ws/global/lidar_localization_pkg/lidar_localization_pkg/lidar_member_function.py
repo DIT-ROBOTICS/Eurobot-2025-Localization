@@ -20,9 +20,9 @@ class LidarLocalization(Node): # inherit from Node
 
         # Declare algorithm parameters
         self.declare_parameter('likelihood_threshold', 0.001)
-        self.declare_parameter('likelihood_threshold_two', 0.1)
+        self.declare_parameter('likelihood_threshold_two', 0.01)
         self.declare_parameter('consistency_threshold', 0.9)
-        self.declare_parameter('consistency_threshold_two', 0.99)
+        self.declare_parameter('consistency_threshold_two', 0.95)
         self.declare_parameter('R', [0.0025, 0.0025]) # measurement noise covariance matrix
 
         # Get parameters
@@ -30,9 +30,9 @@ class LidarLocalization(Node): # inherit from Node
         self.debug_mode = self.get_parameter('debug_mode').get_parameter_value().bool_value
         self.visualize_candidate = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
         self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
-        self.likelihood_threshold = self.get_parameter('likelihood_threshold_two').get_parameter_value().double_value
+        self.likelihood_threshold_two = self.get_parameter('likelihood_threshold_two').get_parameter_value().double_value
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
-        self.consistency_threshold = self.get_parameter('consistency_threshold_two').get_parameter_value().double_value
+        self.consistency_threshold_two = self.get_parameter('consistency_threshold_two').get_parameter_value().double_value
         self.R = np.array(self.get_parameter('R').get_parameter_value().double_array_value)
 
         self.adjust_factor = 1
@@ -187,9 +187,6 @@ class LidarLocalization(Node): # inherit from Node
         S = H @ self.P_pred @ H.T + self.R
         S_inv = np.linalg.inv(S)
 
-        if self.visualize_candidate:
-            marker_id = 0
-            marker_array = MarkerArray()
 
         for obs in self.obs_raw:
             r_z = np.sqrt(obs[0] ** 2 + obs[1] ** 2)
@@ -444,9 +441,10 @@ class LidarLocalization(Node): # inherit from Node
         beacons = [self.landmarks_set[max_likelihood_idx]['beacons'][i] for i in range(2)]
         # calculate the lidar pose (TODO)
         # take the average of the position given by the two beacons
+        lidar_pose = np.zeros(3)  # Ensure lidar_pose has three elements
         pose_1 = self.landmarks_map[two_index[0]] - self.landmarks_set[max_likelihood_idx]['beacons'][0]
         pose_2 = self.landmarks_map[two_index[1]] - self.landmarks_set[max_likelihood_idx]['beacons'][1]
-        lidar_pose = (pose_1 + pose_2) / 2
+        lidar_pose[:2] = (pose_1 + pose_2) / 2  # Assign x and y to the first two elements
         lidar_pose[2] = angle_limit_checking(np.arctan2(pose_1[1], pose_1[0]) - np.arctan2(beacons[0][1], beacons[0][0]))
         lidar_cov = np.diag([0.05**2, 0.05**2, 0.05**2]) # what should the optimal value be?
         lidar_cov[0, 0] /= max_likelihood
