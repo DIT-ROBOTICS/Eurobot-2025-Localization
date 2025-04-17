@@ -1,9 +1,9 @@
 <launch>
     <!-- Declare arguments -->
-    <arg name='name_of_bag_file' default='0207_first' />
+    <arg name='name_of_bag_file' default='0320_wcamrobot_wcamrival_consistency9' />
 
     <!-- <executable cmd="ros2 topic echo /odoo_googoogoo geometry_msgs/Twist"/> -->
 
     <!-- record bag -->
-    <executable cmd="ros2 bag record --output /home/user/localization-ws/src/localization-devel-ws/bag/$(var name_of_bag_file) /local_filter /final_pose /lidar_pose /raw_obstacles_visualization" />
+    <executable cmd="ros2 bag record --output /home/user/localization-ws/src/localization-devel-ws/bag/$(var name_of_bag_file) /local_filter /final_pose /lidar_pose /raw_obstacles_visualization /ceiling_robot/pose /rival/final_pose /ceiling_rival/pose" />
 </launch>

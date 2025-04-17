@@ -9,7 +9,7 @@
     <param name="use_pcl"              value="false"/>
     <param name="use_sim_time"         value="false"/>
 
-    <param name="use_split_and_merge"    value="false"/> <!-- choose wether to use Iterative End Point Fit (false) or Split And Merge (true) algorithm to detect segments -->
+    <param name="use_split_and_merge"    value="true"/> <!-- choose wether to use Iterative End Point Fit (false) or Split And Merge (true) algorithm to detect segments -->
     <param name="circles_from_visibles"  value="true"/>
     <param name="discard_converted_segments" value="true"/>
     <param name="transform_coordinates"  value="true"/>
