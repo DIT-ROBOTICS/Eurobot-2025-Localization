@@ -35,7 +35,7 @@ services:
 
   localization-main:
     profiles: ['localization_main']
-    image: jossiewang/eurobot2025-localization:devel-rival
+    image: jossiewang/eurobot2025-localization:testbot-release
     container_name: localization-main
     <<: 
       - *ros2-vars
