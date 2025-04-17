@@ -1,17 +1,26 @@
 <launch>
 
     <!-- launch settings -->
-    <arg name="offline" default="false"/>
+    <arg name="offline" default="true"/>
     <arg name="online" default="false"/>
-    <arg name="use_foxglove" default="true"/>
+    <arg name="use_foxglove" default="false"/>
 
     <!-- function settings -->
     <arg name='bag_folder' default="/home/user/localization-ws/src/localization-devel-ws/bag"/>
-    <arg name='name_of_play_file' default="0402_lidar_test"/>
+    <arg name='name_of_play_file' default="0412_lidar_test"/>
 
     <!-- functions -->
-    <executable cmd="ros2 bag play --loop $(var bag_folder)/$(var name_of_play_file) --clock --topics /initialpose /local_filter /scan" output="screen" if="$(var offline)"/>
-
+    <executable cmd="ros2 bag play --loop $(var bag_folder)/$(var name_of_play_file) --clock --topics /scan /imu/data_cov /tf_static" output="screen" if="$(var offline)"/>
+    <!-- <executable cmd="ros2 topic pub -1 /initial_pose geometry_msgs/msg/PoseWithCovariance 
+                    '{pose: {position: {x: '1.42', y: '0.50', z: '0.0'}, 
+                             orientation: {x: '0', y: '0', z: '0.569', w: '0.822'}}, 
+                      covariance:[1e-4,    0,    0,    0,    0,    0,
+                                     0, 1e-4,    0,    0,    0,    0, 
+                                     0,    0,    0,    0,    0,    0, 
+                                     0,    0,    0,    0,    0,    0, 
+                                     0,    0,    0,    0,    0,    0, 
+                                     0,    0,    0,    0,    0, 2e-2]}'" 
+                output="screen"/> -->
     <!-- open local filter node -->
     <node name="local_filter_LPF" pkg="local_filter" exec="local_filter_LPF" >
         <param name="LPF_alpha_x" value="1.0"/>
@@ -36,7 +45,7 @@
     <node pkg="ekf" exec="ekf_node" name="ekf_node" output="screen">
         <param name="robot_parent_frame_id" value="map" />
         <param name="robot_frame_id" value="base_footprint" />
-        <param name="/use_sim_time" value="true" />
+        <param name="/use_sim_time" value="false" />
         <param name="q_linear" value="1e-3" />
         <param name="q_angular" value="1e-2" />
         <param name="r_camra_linear" value="1e-2"  />

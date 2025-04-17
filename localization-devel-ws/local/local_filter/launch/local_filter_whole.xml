@@ -5,7 +5,7 @@
     <arg name="simulation" default="false"/>
     <arg name="LPF_alpha_x" default="1.0"/>
     <arg name="LPF_alpha_y" default="1.0"/>
-    <arg name="LPF_plaha_w" default="1.0"/>
+    <arg name="LPF_alpha_w" default="1.0"/>
     <arg name="linear_cov_max" default="0.06"/>
     <arg name="angular_cov_max" default="0.05"/>
     <arg name="odom_param" default="1"/>
