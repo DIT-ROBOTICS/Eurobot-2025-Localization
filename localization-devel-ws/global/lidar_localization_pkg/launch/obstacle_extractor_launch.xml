@@ -25,6 +25,7 @@
     <param name="radius_enlargement"   value="0.0"/> <!-- we do not need enlargement! -->
 
     <param name="frame_id"             value="base_footprint"/>
+    <param name="max_range"            value="3.6"/>
   </node>
 
 </launch>
