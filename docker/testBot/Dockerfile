@@ -115,10 +115,7 @@ RUN rm -rf /home/user/temp
 WORKDIR /home/${USERNAME}/localization-ws
 # RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
 USER ${USERNAME}
-RUN sudo apt-get update && \
-    rosdep update && \
-    rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
-    /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --packages-select obstacle_detector' && \
+RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --packages-select obstacle_detector' && \
     # /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; source /home/user/localization-ws/install/setup.bash; colcon build --packages-select rival_localization --event-handlers console_cohesion+ --parallel-workers 1' 
     /bin/bash -c 'source /home/user/localization-ws/install/setup.bash; colcon build --symlink-install --packages-ignore imm_filter obstacle_detector' \
     && sudo rm -rf /var/lib/apt/lists/*
@@ -157,10 +154,7 @@ RUN rm -rf /home/user/temp
 ## Set working directory
 WORKDIR /home/${USERNAME}/localization-ws
 USER ${USERNAME}
-RUN sudo apt-get update && \
-    rosdep update && \
-    rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
-    /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --packages-select ${PACKAGE_SELECT}' \
+RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --packages-select ${PACKAGE_SELECT}' \
     && sudo rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf /home/user/localization-ws/src/localization-devel-ws
