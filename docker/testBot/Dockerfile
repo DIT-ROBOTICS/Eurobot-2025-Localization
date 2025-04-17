@@ -68,13 +68,15 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     # ros-humble-imu-tools \
     libusb-1.0-0 libusb-1.0-0-dev -y && \
     rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir rotop
     
 ################################################################################################
 # - IMU Installation stage
 #   - In this stage, install neccesary stuff for phidget IMU spatial.
 ################################################################################################
 
-FROM tools AS imu-dep
+FROM tools AS sensor-dep
 
 ## Install necessary tools for imu
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
@@ -86,20 +88,12 @@ USER ${USERNAME}
 WORKDIR /home/user/localization-ws/src/phidgets_drivers
 COPY phidgets_drivers /home/user/localization-ws/src/phidgets_drivers
 
-################################################################################################
-# - RPLiDar and obstacle detector Installation stage
-#   - In this stage, install neccesary stuff for RPLiDar.
-################################################################################################
-
-FROM imu-dep AS lidar-dep
-USER ${USERNAME}
 WORKDIR /home/user/localization-ws/src/rplidar-ros-driver
 RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/rplidar-ros-driver/
-RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
+# RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
 
-WORKDIR /home/${USERNAME}/localization-ws
+WORKDIR /home/user/localization-ws
 # RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
-USER ${USERNAME}
 RUN sudo apt-get update && \
     rosdep update && \
     rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
@@ -107,31 +101,60 @@ RUN sudo apt-get update && \
     && sudo rm -rf /var/lib/apt/lists/*
 
 ################################################################################################
-# - devel-ws build stage
+# - ros workspace build stage
 # 
 ################################################################################################
 
-FROM lidar-dep AS devel-ws
+FROM sensor-dep AS ros-ws
 WORKDIR /home/user/temp
-RUN git clone -b devel https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
+RUN git clone -b Release https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
 RUN mv /home/user/temp/Eurobot-2025-Localization/localization-devel-ws /home/user/localization-ws/src/localization-devel-ws
 RUN rm -rf /home/user/temp
+
+## Set working directory
+WORKDIR /home/${USERNAME}/localization-ws
+# RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
+USER ${USERNAME}
+RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --packages-select obstacle_detector' && \
+    # /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; source /home/user/localization-ws/install/setup.bash; colcon build --packages-select rival_localization --event-handlers console_cohesion+ --parallel-workers 1' 
+    /bin/bash -c 'source /home/user/localization-ws/install/setup.bash; colcon build --symlink-install --packages-ignore imm_filter obstacle_detector' \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+RUN rm -rf /home/user/localization-ws/src/localization-devel-ws
 
 ################################################################################################
 # - Final stage
 # 
 ################################################################################################
 
-FROM devel-ws AS final
+FROM ros-ws AS final
+
+COPY .bashrc /home/$USERNAME/.bashrc.conf
+RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
+
+USER ${USERNAME}
+CMD ["/bin/bash"]
+
+################################################################################################
+# - devel-ws build stage
+# 
+################################################################################################
+
+FROM jossiewang/eurobot2025-localization2:testbot-release AS devel-ws
+
+ARG USERNAME
+ARG BRANCH_SELECT
+ARG PACKAGE_SELECT
+
+WORKDIR /home/user/temp
+RUN git clone -b ${BRANCH_SELECT} https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
+RUN mv /home/user/temp/Eurobot-2025-Localization/localization-devel-ws /home/user/localization-ws/src/localization-devel-ws
+RUN rm -rf /home/user/temp
 
 ## Set working directory
 WORKDIR /home/${USERNAME}/localization-ws
-# RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
 USER ${USERNAME}
-RUN sudo apt-get update && \
-    rosdep update && \
-    rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
-    /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install --packages-ignore imm_filter' \
+RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --packages-select ${PACKAGE_SELECT}' \
     && sudo rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf /home/user/localization-ws/src/localization-devel-ws
