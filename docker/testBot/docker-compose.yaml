@@ -35,7 +35,7 @@ services:
 
   localization-main:
     profiles: ['localization_main']
-    image: jossiewang/eurobot2025-localization:testbot-release
+    image: jossiewang/eurobot2025-localization2:testbot-release
     container_name: localization-main
     <<: 
       - *ros2-vars
@@ -59,3 +59,66 @@ services:
     <<: 
       - *ros2-vars
     command: /bin/bash
+
+  ros-core:
+    profiles: ['communication']
+    image: osrf/ros:noetic-desktop-full
+    container_name: ros-core
+    command: "rosmaster --core"
+    network_mode: host
+    stop_grace_period: 1s
+    healthcheck:
+      # The healthcheck is required for ros1-bridge to wait until roscore is ready.
+      test: /ros_entrypoint.sh bash -c "rostopic list || exit 1"
+      interval: 3s
+      timeout: 10s
+      retries: 5
+
+  ros1-bridge:
+    profiles: ['communication']
+    build:
+      context: .
+      target: release
+    image: pomelo925/ttennis-humble:communication
+    container_name: ros2-ros1-bridge-ws
+    stop_grace_period: 1s
+    depends_on:
+      ros-core:
+        # The healthcheck is required for ros1-bridge to wait until roscore is ready.
+        condition: service_healthy
+    command: ./start-bridge.sh
+    stdin_open: true
+    tty: true
+    network_mode: host
+    working_dir: /
+    volumes:
+      # Mount local timezone into container. ( Readonly )
+      # Reference: https://stackoverflow.com/questions/57607381/how-do-i-change-timezone-in-a-docker-container
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      # Direct Rendering Infrastructure
+      - /dev/dri:/dev/dri
+      # Shared Memory
+      - /dev/shm:/dev/shm
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      # - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp=value
+
+  ros1:
+    profiles: ['communication']
+    image: jossiewang/eurobot2025-localization:rosserial-chassis
+    container_name: ros1
+    stdin_open: true
+    tty: true
+    network_mode: host
+    privileged: true
+    volumes:
+      - /dev:/dev
+    stop_grace_period: 1s
+    depends_on:
+      ros-core:
+        condition: service_healthy
+    command: /bin/bash -c "
+            source /opt/ros/noetic/setup.bash && 
+            source ~/ws/devel/setup.bash &&
+            roslaunch odometry odometry_comm.launch"
