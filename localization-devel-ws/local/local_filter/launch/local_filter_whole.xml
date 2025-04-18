@@ -5,6 +5,7 @@
     <arg name="simulation" default="false"/>
     <arg name="LPF_alpha_x" default="1.0"/>
     <arg name="LPF_alpha_y" default="1.0"/>
+    <arg name="LPF_alpha_w" default="1.0"/>
     <arg name="linear_cov_max" default="0.06"/>
     <arg name="angular_cov_max" default="0.05"/>
     <arg name="odom_param" default="1"/>
@@ -37,6 +38,7 @@
             <!-- <param from="$(find-pkg-share local_filter)/param/local_filter_whole.yaml" /> -->
             <param name="LPF_alpha_x" value="$(var LPF_alpha_x)"/>
             <param name="LPF_alpha_y" value="$(var LPF_alpha_y)"/>
+            <param name="LPF_alpha_w" value="$(var LPF_alpha_w)"/>
             <param name="linear_cov_max" value="$(var linear_cov_max)"/>
             <param name="angular_cov_max" value="$(var angular_cov_max)"/>
             <!-- <remap from="odoo_googoogoo" to="driving_duaiduaiduai"/> -->
