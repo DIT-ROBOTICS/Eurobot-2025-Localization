@@ -22,9 +22,9 @@ class LidarLocalization(Node): # inherit from Node
 
         # Declare algorithm parameters
         self.declare_parameter('likelihood_threshold', 0.001)
-        self.declare_parameter('likelihood_threshold_two', 0.8)
+        self.declare_parameter('likelihood_threshold_two', 0.5)
         self.declare_parameter('consistency_threshold', 0.9)
-        self.declare_parameter('consistency_threshold_two', 0.99)
+        self.declare_parameter('consistency_threshold_two', 0.97)
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('R', [0.0025, 0.0025]) # measurement noise covariance matrix
@@ -32,7 +32,7 @@ class LidarLocalization(Node): # inherit from Node
         # Get parameters
         self.side = self.get_parameter('side').get_parameter_value().integer_value
         self.debug_mode = self.get_parameter('debug_mode').get_parameter_value().bool_value
-        self.visualize_candidate = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
+        self.visualize_true = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
         self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
         self.likelihood_threshold_two = self.get_parameter('likelihood_threshold_two').get_parameter_value().double_value
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
@@ -63,7 +63,10 @@ class LidarLocalization(Node): # inherit from Node
         # ros settings
         self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
 
-        if self.visualize_candidate:
+        if self.visualize_true:
+            self.marker_array = MarkerArray()
+            self.marker_num_pre = np.array([0, 0, 0])
+            self.marker_id = 0
             self.circles_pub = self.create_publisher(MarkerArray, 'candidates', 10)
 
         self.subscription = self.create_subscription(
@@ -274,6 +277,8 @@ class LidarLocalization(Node): # inherit from Node
                 likelihood = np.exp(-0.5 * di_square)
                 # self.get_logger().info(f"adjLikelihood: {likelihood}, obs:{obs}")
                 obs_candidates.append({'position': obs, 'probability': likelihood})
+                if self.visualize_true:
+                    self.visualize_candidates(obs, likelihood)
 
         return obs_candidates
 
@@ -283,11 +288,18 @@ class LidarLocalization(Node): # inherit from Node
         self.beacon_no = 0
         for landmark in landmarks_map:
             self.beacon_no += 1
+            self.marker_id = 0
             candidate = {
                 'landmark': landmark,
                 'obs_candidates': self.get_obs_candidate(landmark)
             }
             landmarks_candidate.append(candidate)
+
+        if self.visualize_true:
+            self.circles_pub.publish(self.marker_array)
+            # self.get_logger().debug("Published marker array")
+            self.marker_array.markers.clear() # clean up (is this enough?)
+
         # print landmarks_candidate for debug
         if self.debug_mode:
             for i, landmark in enumerate(landmarks_candidate):
@@ -387,15 +399,15 @@ class LidarLocalization(Node): # inherit from Node
                 self.get_logger().warn("Linear algebra error: {}".format(e))
             
             # use markerarray to show the landmarks it used
-            if self.visualize_candidate:
-                self.visualize_candidates(beacons, max_likelihood, landmarks_set[max_likelihood_idx]['consistency'])
+            if self.visualize_true:
+                self.visualize_sets(beacons, max_likelihood, landmarks_set[max_likelihood_idx]['consistency'])
             
         else:
             self.get_logger().debug("not enough beacons")
 
         return lidar_pose, lidar_cov
 
-    def visualize_candidates(self, beacons, max_likelihood, consistency):
+    def visualize_sets(self, beacons, max_likelihood, consistency):
         marker_array = MarkerArray()
         for i, beacon in enumerate(beacons):
             marker = Marker()
@@ -424,8 +436,8 @@ class LidarLocalization(Node): # inherit from Node
         marker.type = Marker.TEXT_VIEW_FACING
         marker.action = Marker.ADD
         marker.scale.z = 0.1
-        marker.pose.position.x = 3.0
-        marker.pose.position.y = 2.0
+        marker.pose.position.x = 3.5
+        marker.pose.position.y = 2.5
         marker.pose.position.z = 0.5
         marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
         marker.text = f"max_likelihood: {max_likelihood:.2f}, consistency: {consistency:.2f}"
@@ -436,6 +448,73 @@ class LidarLocalization(Node): # inherit from Node
         self.get_logger().debug("Published marker array")
         # clean up
         marker_array.markers.clear()
+
+    def visualize_candidates(self, obs, likelihood):
+
+        self.marker_id += 1
+
+        # circles
+        marker = Marker()
+        marker.header.frame_id = "base_footprint"
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = f"candidates_circle{self.beacon_no}"
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        marker.scale.x = 0.1
+        marker.scale.y = 0.1
+        marker.scale.z = 0.01
+
+        marker.pose.position.x = obs[0]
+        marker.pose.position.y = obs[1]
+        marker.pose.position.z = 0.0
+        if self.beacon_no == 1:
+            marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=likelihood)  # Red for beacon 1
+        elif self.beacon_no == 2:
+            marker.color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=likelihood)  # Green for beacon 2
+        elif self.beacon_no == 3:
+            marker.color = ColorRGBA(r=0.0, g=0.0, b=1.0, a=likelihood)  # Blue for beacon 3
+        marker.id = self.marker_id
+        self.marker_array.markers.append(marker)
+
+        # texts
+        text_marker = Marker()
+        text_marker.header.frame_id = "base_footprint"
+        text_marker.header.stamp = self.get_clock().now().to_msg()
+        text_marker.ns = f"candidates_text{self.beacon_no}"
+        text_marker.type = Marker.TEXT_VIEW_FACING
+        text_marker.action = Marker.ADD
+        text_marker.scale.z = 0.1
+        text_marker.color = ColorRGBA(r=0.0, g=0.0, b=0.0, a=0.2)  # White text
+
+        text_marker.pose.position.x = obs[0] + 0.2
+        text_marker.pose.position.y = obs[1]
+        text_marker.pose.position.z = 0.1
+        text_marker.text = f"{likelihood:.2f}"
+        text_marker.id = self.marker_id
+        self.marker_array.markers.append(text_marker)
+
+        # remove the old markers
+        num_old_markers = self.marker_num_pre[self.beacon_no - 1] - self.marker_id
+        for i in range(num_old_markers):
+            old_marker = Marker()
+            old_marker.header.frame_id = "base_footprint"
+            old_marker.header.stamp = self.get_clock().now().to_msg()
+            old_marker.ns = f"candidates_circle{self.beacon_no}"
+            old_marker.type = Marker.SPHERE
+            old_marker.action = Marker.DELETE
+            old_marker.id = i + 1
+            self.marker_array.markers.append(old_marker)
+
+            old_text_marker = Marker()
+            old_text_marker.header.frame_id = "base_footprint"
+            old_text_marker.header.stamp = self.get_clock().now().to_msg()
+            old_text_marker.ns = f"candidates_text{self.beacon_no}"
+            old_text_marker.type = Marker.TEXT_VIEW_FACING
+            old_text_marker.action = Marker.DELETE
+            old_text_marker.id = i + 1
+            self.marker_array.markers.append(old_text_marker)
+        # update the marker number
+        self.marker_num_pre[self.beacon_no - 1] = self.marker_id
 
     def get_geometry_consistency(self, beacons):
         geometry_description = {}
@@ -548,8 +627,8 @@ class LidarLocalization(Node): # inherit from Node
         lidar_cov[2, 2] /= max_likelihood
         # publish the lidar pose
         self.pub_lidar_pose(lidar_pose, lidar_cov)
-        if self.visualize_candidate:
-            self.visualize_candidates(beacons, max_likelihood, self.landmarks_set[max_likelihood_idx]['consistency'])
+        if self.visualize_true:
+            self.visualize_sets(beacons, max_likelihood, self.landmarks_set[max_likelihood_idx]['consistency'])
             
         # also print the likelihood
         self.get_logger().info(f"lidar_pose (two): {lidar_pose}")
