@@ -92,6 +92,7 @@ class LidarLocalization(Node): # inherit from Node
         self.get_logger().debug('Lidar Localization Node initialized')
 
         self.init_landmarks_map()
+        self.landmarks_set = []
         self.robot_pose = []
         self.robot_pose_topic = []
         self.P_pred = np.array([[0.05**2, 0.0, 0.0], [0.0, 0.05**2, 0.0], [0.0, 0.0, 0.1]])
@@ -147,7 +148,7 @@ class LidarLocalization(Node): # inherit from Node
         if orientation < 0:
             orientation += 2 * np.pi
         self.robot_pose_topic = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, orientation])
-        self.P_pred_topic = np.array([
+        self.P_pred = np.array([
             [msg.pose.covariance[0]*100, 0, 0],
             [0, msg.pose.covariance[7]*100, 0],
             [0, 0, msg.pose.covariance[35]*1e6]
@@ -171,11 +172,6 @@ class LidarLocalization(Node): # inherit from Node
                     self.predict_transform.transform.rotation.w
                 )
             ])
-            self.P_pred = np.array([
-                [self.P_pred_topic[0][0], 0, 0],
-                [0, self.P_pred_topic[1][1], 0],
-                [0, 0, self.P_pred_topic[2][2]]
-            ])
             return 0
         except (LookupException, ConnectivityException, ExtrapolationException) as e:
             self.get_logger().error(f'Could not transform {self.robot_parent_frame_id} to {self.robot_frame_id}: {e}')
@@ -188,11 +184,6 @@ class LidarLocalization(Node): # inherit from Node
                     self.robot_pose_topic[0],
                     self.robot_pose_topic[1],
                     self.robot_pose_topic[2]
-                ])
-                self.P_pred = np.array([
-                    [self.P_pred_topic[0][0], 0, 0],
-                    [0, self.P_pred_topic[1][1], 0],
-                    [0, 0, self.P_pred_topic[2][2]]
                 ])
                 self.get_logger().info("use the latest topic")
                 return 0
@@ -390,59 +381,61 @@ class LidarLocalization(Node): # inherit from Node
                 lidar_cov[1, 1] /= max_likelihood
                 lidar_cov[2, 2] /= max_likelihood
 
-                # publish the lidar pose
-                self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
-                self.lidar_pose_msg.header.frame_id = 'map' #TODO: param
-                self.lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
-                self.lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
-                self.lidar_pose_msg.pose.pose.position.z = 0.0
-                self.lidar_pose_msg.pose.pose.orientation.x = 0.0
-                self.lidar_pose_msg.pose.pose.orientation.y = 0.0
-                self.lidar_pose_msg.pose.pose.orientation.z = np.sin(lidar_pose[2] / 2)
-                self.lidar_pose_msg.pose.pose.orientation.w = np.cos(lidar_pose[2] / 2)
-                self.lidar_pose_msg.pose.covariance = [
-                    lidar_cov[0, 0], 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, lidar_cov[1, 1], 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, lidar_cov[2, 2]
-                ]
-                # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
-                self.lidar_pose_pub.publish(self.lidar_pose_msg)
-                # self.get_logger().debug("Published lidar_pose message")
+                self.pub_lidar_pose(lidar_pose, lidar_cov)
 
             except np.linalg.LinAlgError as e:
                 self.get_logger().warn("Linear algebra error: {}".format(e))
             
             # use markerarray to show the landmarks it used
             if self.visualize_candidate:
-                marker_array = MarkerArray()
-                for i, beacon in enumerate(beacons):
-                    marker = Marker()
-                    marker.header.frame_id = "base_footprint"
-                    marker.header.stamp = self.get_clock().now().to_msg()
-                    marker.ns = "chosen_landmarks"
-                    marker.type = Marker.SPHERE
-                    marker.action = Marker.ADD
-                    marker.scale.x = 0.1
-                    marker.scale.y = 0.1
-                    marker.scale.z = 0.01
-                    marker.pose.position.x = beacon[0]
-                    marker.pose.position.y = beacon[1]
-                    marker.pose.position.z = 0.0
-                    marker.color = ColorRGBA(r=0.0, g=0.5, b=0.5, a=1.0)
-                    marker.id = i
-                    marker_array.markers.append(marker)
-                self.circles_pub.publish(marker_array)
-                self.get_logger().debug("Published marker array")
-                # clean up
-                marker_array.markers.clear()
+                self.visualize_candidates(beacons, max_likelihood, landmarks_set[max_likelihood_idx]['consistency'])
             
         else:
             self.get_logger().debug("not enough beacons")
 
         return lidar_pose, lidar_cov
+
+    def visualize_candidates(self, beacons, max_likelihood, consistency):
+        marker_array = MarkerArray()
+        for i, beacon in enumerate(beacons):
+            marker = Marker()
+            marker.header.frame_id = "base_footprint"
+            marker.header.stamp = self.get_clock().now().to_msg()
+            marker.ns = "chosen_landmarks"
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+            marker.scale.x = 0.1
+            marker.scale.y = 0.1
+            marker.scale.z = 0.01
+            marker.pose.position.x = beacon[0]
+            marker.pose.position.y = beacon[1]
+            marker.pose.position.z = 0.0
+            if len(beacons) == 3:
+                marker.color = ColorRGBA(r=0.0, g=0.5, b=0.5, a=1.0)
+            elif len(beacons) == 2:
+                marker.color = ColorRGBA(r=0.5, g=0.5, b=0.0, a=1.0)
+            marker.id = i
+            marker_array.markers.append(marker)
+        # add the max_likelihood, consistency to the marker array
+        marker = Marker()
+        marker.header.frame_id = "map"
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = "set_param"
+        marker.type = Marker.TEXT_VIEW_FACING
+        marker.action = Marker.ADD
+        marker.scale.z = 0.1
+        marker.pose.position.x = 3.0
+        marker.pose.position.y = 2.0
+        marker.pose.position.z = 0.5
+        marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
+        marker.text = f"max_likelihood: {max_likelihood:.2f}, consistency: {consistency:.2f}"
+        marker.id = 10
+        marker_array.markers.append(marker)
+        # publish the marker array
+        self.circles_pub.publish(marker_array)
+        self.get_logger().debug("Published marker array")
+        # clean up
+        marker_array.markers.clear()
 
     def get_geometry_consistency(self, beacons):
         geometry_description = {}
@@ -472,6 +465,27 @@ class LidarLocalization(Node): # inherit from Node
 
         return consistency
     
+    def pub_lidar_pose(self, lidar_pose, lidar_cov):
+        # publish the lidar pose
+        self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg()
+        self.lidar_pose_msg.header.frame_id = 'map' #TODO: param
+        self.lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
+        self.lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
+        self.lidar_pose_msg.pose.pose.position.z = 0.0
+        self.lidar_pose_msg.pose.pose.orientation.x = 0.0
+        self.lidar_pose_msg.pose.pose.orientation.y = 0.0
+        self.lidar_pose_msg.pose.pose.orientation.z = np.sin(lidar_pose[2] / 2)
+        self.lidar_pose_msg.pose.pose.orientation.w = np.cos(lidar_pose[2] / 2)
+        self.lidar_pose_msg.pose.covariance = [
+            lidar_cov[0, 0], 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, lidar_cov[1, 1], 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, lidar_cov[2, 2]
+        ]
+        self.lidar_pose_pub.publish(self.lidar_pose_msg)
+
     def get_two_beacons(self):
         two_index = []
         self.get_logger().info("get two beacons")
@@ -492,7 +506,7 @@ class LidarLocalization(Node): # inherit from Node
                     }
                 }
                 # consistency of the set
-                set['consistency'] = np.linalg.norm(set['beacons'][0] - set['beacons'][1]) / nominal_distance
+                set['consistency'] = 1 - abs(np.linalg.norm(set['beacons'][0] - set['beacons'][1]) - nominal_distance) / nominal_distance
                 if set['consistency'] < self.consistency_threshold_two:
                     self.get_logger().debug(f"Geometry consistency is less than {self.consistency_threshold}: {set['consistency']}")
                     continue
@@ -511,7 +525,7 @@ class LidarLocalization(Node): # inherit from Node
         
         # check if there is valid set
         if len(self.landmarks_set) == 0:
-            self.get_logger().debug("no valid set")
+            self.get_logger().warn("no valid set")
             return
         # use the set with the highest probability_set
         max_likelihood = max(set['probability_set'] for set in self.landmarks_set)
@@ -533,29 +547,15 @@ class LidarLocalization(Node): # inherit from Node
         lidar_cov[1, 1] /= max_likelihood
         lidar_cov[2, 2] /= max_likelihood
         # publish the lidar pose
-        self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg()
-        self.lidar_pose_msg.header.frame_id = 'map' #TODO: param
-        self.lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
-        self.lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
-        self.lidar_pose_msg.pose.pose.position.z = 0.0
-        self.lidar_pose_msg.pose.pose.orientation.x = 0.0
-        self.lidar_pose_msg.pose.pose.orientation.y = 0.0
-        self.lidar_pose_msg.pose.pose.orientation.z = np.sin(lidar_pose[2] / 2)
-        self.lidar_pose_msg.pose.pose.orientation.w = np.cos(lidar_pose[2] / 2)
-        self.lidar_pose_msg.pose.covariance = [
-            lidar_cov[0, 0], 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, lidar_cov[1, 1], 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, lidar_cov[2, 2]
-        ]
+        self.pub_lidar_pose(lidar_pose, lidar_cov)
+        if self.visualize_candidate:
+            self.visualize_candidates(beacons, max_likelihood, self.landmarks_set[max_likelihood_idx]['consistency'])
+            
         # also print the likelihood
         self.get_logger().info(f"lidar_pose (two): {lidar_pose}")
         self.get_logger().info(f"lidar_pose (two) likelihood: {max_likelihood}")
-        self.lidar_pose_pub.publish(self.lidar_pose_msg)
-        # self.get_logger().debug("Published lidar_pose message")
 
+        self.clear_data()
 
 def quaternion_from_euler(ai, aj, ak):
     ai /= 2.0
