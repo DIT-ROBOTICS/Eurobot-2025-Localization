@@ -1,6 +1,8 @@
 import rclpy
 from rclpy.node import Node
 
+from tf2_ros import Buffer, TransformListener, LookupException, ConnectivityException, ExtrapolationException
+
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from obstacle_detector.msg import Obstacles
 from visualization_msgs.msg import Marker, MarkerArray
@@ -20,9 +22,11 @@ class LidarLocalization(Node): # inherit from Node
 
         # Declare algorithm parameters
         self.declare_parameter('likelihood_threshold', 0.001)
-        self.declare_parameter('likelihood_threshold_two', 0.01)
+        self.declare_parameter('likelihood_threshold_two', 0.8)
         self.declare_parameter('consistency_threshold', 0.9)
-        self.declare_parameter('consistency_threshold_two', 0.95)
+        self.declare_parameter('consistency_threshold_two', 0.99)
+        self.declare_parameter('robot_frame_id', 'base_footprint')
+        self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('R', [0.0025, 0.0025]) # measurement noise covariance matrix
 
         # Get parameters
@@ -33,6 +37,8 @@ class LidarLocalization(Node): # inherit from Node
         self.likelihood_threshold_two = self.get_parameter('likelihood_threshold_two').get_parameter_value().double_value
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
         self.consistency_threshold_two = self.get_parameter('consistency_threshold_two').get_parameter_value().double_value
+        self.robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
+        self.robot_parent_frame_id = self.get_parameter('robot_parent_frame_id').get_parameter_value().string_value
         self.R = np.array(self.get_parameter('R').get_parameter_value().double_array_value)
 
         self.adjust_factor = 1
@@ -65,7 +71,7 @@ class LidarLocalization(Node): # inherit from Node
             'raw_obstacles',
             self.obstacle_callback,
             10)
-        self.subscription = self.create_subscription(
+        self.subscription = self.create_subscription( # if TF is not available
             PoseWithCovarianceStamped, 
             'final_pose',
             self.pred_pose_callback,
@@ -79,33 +85,56 @@ class LidarLocalization(Node): # inherit from Node
         )
         self.subscription  # prevent unused variable warning
 
+        # tf2 buffer
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
         self.get_logger().debug('Lidar Localization Node initialized')
 
         self.init_landmarks_map()
         self.robot_pose = []
-        self.P_pred = []
+        self.robot_pose_topic = []
+        self.P_pred = np.array([[0.05**2, 0.0, 0.0], [0.0, 0.05**2, 0.0], [0.0, 0.0, 0.1]])
+        self.P_pred_topic = []
         self.newPose = False
         self.lidar_pose_msg = PoseWithCovarianceStamped()
-    
-    def obstacle_callback(self, msg):
-        self.get_logger().debug('obstacle detected')
-        self.obs_time = msg.header.stamp
 
+    def obstacle_callback(self, msg):
+        self.obs_time = msg.header.stamp
         self.obs_raw = []
+
+        # get latest robot pose
+        if self.get_robot_pose() == -1:
+            self.get_logger().debug("no new robot pose")
+            return
+
+        # get the obstacles
         for obs in msg.circles:
             self.obs_raw.append(np.array([obs.center.x, obs.center.y]))
 
         # main: data processing
-        if self.newPose == False: # Check for new robot pose
-            self.get_logger().debug("no new robot pose or P_pred")
-            return
-
         self.landmarks_candidate = self.get_landmarks_candidate()
 
-        self.landmarks_set = self.get_landmarks_set()
-        if len(self.landmarks_set) == 0:
-            self.get_logger().debug("empty landmarks set")
+        # if each of the three beacon has at least one candidate
+        landmarks_with_candidates = 0
+        for i in range(3):
+            if len(self.landmarks_candidate[i]['obs_candidates']) > 0:
+                landmarks_with_candidates += 1
+        if landmarks_with_candidates == 3:
+            self.landmarks_set = self.get_landmarks_set()
+        elif landmarks_with_candidates == 2:
+            self.get_two_beacons() # or devide into more steps?
             return
+        else:
+            self.get_logger().warn("less than two landmarks")
+            return
+
+        # for the normal case complete three landmarks
+        if len(self.landmarks_set) == 0: # when fail to test consistency and likelihood check
+            self.get_logger().debug("empty landmarks set")
+            self.get_two_beacons()
+            return
+        
         self.get_lidar_pose()
 
         # clear used data
@@ -117,12 +146,56 @@ class LidarLocalization(Node): # inherit from Node
         # check orientation range TODO: should be -pi to pi??
         if orientation < 0:
             orientation += 2 * np.pi
-        self.robot_pose = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, orientation])
-        self.P_pred = np.array([
+        self.robot_pose_topic = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, orientation])
+        self.P_pred_topic = np.array([
             [msg.pose.covariance[0]*100, 0, 0],
             [0, msg.pose.covariance[7]*100, 0],
             [0, 0, msg.pose.covariance[35]*1e6]
         ])
+
+    def get_robot_pose(self):
+        # check if TF is available. If true, use the TF. If false, use the latest topic
+        try:
+            self.predict_transform = self.tf_buffer.lookup_transform(
+                self.robot_parent_frame_id,
+                self.robot_frame_id,
+                self.obs_time
+            )
+            self.robot_pose = np.array([
+                self.predict_transform.transform.translation.x,
+                self.predict_transform.transform.translation.y,
+                yaw_from_quaternion(
+                    self.predict_transform.transform.rotation.x,
+                    self.predict_transform.transform.rotation.y,
+                    self.predict_transform.transform.rotation.z,
+                    self.predict_transform.transform.rotation.w
+                )
+            ])
+            self.P_pred = np.array([
+                [self.P_pred_topic[0][0], 0, 0],
+                [0, self.P_pred_topic[1][1], 0],
+                [0, 0, self.P_pred_topic[2][2]]
+            ])
+            return 0
+        except (LookupException, ConnectivityException, ExtrapolationException) as e:
+            self.get_logger().error(f'Could not transform {self.robot_parent_frame_id} to {self.robot_frame_id}: {e}')
+            self.get_logger().info("now try to use the latest topic")
+            if self.newPose == False: 
+                self.get_logger().error("no new predict topic, skip.")
+                return -1
+            else:
+                self.robot_pose = np.array([
+                    self.robot_pose_topic[0],
+                    self.robot_pose_topic[1],
+                    self.robot_pose_topic[2]
+                ])
+                self.P_pred = np.array([
+                    [self.P_pred_topic[0][0], 0, 0],
+                    [0, self.P_pred_topic[1][1], 0],
+                    [0, 0, self.P_pred_topic[2][2]]
+                ])
+                self.get_logger().info("use the latest topic")
+                return 0
 
     def set_lidar_side_callback(self, msg):
         side = msg.data.lower()
@@ -184,6 +257,9 @@ class LidarLocalization(Node): # inherit from Node
             [-(x_o - x_r) / r_prime, -(y_o - y_r) / r_prime, 0],
             [(y_o - y_r) / r_prime ** 2, -(x_o - x_r) / r_prime ** 2, -1]
         ])
+        if self.P_pred.size == 0 or self.P_pred.shape != (3, 3):
+            self.get_logger().error("P_pred is not properly initialized")
+            return []
         S = H @ self.P_pred @ H.T + self.R
         S_inv = np.linalg.inv(S)
 
@@ -232,13 +308,7 @@ class LidarLocalization(Node): # inherit from Node
     def get_landmarks_set(self):
         landmarks_candidate = self.landmarks_candidate
         landmarks_set = []
-        landmarks_with_candidates = 0
-        for i in 3:
-            if len(landmarks_candidate[i]['obs_candidates']) > 0:
-                landmarks_with_candidates += 1
-        if landmarks_with_candidates < 3:
-            self.get_two_beacons()
-            return
+
         for i in range(len(landmarks_candidate[0]['obs_candidates'])):
             for j in range(len(landmarks_candidate[1]['obs_candidates'])):
                 for k in range(len(landmarks_candidate[2]['obs_candidates'])):
@@ -270,12 +340,13 @@ class LidarLocalization(Node): # inherit from Node
     def get_lidar_pose(self):
         landmarks_map = self.landmarks_map
         landmarks_set = self.landmarks_set
-        if not landmarks_set:
-            raise ValueError("landmarks_set is empty")
+        # if not landmarks_set:
+        #     raise ValueError("landmarks_set is empty")
+
         # prefer the set with more beacons
         # landmarks_set = sorted(landmarks_set, key=lambda x: len(x['beacons']), reverse=True) # activate this if there's one more beacon
-        # with the most beacon possible, prefer the set with the highest probability_set; TODO: better way to sort?
-        max_likelihood = max(set['probability_set'] for set in landmarks_set)
+        # with the most beacon possible, prefer the set with the highest probability_set; TODO: better way to sort? 
+        max_likelihood = max(set['probability_set'] for set in landmarks_set) # TODO: sort by consistency or likelihood?
         max_likelihood_idx = next(i for i, set in enumerate(landmarks_set) if set['probability_set'] == max_likelihood)
 
         lidar_pose = np.zeros(3)
@@ -299,6 +370,8 @@ class LidarLocalization(Node): # inherit from Node
             try:
                 X = np.linalg.solve(A.T @ A, A.T @ b)
                 if X[0] < 0 or X[0] > 3 or X[1] < 0 or X[1] > 2:
+                    # result is not in boundary area, try to use two beacons
+                    self.get_two_beacons()
                     return
                 lidar_pose[0] = X[0]
                 lidar_pose[1] = X[1]
@@ -401,10 +474,11 @@ class LidarLocalization(Node): # inherit from Node
     
     def get_two_beacons(self):
         two_index = []
-        for i in 3:
+        self.get_logger().info("get two beacons")
+        for i in range(3):
             if len(self.landmarks_candidate[i]['obs_candidates']) > 0:
                 two_index.append(i)
-        if len(two_index) < 2:
+        if len(two_index) < 2: # should not require this
             self.get_logger().debug("not enough beacons")
             return
         # check geometry consistency
@@ -418,7 +492,7 @@ class LidarLocalization(Node): # inherit from Node
                     }
                 }
                 # consistency of the set
-                set['consistency'] = nominal_distance / np.linalg.norm(set['beacons'][0] - set['beacons'][1])
+                set['consistency'] = np.linalg.norm(set['beacons'][0] - set['beacons'][1]) / nominal_distance
                 if set['consistency'] < self.consistency_threshold_two:
                     self.get_logger().debug(f"Geometry consistency is less than {self.consistency_threshold}: {set['consistency']}")
                     continue
@@ -435,23 +509,31 @@ class LidarLocalization(Node): # inherit from Node
                 print(f"Probability: {set['probability_set']}")
                 print(f"Geometry Consistency: {set['consistency']}")
         
+        # check if there is valid set
+        if len(self.landmarks_set) == 0:
+            self.get_logger().debug("no valid set")
+            return
         # use the set with the highest probability_set
         max_likelihood = max(set['probability_set'] for set in self.landmarks_set)
         max_likelihood_idx = next(i for i, set in enumerate(self.landmarks_set) if set['probability_set'] == max_likelihood)
-        beacons = [self.landmarks_set[max_likelihood_idx]['beacons'][i] for i in range(2)]
-        # calculate the lidar pose (TODO)
+        beacons = [self.landmarks_set[max_likelihood_idx]['beacons'][two_index[0]], self.landmarks_set[max_likelihood_idx]['beacons'][two_index[1]]]
+        # calculate the lidar pose
         # take the average of the position given by the two beacons
-        lidar_pose = np.zeros(3)  # Ensure lidar_pose has three elements
+        lidar_pose = np.zeros(3)  # Ensure that lidar_pose has three elements
         pose_1 = self.landmarks_map[two_index[0]] - self.landmarks_set[max_likelihood_idx]['beacons'][0]
         pose_2 = self.landmarks_map[two_index[1]] - self.landmarks_set[max_likelihood_idx]['beacons'][1]
         lidar_pose[:2] = (pose_1 + pose_2) / 2  # Assign x and y to the first two elements
         lidar_pose[2] = angle_limit_checking(np.arctan2(pose_1[1], pose_1[0]) - np.arctan2(beacons[0][1], beacons[0][0]))
-        lidar_cov = np.diag([0.05**2, 0.05**2, 0.05**2]) # what should the optimal value be?
+        # check if the lidar pose is in the map
+        if lidar_pose[0] < 0 or lidar_pose[0] > 3 or lidar_pose[1] < 0 or lidar_pose[1] > 2:
+            self.get_logger().debug("lidar pose is out of map")
+            return
+        lidar_cov = np.diag([0.05**2, 0.05**2, 0.05**2])
         lidar_cov[0, 0] /= max_likelihood
         lidar_cov[1, 1] /= max_likelihood
         lidar_cov[2, 2] /= max_likelihood
         # publish the lidar pose
-        self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
+        self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg()
         self.lidar_pose_msg.header.frame_id = 'map' #TODO: param
         self.lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
         self.lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
@@ -468,7 +550,9 @@ class LidarLocalization(Node): # inherit from Node
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, lidar_cov[2, 2]
         ]
-        # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
+        # also print the likelihood
+        self.get_logger().info(f"lidar_pose (two): {lidar_pose}")
+        self.get_logger().info(f"lidar_pose (two) likelihood: {max_likelihood}")
         self.lidar_pose_pub.publish(self.lidar_pose_msg)
         # self.get_logger().debug("Published lidar_pose message")
 
