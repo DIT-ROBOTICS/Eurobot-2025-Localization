@@ -566,16 +566,32 @@ class LidarLocalization(Node): # inherit from Node
         self.lidar_pose_pub.publish(self.lidar_pose_msg)
 
     def get_two_beacons(self):
+
         two_index = []
         self.get_logger().info("get two beacons")
+
+        # get the index of the two beacons with candidates
         for i in range(3):
             if len(self.landmarks_candidate[i]['obs_candidates']) > 0:
                 two_index.append(i)
-        if len(two_index) < 2: # should not require this
-            self.get_logger().debug("not enough beacons")
-            return
-        # check geometry consistency
+
+        self.get_logger().info(f"two_index: {two_index}")
+
         nominal_distance = np.linalg.norm(self.landmarks_map[two_index[0]] - self.landmarks_map[two_index[1]])
+        self.get_logger().info(f"nominal distance: {nominal_distance:.2f}")
+
+        # nominal angle
+        angle1 = np.arctan2(self.landmarks_map[two_index[1]][1] - self.robot_pose[1], self.landmarks_map[two_index[1]][0] - self.robot_pose[0])
+        angle0 = np.arctan2(self.landmarks_map[two_index[0]][1] - self.robot_pose[1], self.landmarks_map[two_index[0]][0] - self.robot_pose[0]) 
+        # print angle1, angle0 and nominal_angle in logger
+        self.get_logger().info(f"angle1: {angle1 * 180 / np.pi:.2f} degree")
+        self.get_logger().info(f"angle0: {angle0 * 180 / np.pi:.2f} degree")
+
+        nominal_angle = angle_limit_checking(angle1 - angle0)
+        # print nominal angle, display in degree
+        self.get_logger().info(f"nominal angle: {nominal_angle * 180 / np.pi:.2f} degree")
+
+        # get the sets
         for i in range(len(self.landmarks_candidate[two_index[0]]['obs_candidates'])):
             for j in range(len(self.landmarks_candidate[two_index[1]]['obs_candidates'])):
                 set = {
@@ -584,10 +600,29 @@ class LidarLocalization(Node): # inherit from Node
                         1: self.landmarks_candidate[two_index[1]]['obs_candidates'][j]['position']
                     }
                 }
-                # consistency of the set
+                # geometry consistency
+                # 1. check the cross product: 'robot to beacon 0' cross 'robot to beacon 1'
+                cross = np.cross(set['beacons'][0], set['beacons'][1]) # TODO: check if beacon 0 and 1 will be in the order of beacon a, b and c
+                if self.side == 0: # yellow is clockwise(negative)
+                    if cross > 0:
+                        self.get_logger().error("cross product is positive")
+                        continue
+                elif self.side == 1: # blue is counter-clockwise(positive)
+                    if cross < 0:
+                        self.get_logger().error("cross product is negative")
+                        continue
+                # 2. check the distance between the two beacons
                 set['consistency'] = 1 - abs(np.linalg.norm(set['beacons'][0] - set['beacons'][1]) - nominal_distance) / nominal_distance
                 if set['consistency'] < self.consistency_threshold_two:
-                    self.get_logger().debug(f"Geometry consistency is less than {self.consistency_threshold}: {set['consistency']}")
+                    self.get_logger().debug(f"Geometry consistency is less than {self.consistency_threshold_two}: {set['consistency']}")
+                    continue
+                # 3. check the angle between the two beacons
+                angle1 = np.arctan2(set['beacons'][1][1], set['beacons'][1][0])
+                angle0 = np.arctan2(set['beacons'][0][1], set['beacons'][0][0])
+                angle = angle_limit_checking(angle1 - angle0)
+                # angle = np.arctan2(set['beacons'][1][1] - set['beacons'][0][1], set['beacons'][1][0] - set['beacons'][0][0])
+                if abs(angle_limit_checking(angle - nominal_angle)) > np.pi / 18: # 10 degree
+                    self.get_logger().error(f"Angle difference is too large: {angle * 180 / np.pi:.2f} degree")
                     continue
                 # probability of the set
                 set['probability_set'] = self.landmarks_candidate[two_index[0]]['obs_candidates'][i]['probability'] * self.landmarks_candidate[two_index[1]]['obs_candidates'][j]['probability']
