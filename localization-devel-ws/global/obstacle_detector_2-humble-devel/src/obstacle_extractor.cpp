@@ -165,12 +165,16 @@ void ObstacleExtractor::scanCallback(const sensor_msgs::msg::LaserScan& scan_msg
     prev_scan_twist[i]=local_twist[i];
   }
 
+  auto correction_start=std::chrono::high_resolution_clock::now();
   for (const float r : scan_msg.ranges) {
     if (r >= scan_msg.range_min && r <= p_max_range_)
       input_points_.push_back(distortionCorrection(scan_msg, scan_twist, r, phi));
 
     phi += scan_msg.angle_increment;
   }
+  auto correction_end=std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(correction_end - correction_start).count();
+  RCLCPP_INFO(nh_->get_logger(), "duration %f", duration);
 
   processPoints();
 }
