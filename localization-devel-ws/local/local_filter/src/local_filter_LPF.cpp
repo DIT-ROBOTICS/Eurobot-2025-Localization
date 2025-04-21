@@ -174,6 +174,7 @@ public:
 
         // publish absolute coordinate
         coord_odom2map.header.stamp= now;
+        coord_odom2map.header.frame_id="map";
         coord_odom2map.pose.position.x=robotstate_.mu[0];
         coord_odom2map.pose.position.y=robotstate_.mu[1];
 
