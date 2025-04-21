@@ -154,7 +154,7 @@ class LidarLocalization(Node): # inherit from Node
         self.P_pred = np.array([
             [msg.pose.covariance[0]*100, 0, 0],
             [0, msg.pose.covariance[7]*100, 0],
-            [0, 0, msg.pose.covariance[35]*1e6]
+            [0, 0, msg.pose.covariance[35]*1e3] # TODO: experiement with the value, do I give too much flexibility to the yaw? What value is better?
         ])
 
     def get_robot_pose(self):
