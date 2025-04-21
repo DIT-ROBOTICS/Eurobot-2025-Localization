@@ -416,12 +416,12 @@ class LidarLocalization(Node): # inherit from Node
             marker.ns = "chosen_landmarks"
             marker.type = Marker.SPHERE
             marker.action = Marker.ADD
-            marker.scale.x = 0.1
-            marker.scale.y = 0.1
+            marker.scale.x = 0.15
+            marker.scale.y = 0.15
             marker.scale.z = 0.01
             marker.pose.position.x = beacon[0]
             marker.pose.position.y = beacon[1]
-            marker.pose.position.z = 0.0
+            marker.pose.position.z = -0.1
             if len(beacons) == 3:
                 marker.color = ColorRGBA(r=0.0, g=0.5, b=0.5, a=1.0)
             elif len(beacons) == 2:
