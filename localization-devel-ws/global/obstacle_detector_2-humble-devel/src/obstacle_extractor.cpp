@@ -90,6 +90,8 @@ void ObstacleExtractor::updateParamsUtil(){
   nh_->declare_parameter("frame_id", rclcpp::PARAMETER_STRING);
   nh_->declare_parameter("max_range", rclcpp::PARAMETER_DOUBLE);
 
+  nh_->declare_parameter("correction_delay", rclcpp::PARAMETER_DOUBLE);
+
   nh_->get_parameter_or("active", p_active_, true);
   nh_->get_parameter_or("use_scan", p_use_scan_, true);
   nh_->get_parameter_or("use_pcl", p_use_pcl_, true);
@@ -114,6 +116,8 @@ void ObstacleExtractor::updateParamsUtil(){
   nh_->get_parameter_or("max_y_limit", p_max_y_limit_,  10.0);
   nh_->get_parameter_or("frame_id", p_frame_id_, std::string{"map"});
   nh_->get_parameter_or("max_range", p_max_range_, 3.6);
+
+  nh_->get_parameter_or("correction_delay", p_correction_delay, 1e-6);
 
   if (p_active_ != prev_active) {
     if (p_active_) {
@@ -165,16 +169,12 @@ void ObstacleExtractor::scanCallback(const sensor_msgs::msg::LaserScan& scan_msg
     prev_scan_twist[i]=local_twist[i];
   }
 
-  auto correction_start=std::chrono::high_resolution_clock::now();
   for (const float r : scan_msg.ranges) {
     if (r >= scan_msg.range_min && r <= p_max_range_)
       input_points_.push_back(distortionCorrection(scan_msg, scan_twist, r, phi));
 
     phi += scan_msg.angle_increment;
   }
-  auto correction_end=std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(correction_end - correction_start).count();
-  RCLCPP_INFO(nh_->get_logger(), "duration %f", duration);
 
   processPoints();
 }
@@ -234,8 +234,8 @@ Point ObstacleExtractor::distortionCorrection(sensor_msgs::msg::LaserScan scan_m
 
     double d_theta=c*twist[2]*dt;
 
-    Eigen::Matrix2d R;
-    R << cos(d_theta), -sin(d_theta), sin(d_theta), cos(d_theta);
+    Eigen::Matrix2d R_curr;
+    R_curr << cos(d_theta), -sin(d_theta), sin(d_theta), cos(d_theta);
 
     Eigen::Vector2d curr2prev_in_curr_frame;
     curr2prev_in_curr_frame << (-c*twist[0]*dt), (-c*twist[1]*dt);
@@ -244,9 +244,24 @@ Point ObstacleExtractor::distortionCorrection(sensor_msgs::msg::LaserScan scan_m
     prev2scan_in_prev_frame << (r*cos(phi)), r*sin(phi);
     
     Eigen::Vector2d curr2scan_in_curr_frame;
-    curr2scan_in_curr_frame = curr2prev_in_curr_frame + R*prev2scan_in_prev_frame;
+    curr2scan_in_curr_frame = curr2prev_in_curr_frame + R_curr * prev2scan_in_prev_frame;
+
+    /* EXTRAPOLATION */
+    double d_theta_=twist[2]*p_correction_delay;
+
+    Eigen::Matrix2d R_later;
+    R_later << cos(d_theta_), -sin(d_theta_), sin(d_theta_), cos(d_theta_);
+
+    Eigen::Vector2d later2curr_in_later_frame;
+    later2curr_in_later_frame << (-twist[0]*p_correction_delay), (-twist[1]*p_correction_delay);
+
+    Eigen::Vector2d curr2scan_in_curr_frame;
+    curr2scan_in_curr_frame << (r*cos(phi)), r*sin(phi);
     
-    return Point(curr2scan_in_curr_frame(0), curr2scan_in_curr_frame(1));
+    Eigen::Vector2d later2scan_in_later_frame;
+    later2scan_in_later_frame = later2curr_in_later_frame + R_later * curr2scan_in_curr_frame;
+    
+    return Point(later2scan_in_later_frame(0), later2scan_in_later_frame(1));
 }
 
 void ObstacleExtractor::processPoints() {

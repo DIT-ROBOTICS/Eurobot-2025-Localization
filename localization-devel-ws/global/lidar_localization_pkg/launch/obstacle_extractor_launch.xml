@@ -24,6 +24,8 @@
     <param name="max_circle_radius"    value="0.2"/>
     <param name="radius_enlargement"   value="0.0"/> <!-- we do not need enlargement! -->
 
+    <param name="correction_delay"     value="1e-6"/>
+
     <param name="frame_id"             value="base_footprint"/>
     <param name="max_range"            value="3.6"/>
   </node>
