@@ -254,9 +254,6 @@ Point ObstacleExtractor::distortionCorrection(sensor_msgs::msg::LaserScan scan_m
 
     Eigen::Vector2d later2curr_in_later_frame;
     later2curr_in_later_frame << (-twist[0]*p_correction_delay), (-twist[1]*p_correction_delay);
-
-    Eigen::Vector2d curr2scan_in_curr_frame;
-    curr2scan_in_curr_frame << (r*cos(phi)), r*sin(phi);
     
     Eigen::Vector2d later2scan_in_later_frame;
     later2scan_in_later_frame = later2curr_in_later_frame + R_later * curr2scan_in_curr_frame;
