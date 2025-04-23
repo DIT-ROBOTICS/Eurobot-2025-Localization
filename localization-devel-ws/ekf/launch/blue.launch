@@ -35,7 +35,9 @@
         <param name="debug_mode" value="False"/>
         <param name="visualize_candidate" value="False"/>
         <param name="likelihood_threshold" value="0.07"/>
-        <param name="consistency_threshold" value="0.9"/>
+        <param name="consistency_threshold" value="0.95"/>
+        <param name="likelihood_threshold_two" value="0.75"/>
+        <param name="consistency_threshold_two" value="0.98"/>
     </node>
 
     <node pkg="tf2_ros" exec="static_transform_publisher" name="robot_to_laser" output="screen" args="--x 0 --y 0 --z 0 --roll 0 --pitch 0 --yaw 1.57 --frame-id /base_footprint --child-frame-id /laser" />
