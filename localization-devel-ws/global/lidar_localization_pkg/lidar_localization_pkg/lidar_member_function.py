@@ -539,7 +539,8 @@ class LidarLocalization(Node): # inherit from Node
 
         return consistency
     
-    def pub_lidar_pose(self, lidar_pose, lidar_cov):
+    def pub_lidar_pose(self, lidar_pose_, lidar_cov):
+        lidar_pose = self.pose_compensation(lidar_pose_)
         # publish the lidar pose
         self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg()
         self.lidar_pose_msg.header.frame_id = 'map' #TODO: param
@@ -646,7 +647,7 @@ class LidarLocalization(Node): # inherit from Node
         if lidar_pose[0] < 0 or lidar_pose[0] > 3 or lidar_pose[1] < 0 or lidar_pose[1] > 2:
             self.get_logger().debug("lidar pose is out of map")
             return
-        lidar_cov = np.diag([0.05**2, 0.05**2, 0.05**2])
+        lidar_cov = np.diag([0.1**2, 0.1**2, 0.1**2])
         lidar_cov[0, 0] /= max_likelihood
         lidar_cov[1, 1] /= max_likelihood
         lidar_cov[2, 2] /= max_likelihood
@@ -688,6 +689,43 @@ class LidarLocalization(Node): # inherit from Node
         lidar_pose[1] = (bym - by)/2 + (cym - cy)/2
 
         return lidar_pose
+        
+    def pose_compensation(self, lidar_pose):
+        # find the translation and rotation from obs_time to now using TF
+        try:
+            now_transform = self.tf_buffer.lookup_transform( # get the latest transform
+                self.robot_parent_frame_id,
+                self.robot_frame_id,
+                rclpy.time.Time(),
+                timeout=rclpy.duration.Duration(seconds=0.1)
+            )
+            relative_transform = now_transform
+            relative_transform.transform.translation.x -= self.predict_transform.transform.translation.x
+            relative_transform.transform.translation.y -= self.predict_transform.transform.translation.y
+            # find the relative rotation
+            q1_inv = [
+                self.predict_transform.transform.rotation.x,
+                self.predict_transform.transform.rotation.y,
+                self.predict_transform.transform.rotation.z,
+                -self.predict_transform.transform.rotation.w  # Negate for inverse
+            ]
+
+            q0 = now_transform.transform.rotation
+            qr = [
+                q0.x * q1_inv[3] + q0.w * q1_inv[0] + q0.y * q1_inv[2] - q0.z * q1_inv[1],
+                q0.y * q1_inv[3] + q0.w * q1_inv[1] + q0.z * q1_inv[0] - q0.x * q1_inv[2],
+                q0.z * q1_inv[3] + q0.w * q1_inv[2] + q0.x * q1_inv[1] - q0.y * q1_inv[0],
+                q0.w * q1_inv[3] - q0.x * q1_inv[0] - q0.y * q1_inv[1] - q0.z * q1_inv[2]
+            ]
+            
+            lidar_pose[0] += relative_transform.transform.translation.x
+            lidar_pose[1] += relative_transform.transform.translation.y
+            lidar_pose[2] += yaw_from_quaternion(qr[0], qr[1], qr[2], qr[3])
+            return lidar_pose
+        except (LookupException, ConnectivityException, ExtrapolationException) as e:
+            self.get_logger().error(f'Could not transform {self.robot_parent_frame_id} to {self.robot_frame_id}: {e}')
+            self.get_logger().error("Compensation: Could not transform the robot pose")
+            return lidar_pose
 
 def quaternion_from_euler(ai, aj, ak):
     ai /= 2.0
