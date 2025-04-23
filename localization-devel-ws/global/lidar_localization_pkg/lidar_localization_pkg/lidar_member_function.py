@@ -244,7 +244,7 @@ class LidarLocalization(Node): # inherit from Node
             print(f"Robot pose from TF: {self.robot_pose}")
         x_o, y_o = landmark
         r_prime = np.sqrt((x_o - x_r) ** 2 + (y_o - y_r) ** 2)
-        temp = angle_limit_checking(np.arctan2(y_o - y_r, x_o - x_r)) # limit checking is not necessary right?
+        temp = np.arctan2(y_o - y_r, x_o - x_r) # limit checking is not necessary right?
         theta_prime = angle_limit_checking(temp - phi_r)
 
         H = np.array([
@@ -261,21 +261,16 @@ class LidarLocalization(Node): # inherit from Node
         for obs in self.obs_raw:
             r_z = np.sqrt(obs[0] ** 2 + obs[1] ** 2)
             theta_z = np.arctan2(obs[1], obs[0])
+            if r_z < 1.3:
+                obs[0] = obs[0] + (1-obs[0]) * self.adjust_factor * 0.01414 * np.cos(theta_z)
+                obs[1] = obs[1] + (1-obs[0]) * self.adjust_factor * 0.01414 * np.sin(theta_z)
+            r_z = np.sqrt(obs[0] ** 2 + obs[1] ** 2)
+            theta_z = np.arctan2(obs[1], obs[0])
             y = np.array([r_z - r_prime, angle_limit_checking(theta_z - theta_prime)])
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
            
             if likelihood > self.likelihood_threshold:
-                # self.get_logger().info(f"Likelihood: {likelihood}, obs:{obs}")
-                if r_z < 1.3:
-                    obs[0] = obs[0] + (1-obs[0]) * self.adjust_factor * 0.01414 * np.cos(theta_z)
-                    obs[1] = obs[1] + (1-obs[0]) * self.adjust_factor * 0.01414 * np.sin(theta_z)
-                r_z = np.sqrt(obs[0] ** 2 + obs[1] ** 2)
-                theta_z = np.arctan2(obs[1], obs[0])
-                y = np.array([r_z - r_prime, angle_limit_checking(theta_z - theta_prime)])
-                di_square = y.T @ S_inv @ y
-                likelihood = np.exp(-0.5 * di_square)
-                # self.get_logger().info(f"adjLikelihood: {likelihood}, obs:{obs}")
                 obs_candidates.append({'position': obs, 'probability': likelihood})
                 if self.visualize_true:
                     self.visualize_candidates(obs, likelihood)
@@ -570,23 +565,21 @@ class LidarLocalization(Node): # inherit from Node
         two_index = []
         self.get_logger().info("get two beacons")
 
-        # get the index of the two beacons with candidates
+        # get the index of the two beacons with candidates and obstacle probability larger than 0.8
         for i in range(3):
-            if len(self.landmarks_candidate[i]['obs_candidates']) > 0:
+            if any(candidate['probability'] > self.likelihood_threshold_two for candidate in self.landmarks_candidate[i]['obs_candidates']):
                 two_index.append(i)
+        
+        if len(two_index) < 2:
+            return
 
         self.get_logger().info(f"two_index: {two_index}")
 
+        # nominal geometry
         nominal_distance = np.linalg.norm(self.landmarks_map[two_index[0]] - self.landmarks_map[two_index[1]])
         self.get_logger().info(f"nominal distance: {nominal_distance:.2f}")
-
-        # nominal angle
         angle1 = np.arctan2(self.landmarks_map[two_index[1]][1] - self.robot_pose[1], self.landmarks_map[two_index[1]][0] - self.robot_pose[0])
         angle0 = np.arctan2(self.landmarks_map[two_index[0]][1] - self.robot_pose[1], self.landmarks_map[two_index[0]][0] - self.robot_pose[0]) 
-        # print angle1, angle0 and nominal_angle in logger
-        self.get_logger().info(f"angle1: {angle1 * 180 / np.pi:.2f} degree")
-        self.get_logger().info(f"angle0: {angle0 * 180 / np.pi:.2f} degree")
-
         nominal_angle = angle_limit_checking(angle1 - angle0)
         # print nominal angle, display in degree
         self.get_logger().info(f"nominal angle: {nominal_angle * 180 / np.pi:.2f} degree")
@@ -605,11 +598,11 @@ class LidarLocalization(Node): # inherit from Node
                 cross = np.cross(set['beacons'][0], set['beacons'][1]) # TODO: check if beacon 0 and 1 will be in the order of beacon a, b and c
                 if self.side == 0: # yellow is clockwise(negative)
                     if cross > 0:
-                        self.get_logger().error("cross product is positive")
+                        # self.get_logger().debug("cross product is positive")
                         continue
                 elif self.side == 1: # blue is counter-clockwise(positive)
                     if cross < 0:
-                        self.get_logger().error("cross product is negative")
+                        # self.get_logger().debug("cross product is negative")
                         continue
                 # 2. check the distance between the two beacons
                 set['consistency'] = 1 - abs(np.linalg.norm(set['beacons'][0] - set['beacons'][1]) - nominal_distance) / nominal_distance
@@ -620,38 +613,35 @@ class LidarLocalization(Node): # inherit from Node
                 angle1 = np.arctan2(set['beacons'][1][1], set['beacons'][1][0])
                 angle0 = np.arctan2(set['beacons'][0][1], set['beacons'][0][0])
                 angle = angle_limit_checking(angle1 - angle0)
-                # angle = np.arctan2(set['beacons'][1][1] - set['beacons'][0][1], set['beacons'][1][0] - set['beacons'][0][0])
                 if abs(angle_limit_checking(angle - nominal_angle)) > np.pi / 18: # 10 degree
                     self.get_logger().error(f"Angle difference is too large: {angle * 180 / np.pi:.2f} degree")
                     continue
+                # self.get_logger().info(f"angle1: {angle1 * 180 / np.pi:.2f} degree")
+                # self.get_logger().info(f"angle0: {angle0 * 180 / np.pi:.2f} degree")
+                # self.get_logger().info(f"cadidate angle: {angle * 180 / np.pi:.2f} degree")
                 # probability of the set
                 set['probability_set'] = self.landmarks_candidate[two_index[0]]['obs_candidates'][i]['probability'] * self.landmarks_candidate[two_index[1]]['obs_candidates'][j]['probability']
                 if set['probability_set'] < self.likelihood_threshold_two:
-                    self.get_logger().debug(f"Probability is less than {self.likelihood_threshold}: {set['probability_set']}")
+                    self.get_logger().debug(f"Probability is less than {self.likelihood_threshold_two}: {set['probability_set']}")
                     continue
                 self.landmarks_set.append(set)
-        # print landmarks_set for debug
-        if self.debug_mode:
-            for i, set in enumerate(self.landmarks_set):
-                print(f"Set {i + 1}:")
-                print(f"Probability: {set['probability_set']}")
-                print(f"Geometry Consistency: {set['consistency']}")
         
         # check if there is valid set
         if len(self.landmarks_set) == 0:
             self.get_logger().warn("no valid set")
             return
-        # use the set with the highest probability_set
+
+        # use the set with the highest probability
         max_likelihood = max(set['probability_set'] for set in self.landmarks_set)
         max_likelihood_idx = next(i for i, set in enumerate(self.landmarks_set) if set['probability_set'] == max_likelihood)
-        beacons = [self.landmarks_set[max_likelihood_idx]['beacons'][two_index[0]], self.landmarks_set[max_likelihood_idx]['beacons'][two_index[1]]]
+        beacons = [self.landmarks_set[max_likelihood_idx]['beacons'][0], self.landmarks_set[max_likelihood_idx]['beacons'][1]]
         # calculate the lidar pose
-        # take the average of the position given by the two beacons
-        lidar_pose = np.zeros(3)  # Ensure that lidar_pose has three elements
-        pose_1 = self.landmarks_map[two_index[0]] - self.landmarks_set[max_likelihood_idx]['beacons'][0]
-        pose_2 = self.landmarks_map[two_index[1]] - self.landmarks_set[max_likelihood_idx]['beacons'][1]
-        lidar_pose[:2] = (pose_1 + pose_2) / 2  # Assign x and y to the first two elements
-        lidar_pose[2] = angle_limit_checking(np.arctan2(pose_1[1], pose_1[0]) - np.arctan2(beacons[0][1], beacons[0][0]))
+        lidar_pose = self.get_lidar_pose_two(
+            two_index[0],
+            two_index[1],
+            beacons[0][0], beacons[0][1],
+            beacons[1][0], beacons[1][1]
+        )
         # check if the lidar pose is in the map
         if lidar_pose[0] < 0 or lidar_pose[0] > 3 or lidar_pose[1] < 0 or lidar_pose[1] > 2:
             self.get_logger().debug("lidar pose is out of map")
@@ -670,6 +660,34 @@ class LidarLocalization(Node): # inherit from Node
         self.get_logger().info(f"lidar_pose (two) likelihood: {max_likelihood}")
 
         self.clear_data()
+
+    def get_lidar_pose_two(self, landmark_index_1, landmark_index_2, bxr, byr, cxr, cyr):
+
+        lidar_pose = np.zeros(3)
+        # the beacons position w.r.t. map
+        bxm = self.landmarks_map[landmark_index_1][0]
+        bym = self.landmarks_map[landmark_index_1][1]
+        cxm = self.landmarks_map[landmark_index_2][0]
+        cym = self.landmarks_map[landmark_index_2][1]
+        x = cxm - bxm
+        y = cym - bym
+        xr = cxr - bxr
+        yr = cyr - byr
+        # calculate the angle from robot to map
+        costheta = (xr*x + yr*y) / (xr**2 + yr**2)
+        sintheta = (xr*y - yr*x) / (xr**2 + yr**2)
+        lidar_pose[2] = np.arctan2(sintheta, costheta)
+        # find the linear translation from robot to map
+        # 1. transform beacon positions from w.r.t. robot to w.r.t. map
+        bx = costheta * bxr - sintheta * byr
+        by = sintheta * bxr + costheta * byr
+        cx = costheta * cxr - sintheta * cyr
+        cy = sintheta * cxr + costheta * cyr
+        # 2. linear translation from robot to map, take the average of the result from the two beacons
+        lidar_pose[0] = (bxm - bx)/2 + (cxm - cx)/2
+        lidar_pose[1] = (bym - by)/2 + (cym - cy)/2
+
+        return lidar_pose
 
 def quaternion_from_euler(ai, aj, ak):
     ai /= 2.0
