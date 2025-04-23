@@ -291,6 +291,7 @@ class LidarLocalization(Node): # inherit from Node
             landmarks_candidate.append(candidate)
 
         if self.visualize_true:
+            self.remove_old_markers()
             self.circles_pub.publish(self.marker_array)
             # self.get_logger().debug("Published marker array")
             self.marker_array.markers.clear() # clean up (is this enough?)
@@ -423,6 +424,17 @@ class LidarLocalization(Node): # inherit from Node
                 marker.color = ColorRGBA(r=0.5, g=0.5, b=0.0, a=1.0)
             marker.id = i
             marker_array.markers.append(marker)
+        
+        if len(beacons) == 2:
+            # delete marker id 3
+            marker_delete = Marker()
+            marker_delete.header.frame_id = "base_footprint"
+            marker_delete.ns = "chosen_landmarks"
+            marker_delete.id = 3
+            marker_delete.type = Marker.SPHERE
+            marker_delete.action = Marker.DELETE
+            marker_array.markers.append(marker_delete)
+
         # add the max_likelihood, consistency to the marker array
         marker = Marker()
         marker.header.frame_id = "map"
@@ -488,6 +500,7 @@ class LidarLocalization(Node): # inherit from Node
         text_marker.id = self.marker_id
         self.marker_array.markers.append(text_marker)
 
+    def remove_old_markers(self):
         # remove the old markers
         num_old_markers = self.marker_num_pre[self.beacon_no - 1] - self.marker_id
         for i in range(num_old_markers):
