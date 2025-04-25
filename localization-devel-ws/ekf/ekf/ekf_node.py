@@ -26,8 +26,8 @@ class EKFFootprintBroadcaster(Node):
     def __init__(self):
         super().__init__('ekf')
         self.X = np.array([0.0, 0.0, 0.0])
-        self.P = np.eye(3) * 9e-4
-        self.P[2, 2] = 0.003
+        self.P = np.eye(3) * 9e-2
+        self.P[2, 2] = 0.03
         self.Q = np.eye(3)
         self.R_gps = np.eye(3) * 1e-2
         self.R_gps[2, 2] = 0.09
