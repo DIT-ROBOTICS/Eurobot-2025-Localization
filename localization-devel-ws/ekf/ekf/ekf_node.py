@@ -173,6 +173,7 @@ class EKFFootprintBroadcaster(Node):
         # start_time = time.perf_counter()
         K = self.P @ np.linalg.inv(self.P + R)
         self.X += K @ residual
+        self.X[2] = normalize_angle(self.X[2])
         self.P = (np.eye(3) - K) @ self.P
         # end_time = time.perf_counter()
         # self.get_logger().info(f"EKF update took: {end_time - start_time:.6f} s")
