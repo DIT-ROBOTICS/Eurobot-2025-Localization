@@ -76,7 +76,17 @@ services:
           /final_pose \
           /raw_obstacles \
           /raw_obstacles_visualization_pcl \
+          /tf \
+          /tf_static \
           /candidates"
+
+  localization-bash:
+    profiles: ['localization_bash']
+    image: jossiewang/eurobot2025-localization:local-ros2-wSensors
+    container_name: localization-bash
+    <<: 
+      - *ros2-vars
+    command: /bin/bash
 
   ros-core:
     profiles: ['communication']
