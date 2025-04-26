@@ -74,13 +74,17 @@ private:
     std::string robot_name;
     std::string rival_name;
 
+    double typical_blink;
+    double typical_rival_vel;
+    double typical_lpf_gain;
+
     double x_max, x_min, y_max, y_min;
     double vel_lpf_gain;
     double locking_rad, p_locking_rad, freq;
     double lockrad_growing_rate;
     double cam_weight;
 
-    bool obstacle_ok, rival_ok , initial, camera_ok;
+    bool obstacle_ok, rival_ok , initial, camera_ok, debug_true;
 
     IMM model;
 };

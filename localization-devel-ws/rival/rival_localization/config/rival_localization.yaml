@@ -34,5 +34,6 @@ rival_localization:
     locking_rad: 0.3
     lockrad_growing_rate: 0.3 # m/s
     cam_weight: 0.5
+    debug_true: true
 
     

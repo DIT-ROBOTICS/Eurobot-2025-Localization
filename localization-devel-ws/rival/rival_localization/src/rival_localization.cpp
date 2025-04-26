@@ -22,6 +22,10 @@ void Rival::initialize() {
     this->declare_parameter<double>("locking_rad", 0.3);
     this->declare_parameter<double>("lockrad_growing_rate", 0.3);
     this->declare_parameter<double>("cam_weight", 0.5);
+    this->declare_parameter<bool>("debug_true", false);
+    this->declare_parameter<double>("typical_blink", 0.1);
+    this->declare_parameter<double>("typical_rival_vel", 0.5);
+    this->declare_parameter<double>("typical_lpf_gain", 0.9);
     
     robot_name           = this->get_parameter("robot_name").get_value<std::string>();
     rival_name           = this->get_parameter("rival_name").as_string();
@@ -34,6 +38,10 @@ void Rival::initialize() {
     p_locking_rad        = this->get_parameter("locking_rad").as_double(); // but what if rival is moving?? should increase if rival's moving!
     lockrad_growing_rate = this->get_parameter("lockrad_growing_rate").as_double(); // 5e-2 meter per second
     cam_weight           = this->get_parameter("cam_weight").as_double();
+    debug_true           = this->get_parameter("debug_true").as_bool();
+    typical_blink        = this->get_parameter("typical_blink").as_double();
+    typical_rival_vel    = this->get_parameter("typical_rival_vel").as_double();
+    typical_lpf_gain     = this->get_parameter("typical_lpf_gain").as_double();
     
     RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
@@ -47,7 +55,10 @@ void Rival::initialize() {
   
     obstacle_ok = false;
     locking_rad = p_locking_rad;
-}        
+    typical_blink = 0.1; // ideal is 10 Hz
+    typical_rival_vel = 0.5;
+    typical_lpf_gain = 0.9;
+}
 
 bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
 
@@ -63,7 +74,8 @@ bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point
 
     bool ok = true;
 
-    locking_rad = locking_rad + sqrt(pow(rival_final_vel.x, 2) + pow(rival_final_vel.y, 2)) * dt;
+    // locking_rad = locking_rad + sqrt(pow(rival_final_vel.x, 2) + pow(rival_final_vel.y, 2)) * dt; // do not use rival velocity or just visualize the circle
+    locking_rad = typical_rival_vel * typical_blink;
     double distance = sqrt(pow((pre.x - cur.x), 2) + pow((pre.y - cur.y), 2));
 
     if (distance > locking_rad) ok = false;
@@ -307,6 +319,15 @@ void Rival::broadcast_rival_tf() {
 
         br->sendTransform(transformStamped);
     }
+    // log the time between stamp prev and rival_stamp
+    double time_period = rival_stamp.seconds() - stamp_prev.seconds();
+    typical_blink = typical_lpf_gain * typical_blink + (1 - typical_lpf_gain) * time_period; // Apply low pass filter
+    // time_period = rival_stamp.seconds() - stamp_prev.seconds();
+    if(debug_true){
+        RCLCPP_INFO(this->get_logger(),"time period: %f", time_period);
+        RCLCPP_INFO(this->get_logger(),"typical_blink: %f", typical_blink);
+    }
+    // RCLCPP_INFO(this->get_logger(),"time period: %f", time_period);
     stamp_prev = rival_stamp;
 }
 
