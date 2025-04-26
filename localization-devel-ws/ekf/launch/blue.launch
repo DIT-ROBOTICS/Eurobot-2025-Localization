@@ -12,13 +12,14 @@
         <param name="robot_parent_frame_id" value="map" />
         <param name="robot_frame_id" value="base_footprint" />
         <param name="/use_sim_time" value="false" />
-        <param name="q_linear" value="1e-5" />
-        <param name="q_angular" value="1e-6" />
+        <param name="q_linear" value="1e-6" />
+        <param name="q_angular" value="1e-9" />
         <param name="r_camra_linear" value="1e-2"  />
         <param name="r_camra_angular" value="0.15"  />
         <param name="r_threshold_xy" value="1e-3"    />
         <param name="r_threshold_theta" value="1e-2" />
         <remap from="initial_pose" to="initialpose"/>
+        <!-- <remap from="/ceiling_robot/pose" to="/vision/aruco/robot/average_pose"/> -->
         <!-- <remap from="odoo_googoogoo" to="driving_duaiduaiduai" /> -->
     </node>
     <!-- IMU init -->
