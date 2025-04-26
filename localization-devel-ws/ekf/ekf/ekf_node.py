@@ -2,7 +2,7 @@
 import math
 import numpy as np
 import time
-from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped, Twist, PoseWithCovariance
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped, Twist
 from sensor_msgs.msg import Imu
 import rclpy
 from rclpy.node import Node
@@ -26,8 +26,8 @@ class EKFFootprintBroadcaster(Node):
     def __init__(self):
         super().__init__('ekf')
         self.X = np.array([0.0, 0.0, 0.0])
-        self.P = np.eye(3) * 9e-4
-        self.P[2, 2] = 0.003
+        self.P = np.eye(3) * 9e-2
+        self.P[2, 2] = 3
         self.Q = np.eye(3)
         self.R_gps = np.eye(3) * 1e-2
         self.R_gps[2, 2] = 0.09
@@ -79,23 +79,23 @@ class EKFFootprintBroadcaster(Node):
 
     def init_topics(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
-        self.create_subscription(PoseWithCovariance, 'initialpose', self.init_callback, 1)
+        self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback, 1)
         self.create_subscription(Twist, 'odoo_googoogoo', self.odomcallback, 1)
         self.create_subscription(Imu, '/imu/data_cov', self.imu_callback, 1)
         self.create_subscription(PoseStamped, '/ceiling_robot/pose', self.camera_callback, 1)
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
 
     def init_callback(self, msg):
-        self.X[0] = msg.pose.position.x
-        self.X[1] = msg.pose.position.y
-        self.X[2] = euler_from_quaternion(msg.pose.orientation.x,
-                                          msg.pose.orientation.y,
-                                          msg.pose.orientation.z,
-                                          msg.pose.orientation.w)
-        if msg.covariance[0] > 0 and msg.covariance[7] > 0 and msg.covariance[35] > 0:
-            self.P[0, 0] = msg.covariance[0]
-            self.P[1, 1] = msg.covariance[7]
-            self.P[2, 2] = msg.covariance[35]
+        self.X[0] = msg.pose.pose.position.x
+        self.X[1] = msg.pose.pose.position.y
+        self.X[2] = euler_from_quaternion(msg.pose.pose.orientation.x,
+                                          msg.pose.pose.orientation.y,
+                                          msg.pose.pose.orientation.z,
+                                          msg.pose.pose.orientation.w)
+        if msg.pose.covariance[0] > 0 and msg.pose.covariance[7] > 0 and msg.pose.covariance[35] > 0:
+            self.P[0, 0] = msg.pose.covariance[0]
+            self.P[1, 1] = msg.pose.covariance[7]
+            self.P[2, 2] = msg.pose.covariance[35]
 
     def gps_callback(self, msg):
         self.gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
