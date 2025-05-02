@@ -131,6 +131,8 @@ public:
 
     void setposeCallback(const geometry_msgs::msg::PoseWithCovarianceStamped & pose_msg)
     {
+        if(get_init_pose) return;
+
         double x = pose_msg.pose.pose.position.x;
         double y = pose_msg.pose.pose.position.y;
         
@@ -177,6 +179,7 @@ public:
         coord_odom2map.pose.orientation.w=q_.getW();
         odom2map_pub_->publish(coord_odom2map);
         
+        get_init_pose=true;
     }
 
     void odomCallback(const geometry_msgs::msg::Twist & odom_msg) {
@@ -298,6 +301,8 @@ private:
     rclcpp::Time prev_stamp_;
     double linear_cov_max_;
     double angular_cov_max_;
+
+    bool get_init_pose=false;
 };
 
 int main(int argc, char** argv) {

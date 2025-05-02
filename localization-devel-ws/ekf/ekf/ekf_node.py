@@ -53,6 +53,7 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
         self.cam_time = 0
+        self.get_init_pose = false
         self.init_topics()
 
         self.footprint_publish()
@@ -92,7 +93,10 @@ class EKFFootprintBroadcaster(Node):
 
     
     def init_callback(self, msg):
-        
+
+        if self.get_init_pose:
+            return
+
         self.X[0] = msg.pose.pose.position.x
         self.X[1] = msg.pose.pose.position.y
 
@@ -108,6 +112,7 @@ class EKFFootprintBroadcaster(Node):
                 self.P[0, 0] = msg.pose.covariance[0]
                 self.P[1, 1] = msg.pose.covariance[7]
                 self.P[2, 2] = msg.pose.covariance[35]
+        self.get_init_pose = true
 
     def gps_callback(self, msg):
         self.gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
