@@ -6,7 +6,8 @@
   <description>TODO: Package description</description>
   <maintainer email="zhen.cc.1207@gmail.com">user</maintainer>
   <license>Apache-2.0</license>
-
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
   <depend>nav_msgs</depend>

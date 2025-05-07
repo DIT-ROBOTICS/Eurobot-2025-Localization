@@ -1,0 +1,164 @@
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, RegisterEventHandler, GroupAction, IncludeLaunchDescription, PushRosNamespace
+from launch.event_handlers import OnProcessStart
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
+
+
+def generate_launch_description():
+    # Launch arguments
+    rival_name = LaunchConfiguration('rival')
+    side = LaunchConfiguration('1')
+
+    # Paths
+    rival_config_path = PathJoinSubstitution([
+        FindPackageShare('rival_localization'),
+        'config',
+        'rival_localization.yaml'
+    ])
+
+    local_filter_launch_path = PathJoinSubstitution([
+        FindPackageShare('local_filter'),
+        'launch',
+        'local_filter_whole.xml'
+    ])
+
+    rplidar_launch = PathJoinSubstitution([
+        FindPackageShare('lidar_localization_pkg'),
+        'launch',
+        'firmware',
+        'rplidar_s3_launch.py'
+    ])
+
+    obstacle_extractor_launch = PathJoinSubstitution([
+        FindPackageShare('lidar_localization_pkg'),
+        'launch',
+        'obstacle_extractor_launch.xml'
+    ])
+
+    # Nodes
+    healthcheck_node = Node(
+        package='healthcheck',
+        executable='healthcheck_node',
+        name='healthcheck_node',
+        output='screen'
+    )
+
+    ekf_node = Node(
+        package='ekf',
+        executable='ekf_node',
+        name='ekf_node',
+        output='screen',
+        parameters=[{
+            'use_cam': 0,
+            'robot_parent_frame_id': 'map',
+            'robot_frame_id': 'base_footprint',
+            '/use_sim_time': False,
+            'q_linear': 1.2e-5,
+            'q_angular': 1.7e-6,
+            'r_camra_linear': 1e-2,
+            'r_camra_angular': 0.15,
+            'r_threshold_xy': 1e-3,
+            'r_threshold_theta': 1e-2
+        }],
+        remappings=[
+            ('initial_pose', 'initialpose'),
+            ('/ceiling_robot/pose', '/vision/aruco/robot/single/average_pose')
+        ]
+    )
+
+    lidar_node = Node(
+        package='lidar_localization_pkg',
+        executable='lidar_localization',
+        name='lidar_localization',
+        output='screen',
+        parameters=[{
+            'side': side,
+            'debug_mode': False,
+            'visualize_candidate': True,
+            'likelihood_threshold': 0.8,
+            'consistency_threshold': 0.97
+        }]
+    )
+
+    local_filter_launch = IncludeLaunchDescription(
+        AnyLaunchDescriptionSource(local_filter_launch_path)
+    )
+
+    rival_node = Node(
+        package='rival_localization',
+        executable='rival_localization',
+        name='rival_localization',
+        output='screen',
+        parameters=[rival_config_path],
+        remappings=[
+            ('raw_pose', [rival_name, '/raw_pose']),
+            ('final_pose', [rival_name, '/final_pose'])
+        ]
+    )
+
+    rival_obstacle_node = GroupAction([
+        PushRosNamespace(rival_name),
+        Node(
+            package='obstacle_detector',
+            executable='obstacle_extractor_node',
+            name='obstacle_detector_to_map',
+            parameters=[
+                rival_config_path,
+                {'frame_id': 'map'}
+            ],
+            remappings=[
+                ('raw_obstacles', '/obstacles_to_map'),
+                ('scan', '/scan')
+            ]
+        )
+    ])
+
+    static_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='robot_to_laser',
+        output='screen',
+        arguments=[
+            '--x', '0', '--y', '0', '--z', '0',
+            '--roll', '0', '--pitch', '0', '--yaw', '1.57',
+            '--frame-id', 'base_footprint',
+            '--child-frame-id', 'laser'
+        ]
+    )
+
+    rplidar_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(rplidar_launch))
+    obstacle_extractor_include = IncludeLaunchDescription(AnyLaunchDescriptionSource(obstacle_extractor_launch))
+
+    ekf_starter = RegisterEventHandler(
+        OnProcessStart(target_action=static_tf, on_start=[ekf_node])
+    )
+
+    lidar_starter = RegisterEventHandler(
+        OnProcessStart(target_action=ekf_node, on_start=[lidar_node])
+    )
+
+    local_filter_starter = RegisterEventHandler(
+        OnProcessStart(target_action=lidar_node, on_start=[local_filter_launch])
+    )
+
+    rival_starter = RegisterEventHandler(
+        OnProcessStart(target_action=local_filter_launch, on_start=[rival_node, rival_obstacle_node])
+    )
+
+    return LaunchDescription([
+        DeclareLaunchArgument('rival_name', default_value='rival'),
+        DeclareLaunchArgument('side', default_value='1'),
+
+        static_tf,
+        rplidar_include,
+        obstacle_extractor_include,
+        healthcheck_node,
+
+        ekf_starter,
+        lidar_starter,
+        local_filter_starter,
+        rival_starter
+    ])
