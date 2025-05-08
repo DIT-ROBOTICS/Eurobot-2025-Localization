@@ -554,7 +554,7 @@ class LidarLocalization(Node): # inherit from Node
     def publish_beacons(self, beacons):
         pose_array = PoseArray()
         pose_array.header.stamp = self.get_clock().now().to_msg()
-        pose_array.header.frame_id = "map"  # Adjust the frame_id as needed
+        pose_array.header.frame_id = "base_footprint"  # Adjust the frame_id as needed
 
         for beacon in beacons:
             pose = Pose()
