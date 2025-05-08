@@ -1,6 +1,5 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, RegisterEventHandler, GroupAction, IncludeLaunchDescription, SetLaunchConfiguration, ExecuteProcess
-from launch.event_handlers import OnProcessStart
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, SetLaunchConfiguration, TimerAction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
 from launch_ros.actions import Node
@@ -8,11 +7,9 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    # Launch arguments
-    rival_name = LaunchConfiguration('rival')
-    side = LaunchConfiguration('1')
+    rival_name = LaunchConfiguration('rival_name')
+    side = LaunchConfiguration('side')
 
-    # Paths
     rival_config_path = PathJoinSubstitution([
         FindPackageShare('rival_localization'),
         'config',
@@ -38,7 +35,6 @@ def generate_launch_description():
         'obstacle_extractor_launch.xml'
     ])
 
-    # Nodes
     healthcheck_node = Node(
         package='healthcheck',
         executable='healthcheck_node',
@@ -132,34 +128,6 @@ def generate_launch_description():
     rplidar_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(rplidar_launch))
     obstacle_extractor_include = IncludeLaunchDescription(AnyLaunchDescriptionSource(obstacle_extractor_launch))
 
-    ekf_starter = RegisterEventHandler(
-        OnProcessStart(
-            target_action=ExecuteProcess(cmd=['static_tf']),
-            on_start=[ekf_node]
-        )
-    )
-
-    lidar_starter = RegisterEventHandler(
-        OnProcessStart(
-            target_action=ExecuteProcess(cmd=['ekf_node']),
-            on_start=[lidar_node]
-        )
-    )
-
-    local_filter_starter = RegisterEventHandler(
-        OnProcessStart(
-            target_action=ExecuteProcess(cmd=['lidar_node']),
-            on_start=[local_filter_launch]
-        )
-    )
-
-    rival_starter = RegisterEventHandler(
-        OnProcessStart(
-            target_action=ExecuteProcess(cmd=['local_filter_launch']),
-            on_start=[rival_node, rival_obstacle_node]
-        )
-    )
-
     return LaunchDescription([
         DeclareLaunchArgument('rival_name', default_value='rival'),
         DeclareLaunchArgument('side', default_value='1'),
@@ -167,10 +135,11 @@ def generate_launch_description():
         static_tf,
         rplidar_include,
         obstacle_extractor_include,
+
         healthcheck_node,
 
-        ekf_starter,
-        lidar_starter,
-        local_filter_starter,
-        rival_starter
+        TimerAction(period=2.0, actions=[ekf_node]),
+        TimerAction(period=4.0, actions=[lidar_node]),
+        TimerAction(period=6.0, actions=[local_filter_launch]),
+        TimerAction(period=8.0, actions=[rival_node, rival_obstacle_node])
     ])
