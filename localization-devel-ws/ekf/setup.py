@@ -1,5 +1,6 @@
 import os  # Import os module
 from setuptools import find_packages, setup
+from glob import glob
 
 package_name = 'ekf'
 
@@ -12,7 +13,8 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', 
-         ['launch/' + f for f in os.listdir('launch') if f.endswith('.launch')])
+         [os.path.join('launch', f) for f in os.listdir('launch') if f.endswith('.launch')]),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*'))
     ],
     install_requires=['setuptools'],
     zip_safe=True,

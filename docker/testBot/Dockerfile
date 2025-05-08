@@ -144,7 +144,6 @@ FROM jossiewang/eurobot2025-localization2:testbot-release AS devel-ws
 
 ARG USERNAME
 ARG BRANCH_SELECT
-ARG PACKAGE_SELECT
 
 WORKDIR /home/user/temp
 RUN git clone -b ${BRANCH_SELECT} https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
@@ -154,7 +153,7 @@ RUN rm -rf /home/user/temp
 ## Set working directory
 WORKDIR /home/${USERNAME}/localization-ws
 USER ${USERNAME}
-RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --packages-select ${PACKAGE_SELECT}' \
+RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build' \
     && sudo rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf /home/user/localization-ws/src/localization-devel-ws

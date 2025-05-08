@@ -65,7 +65,7 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:devel
+    image: jossiewang/eurobot2025-localization2:Develop
     container_name: localization-2025-dev-ros2
     stdin_open: true
     tty: true

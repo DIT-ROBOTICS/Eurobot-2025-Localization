@@ -55,7 +55,7 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
-#include "nav_msgs/msg/odometry.cpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "std_srvs/srv/empty.hpp"
 #include "sensor_msgs/msg/point_field.hpp"
 
@@ -98,7 +98,7 @@ private:
   bool compareSegments(const Segment& s1, const Segment& s2, Segment& merged_segment);
   bool checkSegmentsProximity(const Segment& s1, const Segment& s2);
   bool checkSegmentsCollinearity(const Segment& segment, const Segment& s1, const Segment& s2);
-
+  Point distortionCorrection(sensor_msgs::msg::LaserScan, double*, double, double);
   void detectCircles();
   void mergeCircles();
   bool compareCircles(const Circle& c1, const Circle& c2, Circle& merged_circle);
