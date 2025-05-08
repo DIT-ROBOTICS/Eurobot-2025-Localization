@@ -1,5 +1,5 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, RegisterEventHandler, GroupAction, IncludeLaunchDescription, PushRosNamespace
+from launch.actions import DeclareLaunchArgument, RegisterEventHandler, GroupAction, IncludeLaunchDescription, SetLaunchConfiguration, ExecuteProcess
 from launch.event_handlers import OnProcessStart
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
@@ -100,7 +100,7 @@ def generate_launch_description():
     )
 
     rival_obstacle_node = GroupAction([
-        PushRosNamespace(rival_name),
+        SetLaunchConfiguration('ros_namespace', rival_name),
         Node(
             package='obstacle_detector',
             executable='obstacle_extractor_node',
@@ -133,19 +133,31 @@ def generate_launch_description():
     obstacle_extractor_include = IncludeLaunchDescription(AnyLaunchDescriptionSource(obstacle_extractor_launch))
 
     ekf_starter = RegisterEventHandler(
-        OnProcessStart(target_action=static_tf, on_start=[ekf_node])
+        OnProcessStart(
+            target_action=ExecuteProcess(cmd=['static_tf']),
+            on_start=[ekf_node]
+        )
     )
 
     lidar_starter = RegisterEventHandler(
-        OnProcessStart(target_action=ekf_node, on_start=[lidar_node])
+        OnProcessStart(
+            target_action=ExecuteProcess(cmd=['ekf_node']),
+            on_start=[lidar_node]
+        )
     )
 
     local_filter_starter = RegisterEventHandler(
-        OnProcessStart(target_action=lidar_node, on_start=[local_filter_launch])
+        OnProcessStart(
+            target_action=ExecuteProcess(cmd=['lidar_node']),
+            on_start=[local_filter_launch]
+        )
     )
 
     rival_starter = RegisterEventHandler(
-        OnProcessStart(target_action=local_filter_launch, on_start=[rival_node, rival_obstacle_node])
+        OnProcessStart(
+            target_action=ExecuteProcess(cmd=['local_filter_launch']),
+            on_start=[rival_node, rival_obstacle_node]
+        )
     )
 
     return LaunchDescription([
