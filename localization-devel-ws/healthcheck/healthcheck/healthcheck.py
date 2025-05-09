@@ -246,7 +246,7 @@ class HealthCheckNode(Node):
         # compare odom2map, lidar_pose and camera_pose
         # warn if any one of them has a large difference
         if not hasattr(self, 'odom2map') or not hasattr(self, 'lidar_pose') or not hasattr(self, 'camera_pose'):
-            self.get_logger().warn("odom2map, lidar_pose or camera_pose not available")
+            # self.get_logger().warn("odom2map, lidar_pose or camera_pose not available")
             return False
         
         lidar_yaw = rpy_from_quaternion(
@@ -275,7 +275,6 @@ class HealthCheckNode(Node):
             abs(self.odom2map.pose.position.y - self.camera_pose.pose.pose.position.y) > 0.05:
                 self.get_logger().warn("odom2map and camera_pose have a large difference")
                 return False
-        self.odom_init = True
         return True
 
     def odom2map_callback(self, msg):
@@ -287,6 +286,7 @@ class HealthCheckNode(Node):
         self.new_lidar = True
         if self.get_init and not self.odom_init:
             self.publication.publish(msg)
+            self.odom_init = True
 
     def camera_pose_callback(self, msg):
         if not self.get_init:
