@@ -328,8 +328,7 @@ void ObstacleExtractor::tailElimination(PointSet& point_set){
     if(vectorComparison((*forward_iter--).x, (*forward_iter--).y, 
                         (*forward_iter).x, (*forward_iter).y,
                         (*forward_iter++).x, (*forward_iter++).x) &&
-        tail_num >= 3 &&
-        tail_num < point_set.num_points / 3){
+        tail_num >= 3){
           point_set.begin = forward_iter++;
           point_set.num_points -= tail_num;
           forward_ok = true;
