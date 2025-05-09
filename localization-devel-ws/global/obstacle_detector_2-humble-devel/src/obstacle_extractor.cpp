@@ -325,7 +325,7 @@ void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& p
 
   while(forward_iter != inverse_iter){
     if(point_set_list.size()<=6) return;
-    if(forward_ok && inverse_ok) return;
+    if(forward_ok && inverse_ok) break;
     if(!forward_ok){
       tail_num++;
       auto prev = std::prev(forward_iter);
@@ -367,6 +367,11 @@ void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& p
       }
     }
   }
+
+  tail_num = 0;
+  rtail_num = 0;
+  forward_ok = false;
+  inverse_ok = false;
 }
 
 bool ObstacleExtractor::vectorComparison(
@@ -382,7 +387,7 @@ bool ObstacleExtractor::vectorComparison(
     vec_prev << (x - prev_x) / length_prev, (y - prev_y) / length_prev;
     vec_next << (next_x - x) / length_next, (next_y - y) / length_next;
 
-    return abs(vec_prev.dot(vec_next)) < p_tail_threshold;
+    return vec_prev.dot(vec_next) < p_tail_threshold;
 }
 
 void ObstacleExtractor::detectSegments(const PointSet& point_set) {
