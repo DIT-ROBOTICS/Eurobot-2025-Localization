@@ -297,7 +297,8 @@ void ObstacleExtractor::groupPoints() {
       if (abs(sin_d) < sin_dp && range < prev_range)
         point_set.is_visible = false;
 
-      tailElimination(point_set);
+      std::list<Point> point_set_list(point_set.begin, std::next(point_set.end));
+      tailElimination(point_set, point_set_list);
       detectSegments(point_set);
 
       // Begin new point set
@@ -308,46 +309,63 @@ void ObstacleExtractor::groupPoints() {
     }
   }
 
-  tailElimination(point_set);
+  std::list<Point> point_set_list(point_set.begin, std::next(point_set.end));
+  tailElimination(point_set, point_set_list);
   detectSegments(point_set); // Check the last point set too!
 }
 
-void ObstacleExtractor::tailElimination(PointSet& point_set){
+void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& point_set_list){
 
-  PointIterator forward_iter = point_set.begin++;
-  PointIterator inverse_iter = point_set.end--;
+  PointIterator forward_iter = std::next(point_set.begin);
+  PointIterator inverse_iter = std::prev(point_set.end);
   int tail_num=0;
   int rtail_num=0;
   bool forward_ok = false;
   bool inverse_ok = false;
 
-  while(forward_iter!=inverse_iter || (forward_ok && inverse_ok)){
-    tail_num++;
-    rtail_num++;
+  while(forward_iter != inverse_iter){
+    if(point_set_list.size()<=6) return;
+    if(forward_ok && inverse_ok) return;
+    if(!forward_ok){
+      tail_num++;
+      auto prev = std::prev(forward_iter);
+      auto next = std::next(forward_iter);
 
-    if(vectorComparison((*forward_iter--).x, (*forward_iter--).y, 
-                        (*forward_iter).x, (*forward_iter).y,
-                        (*forward_iter++).x, (*forward_iter++).x) &&
-        tail_num >= 3){
-          point_set.begin = forward_iter++;
-          point_set.num_points -= tail_num;
-          forward_ok = true;
+      if(vectorComparison(prev->x , prev->y, 
+                          forward_iter->x, forward_iter->y,
+                          next->x, next->y) &&
+          tail_num >= 3){
+            point_set_list.erase(point_set.begin, std::next(forward_iter));
+            point_set.begin = point_set_list.begin();
+            point_set.num_points -= tail_num;
+            forward_ok = true;
+      }
+      else {
+      forward_iter++;
+      tail_num++;
+      }
     }
-    else tail_num++;
 
-    if(vectorComparison((*inverse_iter++).x, (*inverse_iter++).y, 
-                        (*inverse_iter).x, (*inverse_iter).y,
-                        (*inverse_iter--).x, (*inverse_iter--).x) &&
-        rtail_num >= 3 &&
-        rtail_num < point_set.num_points / 3){
-          point_set.end = inverse_iter--;
-          point_set.num_points -= rtail_num;
-          inverse_ok = true;
+    if(!inverse_ok){
+      rtail_num++;
+      auto prev = std::next(inverse_iter);
+      auto next = std::prev(inverse_iter);
+
+      if(vectorComparison(prev->x, prev->y, 
+                          inverse_iter->x, inverse_iter->y,
+                          next->x, next->y) &&
+          rtail_num >= 3 &&
+          !inverse_ok){
+            point_set_list.erase(inverse_iter, std::next(point_set.end));
+            point_set.end = point_set_list.end();
+            point_set.num_points -= rtail_num;
+            inverse_ok = true;
+      }
+      else {
+        rtail_num++;
+        inverse_iter--;
+      }
     }
-    else rtail_num++;
-
-    forward_iter++;
-    inverse_iter--;
   }
 }
 
@@ -364,7 +382,7 @@ bool ObstacleExtractor::vectorComparison(
     vec_prev << (x - prev_x) / length_prev, (y - prev_y) / length_prev;
     vec_next << (next_x - x) / length_next, (next_y - y) / length_next;
 
-    return abs(vec_prev.dot(vec_next)) > p_tail_threshold;
+    return abs(vec_prev.dot(vec_next)) < p_tail_threshold;
 }
 
 void ObstacleExtractor::detectSegments(const PointSet& point_set) {

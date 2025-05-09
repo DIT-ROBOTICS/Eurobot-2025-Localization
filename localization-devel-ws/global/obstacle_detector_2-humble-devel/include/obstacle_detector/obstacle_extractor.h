@@ -99,7 +99,7 @@ private:
   bool checkSegmentsProximity(const Segment& s1, const Segment& s2);
   bool checkSegmentsCollinearity(const Segment& segment, const Segment& s1, const Segment& s2);
   Point distortionCorrection(sensor_msgs::msg::LaserScan, double*, double, double);
-  void tailElimination(PointSet&);
+  void tailElimination(PointSet&, std::list<Point>&);
   bool vectorComparison(double, double, double, double, double, double);
   void detectCircles();
   void mergeCircles();
