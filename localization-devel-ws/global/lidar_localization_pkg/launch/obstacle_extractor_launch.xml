@@ -24,6 +24,8 @@
     <param name="max_circle_radius"    value="0.2"/>
     <param name="radius_enlargement"   value="0.0"/> <!-- we do not need enlargement! -->
 
+    <param name="tail_threshold"       value="1.308"/> <!-- vector angle 75 degree -->
+
     <param name="frame_id"             value="base_footprint"/>
   </node>
 
