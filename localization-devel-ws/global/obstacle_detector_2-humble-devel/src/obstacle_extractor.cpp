@@ -318,20 +318,24 @@ void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& p
 
   PointIterator forward_iter = std::next(point_set.begin);
   PointIterator inverse_iter = std::prev(point_set.end);
+  auto group_size = std::distance(point_set.begin, std::next(point_set.end));
+  PointIterator middle_iter = point_set.begin;
+  std::advance(middle_iter, group_size / 2);
   int tail_num=0;
   int rtail_num=0;
   bool forward_ok = false;
   bool inverse_ok = false;
 
-  while(forward_iter != inverse_iter){
+  while(!forward_ok || !inverse_ok){
     if(point_set_list.size()<=6) return;
-    if(forward_ok && inverse_ok) break;
+
+    if(forward_iter == middle_iter) forward_ok = true;
     if(!forward_ok){
       tail_num++;
       auto prev = std::prev(forward_iter);
       auto next = std::next(forward_iter);
 
-      if(vectorComparison(prev->x , prev->y, 
+      if(vectorComparison(prev->x , prev->y,
                           forward_iter->x, forward_iter->y,
                           next->x, next->y) &&
           tail_num >= 3){
@@ -342,10 +346,10 @@ void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& p
       }
       else {
       forward_iter++;
-      tail_num++;
       }
     }
 
+    if(inverse_iter == middle_iter) inverse_ok = true;
     if(!inverse_ok){
       rtail_num++;
       auto prev = std::next(inverse_iter);
@@ -362,16 +366,10 @@ void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& p
             inverse_ok = true;
       }
       else {
-        rtail_num++;
         inverse_iter--;
       }
     }
   }
-
-  tail_num = 0;
-  rtail_num = 0;
-  forward_ok = false;
-  inverse_ok = false;
 }
 
 bool ObstacleExtractor::vectorComparison(
