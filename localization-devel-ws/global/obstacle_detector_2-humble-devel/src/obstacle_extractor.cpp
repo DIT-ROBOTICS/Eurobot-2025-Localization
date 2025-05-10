@@ -297,8 +297,7 @@ void ObstacleExtractor::groupPoints() {
       if (abs(sin_d) < sin_dp && range < prev_range)
         point_set.is_visible = false;
 
-      std::list<Point> point_set_list(point_set.begin, std::next(point_set.end));
-      tailElimination(point_set, point_set_list);
+      tailElimination(point_set, input_points_);
       detectSegments(point_set);
 
       // Begin new point set
@@ -309,8 +308,7 @@ void ObstacleExtractor::groupPoints() {
     }
   }
 
-  std::list<Point> point_set_list(point_set.begin, std::next(point_set.end));
-  tailElimination(point_set, point_set_list);
+  tailElimination(point_set, input_points_);
   detectSegments(point_set); // Check the last point set too!
 }
 
