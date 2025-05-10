@@ -117,7 +117,7 @@ void ObstacleExtractor::updateParamsUtil(){
   nh_->get_parameter_or("frame_id", p_frame_id_, std::string{"map"});
   nh_->get_parameter_or("max_range", p_max_range_, 3.6);
 
-  nh_->get_parameter_or("tail_threshold", p_tail_threshold, 1.396);
+  nh_->get_parameter_or("tail_threshold", p_tail_threshold, 0.5);
 
   if (p_active_ != prev_active) {
     if (p_active_) {
