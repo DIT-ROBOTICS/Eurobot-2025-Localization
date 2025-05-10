@@ -297,7 +297,7 @@ void ObstacleExtractor::groupPoints() {
       if (abs(sin_d) < sin_dp && range < prev_range)
         point_set.is_visible = false;
 
-      tailElimination(point_set, input_points_);
+      tailElimination(point_set);
       detectSegments(point_set);
 
       // Begin new point set
@@ -308,15 +308,15 @@ void ObstacleExtractor::groupPoints() {
     }
   }
 
-  tailElimination(point_set, input_points_);
+  tailElimination(point_set);
   detectSegments(point_set); // Check the last point set too!
 }
 
-void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& point_set_list){
+void ObstacleExtractor::tailElimination(PointSet& point_set){
 
   PointIterator forward_iter = std::next(point_set.begin);
   PointIterator inverse_iter = std::prev(point_set.end);
-  auto group_size = std::distance(point_set.begin, std::next(point_set.end));
+  auto group_size = std::distance(point_set.begin, std::next(point_set.end, 1));
   PointIterator middle_iter = point_set.begin;
   std::advance(middle_iter, group_size / 2);
   int tail_num=0;
@@ -325,7 +325,7 @@ void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& p
   bool inverse_ok = false;
 
   while(!forward_ok || !inverse_ok){
-    if(point_set_list.size()<=6) return;
+    if(group_size<=6) return;
 
     if(forward_iter == middle_iter) forward_ok = true;
     if(!forward_ok){
@@ -337,9 +337,9 @@ void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& p
                           forward_iter->x, forward_iter->y,
                           next->x, next->y) &&
           tail_num >= 3){
-            point_set_list.erase(point_set.begin, std::next(forward_iter));
-            point_set.begin = point_set_list.begin();
+            point_set.begin = std::next(forward_iter);
             point_set.num_points -= tail_num;
+            group_size -= tail_num;
             forward_ok = true;
       }
       else {
@@ -358,9 +358,9 @@ void ObstacleExtractor::tailElimination(PointSet& point_set, std::list<Point>& p
                           next->x, next->y) &&
           rtail_num >= 3 &&
           !inverse_ok){
-            point_set_list.erase(inverse_iter, std::next(point_set.end));
-            point_set.end = point_set_list.end();
+            point_set.end = std::prev(inverse_iter);
             point_set.num_points -= rtail_num;
+            group_size -= rtail_num;
             inverse_ok = true;
       }
       else {
