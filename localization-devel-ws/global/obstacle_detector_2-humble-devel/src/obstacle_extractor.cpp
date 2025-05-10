@@ -297,7 +297,7 @@ void ObstacleExtractor::groupPoints() {
       if (abs(sin_d) < sin_dp && range < prev_range)
         point_set.is_visible = false;
 
-      tailElimination(point_set);
+      // tailElimination(point_set);
       detectSegments(point_set);
 
       // Begin new point set
@@ -308,7 +308,7 @@ void ObstacleExtractor::groupPoints() {
     }
   }
 
-  tailElimination(point_set);
+  // tailElimination(point_set);
   detectSegments(point_set); // Check the last point set too!
 }
 
@@ -498,6 +498,9 @@ bool ObstacleExtractor::checkSegmentsCollinearity(const Segment& segment, const 
 
 void ObstacleExtractor::detectCircles() {
   for (auto segment = segments_.begin(); segment != segments_.end(); ++segment) {
+    for(auto point_set_ = (*segment).point_sets.begin(); point_set_ != (*segment).point_sets.end(); ++point_set_){
+      tailElimination((*point_set_));
+    }
     if (p_circles_from_visibles_) {
       bool segment_is_visible = true;
       for (const PointSet& ps : segment->point_sets) {
