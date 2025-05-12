@@ -3,7 +3,7 @@ from rclpy.node import Node
 
 from tf2_ros import Buffer, TransformListener, LookupException, ConnectivityException, ExtrapolationException
 
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseArray, Pose
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseArray, Pose, Point
 from obstacle_detector.msg import Obstacles
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA, String
@@ -77,6 +77,12 @@ class LidarLocalization(Node): # inherit from Node
             self.set_lidar_side_callback,
             10
         )
+        self.subscription = self.create_subscription(
+            Point,
+            'lidar_param_update',
+            self.param_update_callback,
+            10
+        )
         self.subscription  # prevent unused variable warning
 
         # tf2 buffer
@@ -93,6 +99,9 @@ class LidarLocalization(Node): # inherit from Node
         self.R = np.array([[0.001, 0.0], [0.0, 0.001]]) # measurement noise; TODO: tune the value
         self.lidar_pose_msg = PoseWithCovarianceStamped()
         self.predict_transform = None
+
+        self.linear_multiple = 10
+        self.angular_multiple = 10
     
     def obstacle_callback(self, msg): # main
         self.get_logger().debug('obstacle detected')
@@ -134,6 +143,11 @@ class LidarLocalization(Node): # inherit from Node
         # clear used data
         self.clear_data()
     
+    def param_update_callback(self, msg):
+        self.linear_multiple = msg.x
+        self.angular_multiple = msg.y
+        self.likelihood_threshold = msg.z
+
     def pred_pose_callback(self, msg):
         self.newPose = True
         orientation = euler_from_quaternion(msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w) # raw, pitch, *yaw
@@ -142,9 +156,9 @@ class LidarLocalization(Node): # inherit from Node
             orientation += 2 * np.pi
         self.robot_pose = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, orientation])
         self.P_pred = np.array([
-            [msg.pose.covariance[0]*10, 0, 0],
-            [0, msg.pose.covariance[7]*10, 0],
-            [0, 0, msg.pose.covariance[35]*10]
+            [msg.pose.covariance[0]*self.linear_multiple, 0, 0],
+            [0, msg.pose.covariance[7]*self.linear_multiple, 0],
+            [0, 0, msg.pose.covariance[35]*self.angular_multiple]
         ])
 
     def set_lidar_side_callback(self, msg):
@@ -206,10 +220,6 @@ class LidarLocalization(Node): # inherit from Node
         ])
         S = H @ self.P_pred @ H.T + self.R
         S_inv = np.linalg.inv(S)
-        S_det = np.linalg.det(S)
-
-        marker_id = 0
-        marker_array = MarkerArray()
 
         for obs in obs_raw:
             r_z = np.sqrt(obs[0] ** 2 + obs[1] ** 2)
