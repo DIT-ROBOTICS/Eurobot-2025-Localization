@@ -153,7 +153,10 @@ RUN rm -rf /home/user/temp
 ## Set working directory
 WORKDIR /home/${USERNAME}/localization-ws
 USER ${USERNAME}
-RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build' \
+RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash && \
+    cd /home/user/localization-ws && \
+    rm -rf build/ install/ log/ && \
+    colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release' \
     && sudo rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf /home/user/localization-ws/src/localization-devel-ws
