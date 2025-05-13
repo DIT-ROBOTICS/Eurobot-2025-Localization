@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, Point
 from sensor_msgs.msg import Imu
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
@@ -26,11 +26,18 @@ class HealthCheckNode(Node):
         self.declare_parameter('map_frame_id', 'map')
         self.declare_parameter('rival_frame_id', 'rival/base_footprint')
         self.declare_parameter('lidar_frame_id', 'laser')
-    
+        # lidar param: [P_pred_linear, P_pred_angular, likelihood_threshold]
+        self.declare_parameter('lidar_param_position', [0.2, 20, 0.8]) # [34cm, 170deg, 80%] take position only, set rotation free. we might not need this now
+        self.declare_parameter('lidar_param_running', [0.1, 1, 0.8]) # [20cm, 35deg, 80%]
+        self.declare_parameter('lidar_param_rotate', [0.5, 1, 0.8]) # [40cm, 35deg, 80%] take rotation only, set position free.
+
         self.p_robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
         self.p_map_frame_id = self.get_parameter('map_frame_id').get_parameter_value().string_value
         self.p_rival_frame_id = self.get_parameter('rival_frame_id').get_parameter_value().string_value
         self.p_lidar_frame_id = self.get_parameter('lidar_frame_id').get_parameter_value().string_value
+        self.p_lidar_param_rotate = self.get_parameter('lidar_param_rotate').get_parameter_value().double_array_value
+        self.p_lidar_param_running = self.get_parameter('lidar_param_running').get_parameter_value().double_array_value
+        self.p_lidar_param_position = self.get_parameter('lidar_param_position').get_parameter_value().double_array_value
 
         self.get_init = False
         self.odom_init = False
@@ -69,12 +76,16 @@ class HealthCheckNode(Node):
         )
         self.subscription # prevent unused variable warning
 
-        self.publication = self.create_publisher(
+        self.init_pub = self.create_publisher(
             PoseWithCovarianceStamped,
             'initialpose',
             10
         )
-        self.publication # prevent unused variable warning
+        self.lidar_param_pub = self.create_publisher(
+            Point,
+            'lidar_param_update',
+            10
+        )
         # TF buffer
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -162,7 +173,12 @@ class HealthCheckNode(Node):
                 self.lidar_pose.pose.pose.orientation.z)
             self.odom_init = True
             self.get_logger().info("Initial pose published from lidar_pose")    
-        # if localization_ok, response to main (a service?), and ekf, lidar param set to 'running' (TODO)
+        # 5. if localization ok, set the lidar_param to 'running'
+        self.lidar_param_pub.publish(
+            Point(self.p_lidar_param_running[0], self.p_lidar_param_running[1], self.p_lidar_param_running[2])
+        )
+        self.get_logger().info("Lidar parameters set to running")
+        # 6. response to main (a service?) (TODO)
         return True
     
     def health_check_timer_callback(self):
@@ -341,10 +357,26 @@ class HealthCheckNode(Node):
         if np.linalg.norm(
             np.array([self.odom2map.pose.position.x - self.camera_pose.pose.pose.position.x,
                       self.odom2map.pose.position.y - self.camera_pose.pose.pose.position.y])
-        ) > 0.05:
-                self.get_logger().warn("odom2map and camera_pose have a large difference")
-                return False
-        return True
+        ) < 0.3:
+                # lidar is wrong, odom and camera are ok, initpub camera
+                self.refresh(
+                    self.camera_pose.pose.pose.position.x,
+                    self.camera_pose.pose.pose.position.y,
+                    self.camera_pose.pose.pose.orientation.w,
+                    self.camera_pose.pose.pose.orientation.z
+                )
+                # and set lidar param to fix rotation but ignore position
+                self.lidar_param_pub.publish(
+                    Point(self.p_lidar_param_rotate[0], self.p_lidar_param_rotate[1], self.p_lidar_param_rotate[2])
+                )
+                self.get_logger().info("Initial pose published from camera_pose")
+        else:
+                # all three are wrong, save the information in the report file
+                with open(self.report_file_path, 'a') as file:
+                    file.write(f"odom2map: {self.odom2map.pose.position.x}, {self.odom2map.pose.position.y}\n")
+                    file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
+                    file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
+                self.get_logger().warn("All three poses doesn't agree")
 
     def odom2map_callback(self, msg):
         self.odom2map = msg
@@ -355,41 +387,31 @@ class HealthCheckNode(Node):
         self.new_lidar = True
 
     def camera_pose_callback(self, msg):
-        if not hasattr(self, 'init_pose') and not self.get_init:
-            self.camera_pose = PoseWithCovarianceStamped()
-            self.camera_pose.header.stamp = msg.header.stamp
-            self.camera_pose.header.frame_id = self.p_map_frame_id
-            self.camera_pose.pose.pose.position = msg.pose.position
-            self.camera_pose.pose.pose.orientation = msg.pose.orientation
-            self.publication.publish(self.camera_pose)
+        self.camera_pose = msg
 
     def init_pose_callback(self, msg):
         self.init_pose = msg
-        self.publication.publish(msg)
+        self.init_pub.publish(msg)
         self.get_logger().info("Initial pose published")
 
     def imu_cov_callback(self, msg):
         self.imu_cov = msg
-    def destroy_node(self):
-        # Calculate max and average slip
-        if self.slip_values:
-            max_slip = max(self.slip_values)
-            avg_slip = sum(self.slip_values) / len(self.slip_values)
-        else:
-            max_slip = 0.0
-            avg_slip = 0.0
 
-        # Write max and average slip to the health report file
-        with open(self.report_file_path, 'a') as file:
-            file.write("\nSummary:\n")
-            file.write(f"Max Slip: {max_slip}\n")
-            file.write(f"Average Slip: {avg_slip}\n")
+    def refresh(self, x, y, w, z):
+        # refresh final_pose with the most reliable data
+        # publish x, y, theta to /initialpose
+        msg = PoseWithCovarianceStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = self.p_map_frame_id
+        msg.pose.pose.position.x = x
+        msg.pose.pose.position.y = y
+        msg.pose.pose.position.z = 0.0
+        msg.pose.pose.orientation.x = 0.0
+        msg.pose.pose.orientation.y = 0.0
+        msg.pose.pose.orientation.z = z
+        msg.pose.pose.orientation.w = w
+        self.init_pub.publish(msg)
 
-        self.get_logger().info(f"Max Slip: {max_slip}, Average Slip: {avg_slip}")
-
-        # Call the parent class's destroy_node method
-        super().destroy_node()
-        
 def main(args=None):
     rclpy.init(args=args)
     node = HealthCheckNode()

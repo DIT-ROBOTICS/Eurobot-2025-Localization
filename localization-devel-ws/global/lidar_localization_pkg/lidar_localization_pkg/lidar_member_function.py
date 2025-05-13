@@ -107,8 +107,8 @@ class LidarLocalization(Node): # inherit from Node
         self.lidar_pose_msg = PoseWithCovarianceStamped()
         self.predict_transform = None
 
-        self.P_pred_linear = 0.1 # TODO: tune the value
-        self.P_pred_angular = 0.1
+        self.P_pred_linear = 0.8 # starting mode [0.8, 1.0, 0.8] -> [70cm, 35 deg, 80%]
+        self.P_pred_angular = 1.0
     
     def obstacle_callback(self, msg): # main
         self.get_logger().debug('obstacle detected')
