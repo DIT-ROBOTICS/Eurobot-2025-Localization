@@ -57,7 +57,7 @@ class HealthCheckNode(Node):
         )
         self.subscription = self.create_subscription(
             PoseWithCovarianceStamped,
-            'initial_pose',
+            'initialpose',
             self.init_pose_callback,
             10
         )
@@ -71,10 +71,16 @@ class HealthCheckNode(Node):
 
         self.publication = self.create_publisher(
             PoseWithCovarianceStamped,
-            'initialpose',
+            'initial_pose',
+            10
+        )
+        self.camera_pose_publication = self.create_publisher(
+            PoseStamped,
+            'camera_pose',
             10
         )
         self.publication # prevent unused variable warning
+        self.camera_pose_publication
         # TF buffer
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -130,21 +136,15 @@ class HealthCheckNode(Node):
                 np.array([self.lidar_pose.pose.pose.position.x - self.initial_pose.pose.position.x,
                           self.lidar_pose.pose.pose.position.y - self.initial_pose.pose.position.y])
             ) >0.1:
-                #(TODO) recall lidar localization to calculate
+                #recall lidar localization to calculate
                 self.publication.publish(self.initial_pose)
                 return False
         elif hasattr(self, 'lidar_pose') and hasattr(self, 'camera_pose'):
             if np.linalg.norm(
-                np.array([self.lidar_pose.pose.pose.position.x - self.camera_pose.pose.position.x,
-                          self.lidar_pose.pose.pose.position.y - self.camera_pose.pose.position.y])
+                np.array([self.lidar_pose.pose.pose.position.x - self.camera_pose.pose.pose.position.x,
+                          self.lidar_pose.pose.pose.position.y - self.camera_pose.pose.pose.position.y])
             ) > 0.1:
-               #(TODO) recall lidar localization to calculate
-                self.get_logger().warn("lidar_pose and camera_pose have a large difference")
-                msg = PoseWithCovarianceStamped()
-                msg.header.stamp = self.camera_pose.header.stamp
-                msg.header.frame_id = self.p_map_frame_id   
-                msg.pose.pose.position = self.camera_pose.pose.position
-                msg.pose.pose.orientation = self.camera_pose.pose.orientation
+               #recall lidar localization to calculate
                 self.publication.publish(self.camera_pose)
                 return False
         self.get_init = True
@@ -154,6 +154,8 @@ class HealthCheckNode(Node):
             self.odom_init = True
             self.get_logger().info("Initial pose published from lidar_pose")    
         # if localization_ok, response to main (a service?), and ekf, lidar param set to 'running' (TODO)
+        self.get_init = False
+        self.odom_init = False
         return True
     
     def health_check_timer_callback(self):
@@ -286,7 +288,7 @@ class HealthCheckNode(Node):
     def check_final_pose(self): #V
         # compare odom2map, lidar_pose and camera_pose
         # warn if any one of them has a large difference
-        if not hasattr(self, 'odom2map') and not (hasattr(self, 'lidar_pose') or hasattr(self, 'camera_pose')):
+        if not hasattr(self, 'odom2map') or not (hasattr(self, 'lidar_pose') or hasattr(self, 'camera_pose')):
             self.get_logger().warn("odom2map or ( both lidar_pose and camera_pose) not available")
             return False
         
@@ -297,33 +299,57 @@ class HealthCheckNode(Node):
             self.lidar_pose.pose.pose.orientation.w
         )
         odom_yaw = rpy_from_quaternion(
-            self.odom2map.pose.orientation.x,
-            self.odom2map.pose.orientation.y,
-            self.odom2map.pose.orientation.z,
-            self.odom2map.pose.orientation.w
+            self.odom2map.pose.pose.orientation.x,
+            self.odom2map.pose.pose.orientation.y,
+            self.odom2map.pose.pose.orientation.z,
+            self.odom2map.pose.pose.orientation.w
         )
+        
+        if np.linalg.norm(
+            np.array([self.odom2map.pose.pose.position.x - self.lidar_pose.pose.pose.position.x,
+                      self.odom2map.pose.pose.position.y - self.lidar_pose.pose.pose.position.y])
+        ) < 0.05 and abs(odom_yaw - lidar_yaw) < 0.02:
+           return True 
+        else:
+            self.get_logger().warn("odom2map and lidar_pose have a large difference") 
+        
+        if not hasattr(self, 'camera_pose'):
+            self.get_logger().warn("camera_pose not available, republishing odom2map as initial") 
+            self.publication.publish(msg)
+            return False
+
+        if np.linalg.norm(
+            np.array([self.odom2map.pose.pose.position.x - self.camera_pose.pose.pose.pose.position.x,
+                      self.odom2map.pose.pose.position.y - self.camera_pose.pose.pose.pose.position.y])
+        ) < 0.05:
+            self.get_logger().warn("odom2map and camera_pose are identical, republishing camera_pose")
+            msg = PoseStamped()
+            msg.header.stamp = self.camera_pose.header.stamp
+            msg.header.frame_id = self.p_map_frame_id
+            msg.pose.position = self.camera_pose.pose.pose.position
+            msg.pose.orientation = self.camera_pose.pose.pose.orientation
+            self.camera_pose_publication.publish(msg)
+            return False
+        else:
+            self.get_logger().warn("odom2map and camera_pose have a large difference")
         if np.linalg.norm(
             np.array([self.lidar_pose.pose.pose.position.x - self.camera_pose.pose.pose.position.x,
                       self.lidar_pose.pose.pose.position.y - self.camera_pose.pose.pose.position.y])
-        ) > 0.05:
-                self.get_logger().warn("lidar_pose and camera_pose have a large difference")
-                return False
-        if np.linalg.norm(
-            np.array([self.odom2map.pose.position.x - self.lidar_pose.pose.pose.position.x,
-                      self.odom2map.pose.position.y - self.lidar_pose.pose.pose.position.y])
-        ) > 0.05 or abs(odom_yaw - lidar_yaw) > 0.02:
-            self.get_logger().warn("odom2map and lidar_pose have a large difference")
+        ) < 0.05:
+            self.get_logger().warn("lidar_pose and camera_pose are identical, republishing camera as initial")
+            self.publication.publish(self.camera_pose)
             return False
-        if np.linalg.norm(
-            np.array([self.odom2map.pose.position.x - self.camera_pose.pose.pose.position.x,
-                      self.odom2map.pose.position.y - self.camera_pose.pose.pose.position.y])
-        ) > 0.05:
-                self.get_logger().warn("odom2map and camera_pose have a large difference")
-                return False
-        return True
-
+        else:
+            self.get_logger().warn("lidar_pose, odom2map and camera_pose are all different, Splendid!")
+            self.publication.publish(self.odom2map)
+            return False
+        
     def odom2map_callback(self, msg):
-        self.odom2map = msg
+        self.odom2map = PoseWithCovarianceStamped()
+        self.odom2map.header.stamp = msg.header.stamp
+        self.odom2map.header.frame_id = self.p_map_frame_id
+        self.odom2map.pose.pose.position = msg.pose.position
+        self.odom2map.pose.pose.orientation = msg.pose.orientation
         self.new_odom = True
 
     def lidar_pose_callback(self, msg):
@@ -331,21 +357,24 @@ class HealthCheckNode(Node):
         self.new_lidar = True
 
     def camera_pose_callback(self, msg):
+        self.camera_pose = PoseWithCovarianceStamped()
+        self.camera_pose.header.stamp = msg.header.stamp
+        self.camera_pose.header.frame_id = self.p_map_frame_id
+        self.camera_pose.pose.pose.position = msg.pose.position
+        self.camera_pose.pose.pose.orientation = msg.pose.orientation
         if not hasattr(self, 'init_pose') and not self.get_init:
-            self.camera_pose = PoseWithCovarianceStamped()
-            self.camera_pose.header.stamp = msg.header.stamp
-            self.camera_pose.header.frame_id = self.p_map_frame_id
-            self.camera_pose.pose.pose.position = msg.pose.position
-            self.camera_pose.pose.pose.orientation = msg.pose.orientation
             self.publication.publish(self.camera_pose)
+            self.check_localization_ok()
 
     def init_pose_callback(self, msg):
         self.init_pose = msg
         self.publication.publish(msg)
         self.get_logger().info("Initial pose published")
+        self.check_localization_ok()
 
     def imu_cov_callback(self, msg):
         self.imu_cov = msg
+
     def destroy_node(self):
         # Calculate max and average slip
         if self.slip_values:
