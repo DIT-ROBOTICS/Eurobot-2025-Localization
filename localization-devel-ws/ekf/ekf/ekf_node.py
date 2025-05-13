@@ -85,7 +85,6 @@ class EKFFootprintBroadcaster(Node):
         self.R_camera[0, 0] = self.get_parameter('r_camera_linear').value
         self.R_camera[1, 1] = self.get_parameter('r_camera_linear').value
         self.R_camera[2, 2] = self.get_parameter('r_camera_angular').value
-        self.use_cam = self.get_parameter('use_cam').value
         self.r_threshold_xy = self.get_parameter('r_threshold_xy').value
         self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
         self.refresh_zone_xl = self.get_parameter('refresh_zone_xl').value
