@@ -52,18 +52,14 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose = PoseWithCovarianceStamped()
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
-        self.cam_time = 0
         self.init_topics()
 
         self.footprint_publish()
-        if self.use_cam:
-            self.create_timer(1.0 / self.rate, self.camera_update)
 
         self.fast_spin = False
         self.init = False
         
     def claim_parameters(self):
-        self.declare_parameter('use_cam', 0)
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('update_rate', 1)
@@ -103,7 +99,7 @@ class EKFFootprintBroadcaster(Node):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
         self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,1)
         self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
-        self.create_subscription(PoseStamped, '/ceiling_robot/pose', self.camera_callback, 1)
+        self.create_subscription(PoseStamped, 'camera_pose', self.camera_callback, 1)
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
 
     
@@ -173,6 +169,7 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.orientation.w
         )
         self.cam_measurement = np.array([msg.pose.position.x, msg.pose.position.y, theta])
+        self.camera_update()
 
     def camera_update(self):
         current_time = self.get_clock().now().nanoseconds / 1e9

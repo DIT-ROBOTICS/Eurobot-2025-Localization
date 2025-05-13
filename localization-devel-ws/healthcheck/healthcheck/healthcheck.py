@@ -64,7 +64,7 @@ class HealthCheckNode(Node):
         )
         self.subscription = self.create_subscription(
             PoseWithCovarianceStamped,
-            'initial_pose',
+            'initialpose',
             self.init_pose_callback,
             10
         )
@@ -78,7 +78,12 @@ class HealthCheckNode(Node):
 
         self.init_pub = self.create_publisher(
             PoseWithCovarianceStamped,
-            'initialpose',
+            'initial_pose',
+            10
+        )
+        self.camera_pose_publication = self.create_publisher(
+            PoseStamped,
+            'camera_pose',
             10
         )
         self.lidar_param_pub = self.create_publisher(
@@ -86,6 +91,7 @@ class HealthCheckNode(Node):
             'lidar_param_update',
             10
         )
+        self.camera_pose_publication
         # TF buffer
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -141,27 +147,16 @@ class HealthCheckNode(Node):
                 np.array([self.lidar_pose.pose.pose.position.x - self.initial_pose.pose.position.x,
                           self.lidar_pose.pose.pose.position.y - self.initial_pose.pose.position.y])
             ) >0.1:
-                #(TODO) recall lidar localization to calculate
-                self.refresh(
-                    self.initial_pose.pose.position.x,
-                    self.initial_pose.pose.position.y,
-                    self.initial_pose.pose.orientation.w,
-                    self.initial_pose.pose.orientation.z
-                )
+                #recall lidar localization to calculate
+                self.publication.publish(self.initial_pose)
                 return False
         elif hasattr(self, 'lidar_pose') and hasattr(self, 'camera_pose'):
             if np.linalg.norm(
-                np.array([self.lidar_pose.pose.pose.position.x - self.camera_pose.pose.position.x,
-                          self.lidar_pose.pose.pose.position.y - self.camera_pose.pose.position.y])
+                np.array([self.lidar_pose.pose.pose.position.x - self.camera_pose.pose.pose.position.x,
+                          self.lidar_pose.pose.pose.position.y - self.camera_pose.pose.pose.position.y])
             ) > 0.1:
-               #(TODO) recall lidar localization to calculate
-                self.get_logger().warn("lidar_pose and camera_pose have a large difference")
-                self.refresh(
-                    self.camera_pose.pose.pose.position.x,
-                    self.camera_pose.pose.pose.position.y,
-                    self.camera_pose.pose.pose.orientation.w,
-                    self.camera_pose.pose.pose.orientation.z
-                )
+               #recall lidar localization to calculate
+                self.publication.publish(self.camera_pose)
                 return False
         self.get_init = True
         #4. if localization ok, publish the initial pose from lidar_pose
@@ -179,6 +174,8 @@ class HealthCheckNode(Node):
         )
         self.get_logger().info("Lidar parameters set to running")
         # 6. response to main (a service?) (TODO)
+        self.get_init = False
+        self.odom_init = False
         return True
     
     def health_check_timer_callback(self):
@@ -310,8 +307,9 @@ class HealthCheckNode(Node):
 
     def check_final_pose(self): #V
         # compare odom2map, lidar_pose and camera_pose
-        if not hasattr(self, 'odom2map') or not hasattr(self, 'lidar_pose'):
-            self.get_logger().warn("odom2map or lidar_pose not available")
+        # warn if any one of them has a large difference
+        if not hasattr(self, 'odom2map') or not (hasattr(self, 'lidar_pose') or hasattr(self, 'camera_pose')):
+            self.get_logger().warn("odom2map or ( both lidar_pose and camera_pose) not available")
             return False
         
         lidar_yaw = rpy_from_quaternion(
@@ -321,65 +319,74 @@ class HealthCheckNode(Node):
             self.lidar_pose.pose.pose.orientation.w
         )
         odom_yaw = rpy_from_quaternion(
-            self.odom2map.pose.orientation.x,
-            self.odom2map.pose.orientation.y,
-            self.odom2map.pose.orientation.z,
-            self.odom2map.pose.orientation.w
+            self.odom2map.pose.pose.orientation.x,
+            self.odom2map.pose.pose.orientation.y,
+            self.odom2map.pose.pose.orientation.z,
+            self.odom2map.pose.pose.orientation.w
         )
         # 1. compare lidar and odom2map, if they agree, fine!
         if np.linalg.norm(
-            np.array([self.odom2map.pose.position.x - self.lidar_pose.pose.pose.position.x,
-                      self.odom2map.pose.position.y - self.lidar_pose.pose.pose.position.y])
+            np.array([self.odom2map.pose.pose.position.x - self.lidar_pose.pose.pose.position.x,
+                      self.odom2map.pose.pose.position.y - self.lidar_pose.pose.pose.position.y])
         ) < 0.15 and abs(odom_yaw - lidar_yaw) < 0.4:
-            return
+           return True 
+        else:
+            self.get_logger().warn("odom2map and lidar_pose have a large difference") 
+
         # 2. if there's no camera, just initialpub odom2map, and have lidar to try again
         if not hasattr(self, 'camera_pose'):
-            self.refresh(
-                self.odom2map.pose.position.x,
-                self.odom2map.pose.position.y,
-                self.odom2map.pose.orientation.w,
-                self.odom2map.pose.orientation.z
+            self.get_logger().warn("camera_pose not available, republishing odom2map as initial") 
+            self.publication.publish(self.odom2map)
+            return False
+        # 3. if there's a camera, and odom2map agree with cameram, we suspect that lidar is broken
+        if np.linalg.norm(
+            np.array([self.odom2map.pose.pose.position.x - self.camera_pose.pose.pose.pose.position.x,
+                      self.odom2map.pose.pose.position.y - self.camera_pose.pose.pose.pose.position.y])
+        ) < 0.05:
+            self.get_logger().warn("odom2map and camera_pose are identical, republishing camera_pose")
+            msg = PoseStamped()
+            msg.header.stamp = self.camera_pose.header.stamp
+            msg.header.frame_id = self.p_map_frame_id
+            msg.pose.position = self.camera_pose.pose.pose.position
+            msg.pose.orientation = self.camera_pose.pose.pose.orientation
+            self.camera_pose_publication.publish(msg)
+            # and set lidar param to fix rotation but ignore position
+            self.lidar_param_pub.publish(
+                Point(self.p_lidar_param_rotate[0], self.p_lidar_param_rotate[1], self.p_lidar_param_rotate[2])
             )
-            self.get_logger().info("Initial pose published from odom2map")
-            return
-        # 3. if there's a camera, and lidar agree with cameram, we suspect that odom is broken, save the information in the report file
+            return False
+        else:
+            self.get_logger().warn("odom2map and camera_pose have a large difference")
+        # 4. if there's a camera, and lidar and camera agree, we suspect that odom2map is broken
         if np.linalg.norm(
             np.array([self.lidar_pose.pose.pose.position.x - self.camera_pose.pose.pose.position.x,
                       self.lidar_pose.pose.pose.position.y - self.camera_pose.pose.pose.position.y])
         ) < 0.05:
-                # save the broken odom information in the report file
-                with open(self.report_file_path, 'a') as file:
-                    file.write(f"odom2map: {self.odom2map.pose.position.x}, {self.odom2map.pose.position.y}\n")
-                    file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
-                    file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
-                return
-        # 4. if lidar doesn't agree with camera, compare odom2map and camera
-        if np.linalg.norm(
-            np.array([self.odom2map.pose.position.x - self.camera_pose.pose.pose.position.x,
-                      self.odom2map.pose.position.y - self.camera_pose.pose.pose.position.y])
-        ) < 0.3:
-                # lidar is wrong, odom and camera are ok, initpub camera
-                self.refresh(
-                    self.camera_pose.pose.pose.position.x,
-                    self.camera_pose.pose.pose.position.y,
-                    self.camera_pose.pose.pose.orientation.w,
-                    self.camera_pose.pose.pose.orientation.z
-                )
-                # and set lidar param to fix rotation but ignore position
-                self.lidar_param_pub.publish(
-                    Point(self.p_lidar_param_rotate[0], self.p_lidar_param_rotate[1], self.p_lidar_param_rotate[2])
-                )
-                self.get_logger().info("Initial pose published from camera_pose")
+            self.get_logger().warn("lidar_pose and camera_pose are identical, republishing camera as initial")
+            self.publication.publish(self.camera_pose)
+            # save the broken odom information in the report file
+            with open(self.report_file_path, 'a') as file:
+                file.write(f"odom2map: {self.odom2map.pose.position.x}, {self.odom2map.pose.position.y}\n")
+                file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
+                file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
+            return False
         else:
-                # all three are wrong, save the information in the report file
-                with open(self.report_file_path, 'a') as file:
-                    file.write(f"odom2map: {self.odom2map.pose.position.x}, {self.odom2map.pose.position.y}\n")
-                    file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
-                    file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
-                self.get_logger().warn("All three poses doesn't agree")
-
+            self.get_logger().warn("lidar_pose, odom2map and camera_pose are all different, Splendid!")
+            self.publication.publish(self.odom2map)
+            # all three are wrong, save the information in the report file
+            with open(self.report_file_path, 'a') as file:
+                file.write(f"odom2map: {self.odom2map.pose.position.x}, {self.odom2map.pose.position.y}\n")
+                file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
+                file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
+            self.get_logger().warn("All three poses doesn't agree")
+            return False
+        
     def odom2map_callback(self, msg):
-        self.odom2map = msg
+        self.odom2map = PoseWithCovarianceStamped()
+        self.odom2map.header.stamp = msg.header.stamp
+        self.odom2map.header.frame_id = self.p_map_frame_id
+        self.odom2map.pose.pose.position = msg.pose.position
+        self.odom2map.pose.pose.orientation = msg.pose.orientation
         self.new_odom = True
 
     def lidar_pose_callback(self, msg):
@@ -387,30 +394,23 @@ class HealthCheckNode(Node):
         self.new_lidar = True
 
     def camera_pose_callback(self, msg):
-        self.camera_pose = msg
+        self.camera_pose = PoseWithCovarianceStamped()
+        self.camera_pose.header.stamp = msg.header.stamp
+        self.camera_pose.header.frame_id = self.p_map_frame_id
+        self.camera_pose.pose.pose.position = msg.pose.position
+        self.camera_pose.pose.pose.orientation = msg.pose.orientation
+        if not hasattr(self, 'init_pose') and not self.get_init:
+            self.publication.publish(self.camera_pose)
+            self.check_localization_ok()
 
     def init_pose_callback(self, msg):
         self.init_pose = msg
         self.init_pub.publish(msg)
         self.get_logger().info("Initial pose published")
+        self.check_localization_ok()
 
     def imu_cov_callback(self, msg):
         self.imu_cov = msg
-
-    def refresh(self, x, y, w, z):
-        # refresh final_pose with the most reliable data
-        # publish x, y, theta to /initialpose
-        msg = PoseWithCovarianceStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = self.p_map_frame_id
-        msg.pose.pose.position.x = x
-        msg.pose.pose.position.y = y
-        msg.pose.pose.position.z = 0.0
-        msg.pose.pose.orientation.x = 0.0
-        msg.pose.pose.orientation.y = 0.0
-        msg.pose.pose.orientation.z = z
-        msg.pose.pose.orientation.w = w
-        self.init_pub.publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)

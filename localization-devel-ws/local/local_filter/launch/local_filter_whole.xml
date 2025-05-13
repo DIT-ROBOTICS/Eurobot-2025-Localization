@@ -40,7 +40,7 @@
             <param name="linear_cov_max" value="$(var linear_cov_max)"/>
             <param name="angular_cov_max" value="$(var angular_cov_max)"/>
             <!-- <remap from="odoo_googoogoo" to="driving_duaiduaiduai"/> -->
-            <remap from="initial_pose" to="initialpose"/>
+            <!-- <remap from="initial_pose" to="initialpose"/> -->
         </node>
 
         <!-- Odometry firmware and covariance feedback loop node (contain communication) -->

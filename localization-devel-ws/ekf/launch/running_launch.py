@@ -58,11 +58,8 @@ def generate_launch_description():
             'r_camra_angular': 0.15,
             'r_threshold_xy': 1e-3,
             'r_threshold_theta': 1e-2
-        }],
-        remappings=[
-            ('initial_pose', 'initialpose'),
-            ('/ceiling_robot/pose', '/vision/aruco/robot/single/average_pose')
-        ]
+        }]
+
     )
 
     lidar_node = Node(
