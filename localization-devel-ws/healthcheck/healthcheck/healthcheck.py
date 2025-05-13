@@ -329,7 +329,10 @@ class HealthCheckNode(Node):
             np.array([self.odom2map.pose.pose.position.x - self.lidar_pose.pose.pose.position.x,
                       self.odom2map.pose.pose.position.y - self.lidar_pose.pose.pose.position.y])
         ) < 0.15 and abs(odom_yaw - lidar_yaw) < 0.4:
-           return True 
+            self.lidar_param_pub.publish(
+                Point(self.p_lidar_param_running[0], self.p_lidar_param_running[1], self.p_lidar_param_running[2])
+            )
+            return True 
         else:
             self.get_logger().warn("odom2map and lidar_pose have a large difference") 
 
