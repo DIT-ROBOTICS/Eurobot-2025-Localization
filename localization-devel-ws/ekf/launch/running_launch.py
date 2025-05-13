@@ -58,7 +58,7 @@ def generate_launch_description():
             'r_camra_angular': 0.15,
             'r_threshold_xy': 1e-3,
             'r_threshold_theta': 1e-2
-        }]
+        }],
         remappings=[
             ('initalpose', ['initial_pose'])
         ]
