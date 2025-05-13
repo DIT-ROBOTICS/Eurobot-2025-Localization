@@ -197,12 +197,7 @@ void Rival::fusion() {
 
     rival_ok = true;
 
-    if(obstacle_ok && camera_ok){ // fuse with weight for each sensor
-        rival_raw_pose.x = obstacle_pose.x * (1 - cam_weight) + cam_rival_pose.x * cam_weight;
-        rival_raw_pose.y = obstacle_pose.y * (1 - cam_weight) + cam_rival_pose.y * cam_weight;
-        rival_raw_vel = obstacle_vel;
-    }
-    else if(obstacle_ok && !camera_ok){
+    if(obstacle_ok){
         rival_raw_pose = obstacle_pose;
         rival_raw_vel = obstacle_vel;
     }
