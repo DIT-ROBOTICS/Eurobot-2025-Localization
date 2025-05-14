@@ -69,13 +69,13 @@ class EKFFootprintBroadcaster(Node):
         self.declare_parameter('r_camera_angular', 0.15)
         self.declare_parameter('r_threshold_xy', 1e-3)
         self.declare_parameter('r_threshold_theta', 1e-2)
-        self.declare_parameter('refresh_zone_xl', 0.7)
-        self.declare_parameter('refresh_zone_xr', 2.3)
-        self.declare_parameter('refresh_zone_yl', 0.3)
-        self.declare_parameter('refresh_zone_yr', 1.5)
+        self.declare_parameter('refresh_zone_xl', 0.0)
+        self.declare_parameter('refresh_zone_xr', 3.0)
+        self.declare_parameter('refresh_zone_yl', 0.0)
+        self.declare_parameter('refresh_zone_yr', 2.0)
         self.declare_parameter('fast_spin_threshold', 3)
-        self.declare_parameter('fast_vx_threshold', 0.5)
-        self.declare_parameter('fast_vy_threshold', 0.5)
+        self.declare_parameter('fast_vx_threshold', 1.5)
+        self.declare_parameter('fast_vy_threshold', 1.5)
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
         self.child_frame_id = self.get_parameter('robot_frame_id').value
         self.rate = self.get_parameter('update_rate').value 

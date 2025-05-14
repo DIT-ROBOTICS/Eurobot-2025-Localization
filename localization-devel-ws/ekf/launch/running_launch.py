@@ -92,6 +92,7 @@ def generate_launch_description():
         remappings=[
             ('raw_pose', [rival_name, '/raw_pose']),
             ('final_pose', [rival_name, '/final_pose'])
+            # ('/ceiling_rival/pose', ['/vision/aruco/robot/single/average_pose'])
         ]
     )
 
