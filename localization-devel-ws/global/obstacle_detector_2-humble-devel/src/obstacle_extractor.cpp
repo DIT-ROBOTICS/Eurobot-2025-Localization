@@ -501,9 +501,6 @@ bool ObstacleExtractor::checkSegmentsCollinearity(const Segment& segment, const 
 
 void ObstacleExtractor::detectCircles() {
   for (auto segment = segments_.begin(); segment != segments_.end(); ++segment) {
-    for(auto point_set_ = (*segment).point_sets.begin(); point_set_ != (*segment).point_sets.end(); ++point_set_){
-      tailElimination((*point_set_));
-    }
     if (p_circles_from_visibles_) {
       bool segment_is_visible = true;
       for (const PointSet& ps : segment->point_sets) {
