@@ -147,28 +147,22 @@ class HealthCheckNode(Node):
             return False
         # 4. lidar_pose is published and agree with either initial pose or camera pose (TODO)
         if hasattr(self, 'lidar_pose') and hasattr(self, 'initial_pose'):
-            if np.linalg.norm(
-                np.array([self.lidar_pose.pose.pose.position.x - self.initial_pose.pose.pose.position.x,
-                          self.lidar_pose.pose.pose.position.y - self.initial_pose.pose.pose.position.y])
-            ) >0.5:
+            if not self.compare_poses(self.lidar_pose, self.initial_pose, 0.5, 3.14):
                 #recall lidar localization to calculate
                 self.get_logger().warn("lidar_pose and initial pose have a large difference, republishing initial pose")
                 self.init_pub.publish(self.initial_pose)
                 return False
         elif hasattr(self, 'lidar_pose') and hasattr(self, 'camera_pose'):
-            if np.linalg.norm(
-                np.array([self.lidar_pose.pose.pose.position.x - self.camera_pose.pose.pose.position.x,
-                          self.lidar_pose.pose.pose.position.y - self.camera_pose.pose.pose.position.y])
-            ) > 0.2:
+            if not self.compare_poses(self.lidar_pose, self.camera_pose, 0.5, 0.785):
                #recall lidar localization to calculate
                 self.get_logger().warn("lidar_pose and camera pose have a large difference, republishing camera pose")
-                self.camera_pose_pub.publish(self.camera_pose)
+                self.camera_pose_pub.publish(self.camera_pose) # stamp checking is done in ekf
                 return False
         self.get_init = True
         #4. if localization ok, publish the initial pose from lidar_pose
-        if self.get_init and not self.odom_init:
+        if not self.odom_init:
             self.init_pub.publish(self.lidar_pose)
-            self.odom2map.pose.pose.position = self.lidar_pose.pose.pose.position
+            self.odom2map.pose.pose.position = self.lidar_pose.pose.pose.position # to prevent bug caused by delay of odom2map update
             self.odom2map.pose.pose.orientation = self.lidar_pose.pose.pose.orientation
             self.get_logger().info("Initial pose published from lidar_pose")
             self.odom_init = True
@@ -319,26 +313,8 @@ class HealthCheckNode(Node):
             self.get_logger().warn("odom2map or (both lidar_pose and camera_pose) not available")
             return False
         
-        lidar_yaw = rpy_from_quaternion(
-            self.lidar_pose.pose.pose.orientation.x,
-            self.lidar_pose.pose.pose.orientation.y,
-            self.lidar_pose.pose.pose.orientation.z,
-            self.lidar_pose.pose.pose.orientation.w
-        )
-        # normalize the yaw
-        lidar_yaw = math.atan2(math.sin(lidar_yaw), math.cos(lidar_yaw))
-        odom_yaw = rpy_from_quaternion(
-            self.odom2map.pose.pose.orientation.x,
-            self.odom2map.pose.pose.orientation.y,
-            self.odom2map.pose.pose.orientation.z,
-            self.odom2map.pose.pose.orientation.w
-        )
-        odom_yaw = math.atan2(math.sin(odom_yaw), math.cos(odom_yaw))
         # 1. compare lidar and odom2map, if they agree, fine!
-        if np.linalg.norm(
-            np.array([self.odom2map.pose.pose.position.x - self.lidar_pose.pose.pose.position.x,
-                      self.odom2map.pose.pose.position.y - self.lidar_pose.pose.pose.position.y])
-        ) < 0.15 and abs(odom_yaw - lidar_yaw) < 0.4:
+        if self.compare_poses(self.odom2map, self.lidar_pose, 0.15, 0.4):
             self.point_msg.x = self.p_lidar_param_running[0]
             self.point_msg.y = self.p_lidar_param_running[1]
             self.point_msg.z = self.p_lidar_param_running[2]
@@ -353,10 +329,7 @@ class HealthCheckNode(Node):
             self.init_pub.publish(self.odom2map)
             return False
         # 3. if there's a camera, and odom2map agree with cameram, we suspect that lidar is broken
-        if np.linalg.norm(
-            np.array([self.odom2map.pose.pose.position.x - self.camera_pose.pose.pose.pose.position.x,
-                      self.odom2map.pose.pose.position.y - self.camera_pose.pose.pose.pose.position.y])
-        ) < 0.05:
+        if self.compare_poses(self.odom2map, self.camera_pose, 0.15, 0.4):
             self.get_logger().warn("odom2map and camera_pose are identical, republishing camera_pose")
             msg = PoseStamped()
             msg.header.stamp = self.camera_pose.header.stamp
@@ -374,10 +347,7 @@ class HealthCheckNode(Node):
         else:
             self.get_logger().warn("odom2map and camera_pose have a large difference")
         # 4. if there's a camera, and lidar and camera agree, we suspect that odom2map is broken
-        if np.linalg.norm(
-            np.array([self.lidar_pose.pose.pose.position.x - self.camera_pose.pose.pose.position.x,
-                      self.lidar_pose.pose.pose.position.y - self.camera_pose.pose.pose.position.y])
-        ) < 0.05:
+        if self.compare_poses(self.lidar_pose, self.camera_pose, 0.3, 0.8): # 30cm, 45deg
             self.get_logger().warn("lidar_pose and camera_pose are identical, republishing camera as initial")
             msg = PoseStamped()
             msg.header.stamp = self.camera_pose.header.stamp
@@ -402,6 +372,30 @@ class HealthCheckNode(Node):
             self.get_logger().warn("All three poses doesn't agree")
             return False
         
+    def compare_poses(self, pose1, pose2, distance_threshold, angle_threshold):
+        # Calculate the distance between the two poses
+        distance = np.linalg.norm(
+            np.array([pose1.pose.pose.position.x - pose2.pose.pose.position.x,
+                      pose1.pose.pose.position.y - pose2.pose.pose.position.y])
+        )
+        # Calculate the angle difference
+        angle1 = rpy_from_quaternion(
+            pose1.pose.pose.orientation.x,
+            pose1.pose.pose.orientation.y,
+            pose1.pose.pose.orientation.z,
+            pose1.pose.pose.orientation.w
+        )
+
+        angle2 = rpy_from_quaternion(
+            pose2.pose.pose.orientation.x,
+            pose2.pose.pose.orientation.y,
+            pose2.pose.pose.orientation.z,
+            pose2.pose.pose.orientation.w
+        )
+        angle_diff = abs(angle1 - angle2)
+
+        return distance < distance_threshold and angle_diff < angle_threshold
+
     def odom2map_callback(self, msg):
         self.odom2map = PoseWithCovarianceStamped()
         self.odom2map.header.stamp = msg.header.stamp
