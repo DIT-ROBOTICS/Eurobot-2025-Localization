@@ -52,16 +52,14 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose = PoseWithCovarianceStamped()
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
-        self.cam_time = 0
         self.init_topics()
 
         self.footprint_publish()
-        if self.use_cam:
-            self.create_timer(1.0 / self.rate, self.camera_update)
-        
+
+        self.fast_spin = False
+        self.init = False
         
     def claim_parameters(self):
-        self.declare_parameter('use_cam', 0)
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('update_rate', 1)
@@ -71,6 +69,13 @@ class EKFFootprintBroadcaster(Node):
         self.declare_parameter('r_camera_angular', 0.15)
         self.declare_parameter('r_threshold_xy', 1e-3)
         self.declare_parameter('r_threshold_theta', 1e-2)
+        self.declare_parameter('refresh_zone_xl', 0.7)
+        self.declare_parameter('refresh_zone_xr', 2.3)
+        self.declare_parameter('refresh_zone_yl', 0.3)
+        self.declare_parameter('refresh_zone_yr', 1.5)
+        self.declare_parameter('fast_spin_threshold', 3)
+        self.declare_parameter('fast_vx_threshold', 0.5)
+        self.declare_parameter('fast_vy_threshold', 0.5)
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
         self.child_frame_id = self.get_parameter('robot_frame_id').value
         self.rate = self.get_parameter('update_rate').value 
@@ -80,14 +85,20 @@ class EKFFootprintBroadcaster(Node):
         self.R_camera[0, 0] = self.get_parameter('r_camera_linear').value
         self.R_camera[1, 1] = self.get_parameter('r_camera_linear').value
         self.R_camera[2, 2] = self.get_parameter('r_camera_angular').value
-        self.use_cam = self.get_parameter('use_cam').value
         self.r_threshold_xy = self.get_parameter('r_threshold_xy').value
         self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
+        self.refresh_zone_xl = self.get_parameter('refresh_zone_xl').value
+        self.refresh_zone_xr = self.get_parameter('refresh_zone_xr').value
+        self.refresh_zone_yl = self.get_parameter('refresh_zone_yl').value
+        self.refresh_zone_yr = self.get_parameter('refresh_zone_yr').value
+        self.fast_spin_threshold = self.get_parameter('fast_spin_threshold').value
+        self.fast_vx_threshold = self.get_parameter('fast_vx_threshold').value
+        self.fast_vy_threshold = self.get_parameter('fast_vy_threshold').value
     def init_topics(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
         self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,1)
         self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
-        self.create_subscription(PoseStamped, '/ceiling_robot/pose', self.camera_callback, 1)
+        self.create_subscription(PoseStamped, 'camera_pose', self.camera_callback, 1)
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
 
     
@@ -110,6 +121,8 @@ class EKFFootprintBroadcaster(Node):
                 self.P[2, 2] = msg.pose.covariance[35]
 
     def gps_callback(self, msg):
+        if self.fast_spin:
+            return
         self.gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         current_time = self.get_clock().now().nanoseconds / 1e9
         if abs(current_time - self.gps_time) > 1.5:
@@ -126,6 +139,12 @@ class EKFFootprintBroadcaster(Node):
         )
 
         gps_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, theta])
+
+        # check refresh zone
+        if gps_measurement[0] < self.refresh_zone_xl or gps_measurement[0] > self.refresh_zone_xr or gps_measurement[1] < self.refresh_zone_yl or gps_measurement[1] > self.refresh_zone_yr:
+            if self.init:
+                return
+
         self.R_gps[0, 0] = msg.pose.covariance[0]    
         self.R_gps[1, 1] = msg.pose.covariance[7]
         self.R_gps[2, 2] = msg.pose.covariance[35]
@@ -135,6 +154,7 @@ class EKFFootprintBroadcaster(Node):
         if self.R_gps[2, 2] > self.r_threshold_theta:
             self.R_gps[2, 2] = self.r_threshold_theta
         self.ekf_update(gps_measurement, self.R_gps)
+        self.init = True
 
     def camera_callback(self, msg):
         self.cam_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
@@ -148,6 +168,7 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.orientation.w
         )
         self.cam_measurement = np.array([msg.pose.position.x, msg.pose.position.y, theta])
+        self.camera_update()
 
     def camera_update(self):
         current_time = self.get_clock().now().nanoseconds / 1e9
@@ -175,6 +196,11 @@ class EKFFootprintBroadcaster(Node):
         v_y = msg.twist.twist.linear.y
         w = msg.twist.twist.angular.z
         self.ekf_predict(v_x, v_y, w, dt) 
+
+        if w > self.fast_spin_threshold or v_x > self.fast_vx_threshold or v_y > self.fast_vy_threshold:
+            self.fast_spin = True
+        else:
+            self.fast_spin = False
 
     def ekf_predict(self, v_x, v_y, w, dt):
         theta = self.X[2]

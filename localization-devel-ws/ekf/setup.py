@@ -1,7 +1,10 @@
 import os  # Import os module
 from setuptools import find_packages, setup
+from glob import glob
 
 package_name = 'ekf'
+
+launch_files = glob('launch/*.launch') + glob('launch/*.py')
 
 setup(
     name=package_name,
@@ -9,10 +12,11 @@ setup(
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
-            ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', 
-         ['launch/' + f for f in os.listdir('launch') if f.endswith('.launch')])
+         ['resource/' + package_name]),
+        ('share/' + package_name,
+         ['package.xml']),
+        (os.path.join('share', package_name, 'launch'),
+         launch_files),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -25,7 +29,7 @@ setup(
         'console_scripts': [
             'ekf_node = ekf.ekf_node:main',
             'test_br = ekf.test_br:main',
-            'fake_cam = ekf.fake_cam:main'
+            'fake_cam = ekf.fake_cam:main',
         ],
     },
 )
