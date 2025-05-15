@@ -191,6 +191,7 @@ class HealthCheckNode(Node):
         # Check the availability of the odom2map and lidar_pose
         if not self.get_init or not self.odom_init:
             return False
+    
         if not hasattr(self, 'odom2map') or not hasattr(self, 'lidar_pose'):
             self.get_logger().warn("odom2map or lidar_pose not available")
             return False
@@ -319,6 +320,21 @@ class HealthCheckNode(Node):
             self.get_logger().warn("odom2map or (both lidar_pose and camera_pose) not available")
             return False
         
+        current_time = self.get_clock().now().nanoseconds / 1e9  
+        tolerance = 0.1
+
+        def is_valid_stamp(stamp):
+            t = stamp.sec + stamp.nanosec / 1e9
+            return abs(current_time - t) < tolerance and t > 1e-3
+
+        if not is_valid_stamp(self.odom2map.header.stamp):
+            self.get_logger().warn("odom2map timestamp invalid or too old")
+            return False
+
+        if not is_valid_stamp(self.lidar_pose.header.stamp):
+            self.get_logger().warn("lidar_pose timestamp invalid or too old")
+            return False
+
         lidar_yaw = rpy_from_quaternion(
             self.lidar_pose.pose.pose.orientation.x,
             self.lidar_pose.pose.pose.orientation.y,
@@ -353,6 +369,10 @@ class HealthCheckNode(Node):
             self.init_pub.publish(self.odom2map)
             return False
         # 3. if there's a camera, and odom2map agree with cameram, we suspect that lidar is broken
+        if not is_valid_stamp(self.camera_pose.header.stamp):
+            self.get_logger().warn("camera_pose timestamp invalid or too old")
+            return False
+
         if np.linalg.norm(
             np.array([self.odom2map.pose.pose.position.x - self.camera_pose.pose.pose.pose.position.x,
                       self.odom2map.pose.pose.position.y - self.camera_pose.pose.pose.pose.position.y])
@@ -427,6 +447,8 @@ class HealthCheckNode(Node):
             self.check_localization_ok()
 
     def init_pose_callback(self, msg):
+        self.get_init = False
+        self.odom_init = False
         self.initial_pose = msg
         self.init_pub.publish(msg)
         self.get_logger().info("Initial pose published")
