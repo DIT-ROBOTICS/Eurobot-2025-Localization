@@ -185,6 +185,7 @@ class HealthCheckNode(Node):
         # Check the availability of the odom2map and lidar_pose
         if not self.get_init or not self.odom_init:
             return False
+    
         if not hasattr(self, 'odom2map') or not hasattr(self, 'lidar_pose'):
             self.get_logger().warn("odom2map or lidar_pose not available")
             return False
@@ -313,6 +314,21 @@ class HealthCheckNode(Node):
             self.get_logger().warn("odom2map or (both lidar_pose and camera_pose) not available")
             return False
         
+        current_time = self.get_clock().now().nanoseconds / 1e9  
+        tolerance = 0.1
+
+        def is_valid_stamp(stamp):
+            t = stamp.sec + stamp.nanosec / 1e9
+            return abs(current_time - t) < tolerance and t > 1e-3
+
+        if not is_valid_stamp(self.odom2map.header.stamp):
+            self.get_logger().warn("odom2map timestamp invalid or too old")
+            return False
+
+        if not is_valid_stamp(self.lidar_pose.header.stamp):
+            self.get_logger().warn("lidar_pose timestamp invalid or too old")
+            return False
+
         # 1. compare lidar and odom2map, if they agree, fine!
         if self.compare_poses(self.odom2map, self.lidar_pose, 0.15, 0.4):
             self.point_msg.x = self.p_lidar_param_running[0]
@@ -393,6 +409,9 @@ class HealthCheckNode(Node):
             pose2.pose.pose.orientation.w
         )
         angle_diff = abs(angle1 - angle2)
+        # normalize the angle difference to be within -pi to pi
+        if angle_diff > math.pi:
+            angle_diff = 2 * math.pi - angle_diff
 
         return distance < distance_threshold and angle_diff < angle_threshold
 
@@ -421,6 +440,8 @@ class HealthCheckNode(Node):
             self.check_localization_ok()
 
     def init_pose_callback(self, msg):
+        self.get_init = False
+        self.odom_init = False
         self.initial_pose = msg
         self.init_pub.publish(msg)
         self.get_logger().info("Initial pose published")
