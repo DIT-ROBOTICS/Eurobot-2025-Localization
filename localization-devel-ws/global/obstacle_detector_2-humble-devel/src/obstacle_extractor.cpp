@@ -122,9 +122,13 @@ void ObstacleExtractor::updateParamsUtil(){
   if (p_active_ != prev_active) {
     if (p_active_) {
       if (p_use_scan_){
-        RCLCPP_INFO_STREAM_ONCE(nh_->get_logger(), "Using LaserScan topic");
+        rclcpp::QoS qos(rclcpp::KeepLast(10));
+        qos.best_effort();  // ⬅️ 改成 best_effort
+        qos.durability_volatile();
+        
         scan_sub_ = nh_->create_subscription<sensor_msgs::msg::LaserScan>(
-            "scan", 10, std::bind(&ObstacleExtractor::scanCallback, this, std::placeholders::_1));
+            "scan", qos, std::bind(&ObstacleExtractor::scanCallback, this, std::placeholders::_1));
+        
       }else if (p_use_pcl_){
         RCLCPP_INFO_STREAM_ONCE(nh_->get_logger(), "Using PointCloud1 topic");
         pcl_sub_ = nh_->create_subscription<sensor_msgs::msg::PointCloud>(
@@ -297,7 +301,7 @@ void ObstacleExtractor::groupPoints() {
       if (abs(sin_d) < sin_dp && range < prev_range)
         point_set.is_visible = false;
 
-      tailElimination(point_set);
+      // tailElimination(point_set);
       detectSegments(point_set);
 
       // Begin new point set
@@ -308,7 +312,7 @@ void ObstacleExtractor::groupPoints() {
     }
   }
 
-  tailElimination(point_set);
+  // tailElimination(point_set);
   detectSegments(point_set); 
 }
 void ObstacleExtractor::tailElimination(PointSet& point_set) {
