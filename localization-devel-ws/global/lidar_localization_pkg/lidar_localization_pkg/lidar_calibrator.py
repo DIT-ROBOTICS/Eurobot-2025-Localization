@@ -62,8 +62,10 @@ class LidarCalibrator(Node):
             theta = np.arctan2(ideal_vector[1], ideal_vector[0])
             self.dis.linear.x = ideal_vector[0]
             self.dis.linear.y = ideal_vector[1]
-            self.dis.angular.x = nearest_obs_vector[0]
-            self.dis.angular.y = nearest_obs_vector[1]
+            self.dis.linear.z = nearest_obs_vector[0]
+            self.dis.angular.x = nearest_obs_vector[1]
+            self.dis.angular.y = ideal_vector[0]-nearest_obs_vector[0]
+            self.dis.angular.z = ideal_vector[1]-nearest_obs_vector[1]
             self.get_logger().info(f"wanted obs:{self.target_pose}, nearest_obs:{nearest_obs.center.x, nearest_obs.center.y}")
             self.get_logger().info(f"ideal_vector: {ideal_vector}, nearest_obs_vector: {nearest_obs_vector}")
             self.get_logger().info(f"theta: {theta}")
