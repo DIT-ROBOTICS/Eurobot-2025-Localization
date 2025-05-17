@@ -69,13 +69,12 @@ class EKFFootprintBroadcaster(Node):
         self.declare_parameter('r_camera_angular', 0.15)
         self.declare_parameter('r_threshold_xy', 1e-3)
         self.declare_parameter('r_threshold_theta', 1e-2)
-        self.declare_parameter('refresh_zone_xl', 0.7)
-        self.declare_parameter('refresh_zone_xr', 2.3)
-        self.declare_parameter('refresh_zone_yl', 0.3)
-        self.declare_parameter('refresh_zone_yr', 1.5)
+        self.declare_parameter('refresh_zone_xl', 0.0)
+        self.declare_parameter('refresh_zone_xr', 3.0)
+        self.declare_parameter('refresh_zone_yl', 0.0)
+        self.declare_parameter('refresh_zone_yr', 2.0)
         self.declare_parameter('fast_spin_threshold', 3)
-        self.declare_parameter('fast_vx_threshold', 0.5)
-        self.declare_parameter('fast_vy_threshold', 0.5)
+        self.declare_parameter('fast_v_threshold', 1.5)
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
         self.child_frame_id = self.get_parameter('robot_frame_id').value
         self.rate = self.get_parameter('update_rate').value 
@@ -92,8 +91,7 @@ class EKFFootprintBroadcaster(Node):
         self.refresh_zone_yl = self.get_parameter('refresh_zone_yl').value
         self.refresh_zone_yr = self.get_parameter('refresh_zone_yr').value
         self.fast_spin_threshold = self.get_parameter('fast_spin_threshold').value
-        self.fast_vx_threshold = self.get_parameter('fast_vx_threshold').value
-        self.fast_vy_threshold = self.get_parameter('fast_vy_threshold').value
+        self.fast_v_threshold = self.get_parameter('fast_v_threshold').value
     def init_topics(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
         self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,1)
@@ -197,7 +195,7 @@ class EKFFootprintBroadcaster(Node):
         w = msg.twist.twist.angular.z
         self.ekf_predict(v_x, v_y, w, dt) 
 
-        if w > self.fast_spin_threshold or v_x > self.fast_vx_threshold or v_y > self.fast_vy_threshold:
+        if abs(w) > self.fast_spin_threshold or math.sqrt(v_x**2 + v_y**2) > self.fast_v_threshold:
             self.fast_spin = True
         else:
             self.fast_spin = False
