@@ -91,7 +91,8 @@ def generate_launch_description():
         parameters=[rival_config_path],
         remappings=[
             ('raw_pose', [rival_name, '/raw_pose']),
-            ('final_pose', [rival_name, '/final_pose'])
+            ('final_pose', [rival_name, '/final_pose']),
+            ('/ceiling_rival/pose', ['/vision/aruco/rival/single/average_pose'])
         ]
     )
 
