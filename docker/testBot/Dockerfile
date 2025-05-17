@@ -43,6 +43,7 @@ FROM user-setup AS tools
 ## Install necessary packages
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    cmake pkg-config \
     python3-pip \
     python3-rosdep \
     python3-setuptools \
@@ -92,6 +93,17 @@ WORKDIR /home/user/localization-ws/src/rplidar-ros-driver
 RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/rplidar-ros-driver/
 # RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
 
+WORKDIR /home/user/localization-ws/src/YDLidar-SDK
+RUN git clone https://github.com/wintera1233/YDLidar-SDK.git /home/user/localization-ws/src/YDLidar-SDK/
+WORKDIR /home/user/localization-ws
+RUN cd /home/user/localization-ws/src/YDLidar-SDK/build && \
+    cmake .. && \
+    make -j4 && \
+    sudo make install
+
+WORKDIR /home/user/localization-ws/src/ydlidar_ros2_driver
+RUN git clone -b humble https://github.com/YDLIDAR/ydlidar_ros2_driver.git
+
 WORKDIR /home/user/localization-ws
 # RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
 RUN sudo apt-get update && \
@@ -140,10 +152,10 @@ CMD ["/bin/bash"]
 # 
 ################################################################################################
 
-FROM jossiewang/eurobot2025-localization2:testbot-release AS devel-ws
+FROM final AS devel-ws
 
 ARG USERNAME
-ARG BRANCH_SELECT
+ARG BRANCH_SELECT=ft.tail-eliminator
 
 WORKDIR /home/user/temp
 RUN git clone -b ${BRANCH_SELECT} https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
