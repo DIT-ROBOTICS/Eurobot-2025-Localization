@@ -58,12 +58,12 @@ def generate_launch_description():
             'robot_parent_frame_id': 'map',
             'robot_frame_id': 'base_footprint',
             '/use_sim_time': False,
-            'q_linear': 1.2e-5,
-            'q_angular': 1.7e-6,
+            'q_linear': 1.2e-6,
+            'q_angular': 1.7e-7,
             'r_camra_linear': 1e-2,
-            'r_camra_angular': 0.15,
-            'r_threshold_xy': 1e-3,
-            'r_threshold_theta': 1e-2
+            'r_camra_angular': 0.1,
+            'r_threshold_xy': 1e-2,
+            'r_threshold_theta': 1e-1
         }],
         remappings=[
             ('initalpose', ['initial_pose'])

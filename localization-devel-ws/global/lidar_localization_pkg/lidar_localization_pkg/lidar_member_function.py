@@ -237,8 +237,10 @@ class LidarLocalization(Node): # inherit from Node
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
             if likelihood > self.likelihood_threshold:
-                obs[0] = 0.991*obs[0]
-                obs[1] = 0.991*obs[1]
+                obs[0] = 0.985*obs[0]
+                obs[1] = 0.985*obs[1]
+                # obs[0] = 0.989*obs[0]
+                # obs[1] = 0.99*obs[1]
                 if likelihood > self.likelihood_threshold:
                     obs_candidates.append({'position': obs, 'probability': likelihood})
                 else:
@@ -338,9 +340,9 @@ class LidarLocalization(Node): # inherit from Node
 
                 lidar_pose = self.pose_compensation(lidar_pose)
 
-                lidar_cov[0, 0] /= max_likelihood
-                lidar_cov[1, 1] /= max_likelihood
-                lidar_cov[2, 2] /= max_likelihood
+                lidar_cov[0, 0] /= (max_likelihood/1.1)
+                lidar_cov[1, 1] /= (max_likelihood/1.1)
+                lidar_cov[2, 2] /= (max_likelihood/1.1)
 
                 # publish the lidar pose
                 self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation

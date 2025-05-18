@@ -3,8 +3,8 @@
     <arg name="robot_name" default="robot"/>
     <arg name="robot_name_slash" default="robot/"/>
     <arg name="simulation" default="false"/>
-    <arg name="LPF_alpha_x" default="1.0"/>
-    <arg name="LPF_alpha_y" default="1.0"/>
+    <arg name="LPF_alpha_x" default="0.5"/>
+    <arg name="LPF_alpha_y" default="0.5"/>
     <arg name="linear_cov_max" default="0.06"/>
     <arg name="angular_cov_max" default="0.05"/>
     <arg name="odom_param" default="1"/>
