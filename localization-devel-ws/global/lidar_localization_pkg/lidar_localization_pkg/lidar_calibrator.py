@@ -6,6 +6,7 @@ from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker
 from std_msgs.msg import ColorRGBA
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Int64
 
 class LidarCalibrator(Node):
     def __init__(self):
@@ -26,7 +27,14 @@ class LidarCalibrator(Node):
             Twist,
             'distance',
             10)
-       
+
+        self.ready_sub = self.create_subscriber(
+            Int64,
+            'record',
+            self.ready_callback,
+            10
+        )
+
         self.marker_pub = self.create_publisher(
             Marker,
             'nearest_obstacle',
@@ -70,6 +78,12 @@ class LidarCalibrator(Node):
             self.get_logger().info(f"ideal_vector: {ideal_vector}, nearest_obs_vector: {nearest_obs_vector}")
             self.get_logger().info(f"theta: {theta}")
 
+    def ready_callback(self, msg):
+        if msg.data==1:
+            self.ready=1
+        else:
+            self.ready=0
+
     def publish_marker(self, x, y, radius):
         marker = Marker()
         marker.header.frame_id = "map"  
@@ -90,7 +104,8 @@ class LidarCalibrator(Node):
         self.marker_pub.publish(marker)
 
     def distance_publisher(self):
-        self.distance_pub.publish(self.dis)
+        if self.ready:
+            self.distance_pub.publish(self.dis)
 
 def main(args=None):
     rclpy.init(args=args)
