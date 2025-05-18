@@ -28,7 +28,7 @@ class LidarCalibrator(Node):
             'distance',
             10)
 
-        self.ready_sub = self.create_subscriber(
+        self.ready_sub = self.create_subscription(
             Int64,
             'record',
             self.ready_callback,
@@ -44,7 +44,7 @@ class LidarCalibrator(Node):
         self.dis = Twist()
         self.pose = np.array([2.83, 0.03])
         self.create_timer(1, self.distance_publisher)
-
+        self.ready=0
     def pose_callback(self, msg):
         self.target_pose = np.array([msg.x, msg.y])
         self.get_logger().info(f'Target pose set to x: {msg.x:.2f}, y: {msg.y:.2f}')

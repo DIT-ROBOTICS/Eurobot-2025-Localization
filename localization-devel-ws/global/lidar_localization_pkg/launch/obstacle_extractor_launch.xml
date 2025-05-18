@@ -26,7 +26,7 @@
 
     <param name="tail_threshold"       value="0.0"/> <!-- vector angle 75 degree -->
 
-    <param name="frame_id"             value="map"/>
+    <param name="frame_id"             value="base_footprint"/>
   </node>
 
 </launch>

@@ -24,8 +24,6 @@ class LidarLocalization(Node): # inherit from Node
         self.declare_parameter('consistency_threshold', 0.9)
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('robot_parent_frame_id', 'map')
-        self.declare_parameter('beacon_radius', 0.04)
-        self.declare_parameter('radius_compensation', True)
 
         # Get parameters
         self.side = self.get_parameter('side').get_parameter_value().integer_value
@@ -35,8 +33,7 @@ class LidarLocalization(Node): # inherit from Node
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
         self.robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
         self.robot_parent_frame_id = self.get_parameter('robot_parent_frame_id').get_parameter_value().string_value
-        self.beacon_radius = self.get_parameter('beacon_radius').get_parameter_value().double_value
-        self.radius_compensation = self.get_parameter('radius_compensation').get_parameter_value().bool_value
+
         # Set the landmarks map based on the side
         if self.side == 0:
             self.landmarks_map = [
@@ -117,7 +114,7 @@ class LidarLocalization(Node): # inherit from Node
         self.get_logger().debug('obstacle detected')
         self.obs_raw = []
         for obs in msg.circles:
-            self.obs_raw.append(np.array([obs.center.x, obs.center.y, obs.radius]))
+            self.obs_raw.append(np.array([obs.center.x, obs.center.y]))
         self.obs_time = msg.header.stamp
         # check if TF is available. If true, use the TF. If false, use the latest topic
         try:
@@ -240,51 +237,14 @@ class LidarLocalization(Node): # inherit from Node
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
             if likelihood > self.likelihood_threshold:
-                if (r_z < 0.4 and self.radius_compensation == True):
-                    self.get_logger().info(f'measured{obs[0]},{obs[1]},radius{obs[2]}')
-                    obs[0] = obs[0] + obs[2]*np.cos(theta_z) - self.beacon_radius*np.cos(theta_z)
-                    obs[1] = obs[1] + obs[2]*np.sin(theta_z) - self.beacon_radius*np.sin(theta_z)
-                    self.get_logger().info(f'calculated{obs[0]},{obs[1]}')
-                obs_candidates.append({'position': obs[:2], 'probability': likelihood})
-        #         if self.visualize_candidate and self.beacon_no == 1:
-        #             marker = Marker()
-        #             marker.header.frame_id = "robot_predict"
-        #             marker.header.stamp = self.get_clock().now().to_msg()
-        #             marker.ns = "candidates"
-        #             marker.type = Marker.SPHERE
-        #             marker.action = Marker.ADD
-        #             marker.scale.x = 0.1
-        #             marker.scale.y = 0.1
-        #             marker.scale.z = 0.01
-
-        #             text_marker = Marker()
-        #             text_marker.header.frame_id = "robot_predict"
-        #             text_marker.header.stamp = self.get_clock().now().to_msg()
-        #             text_marker.ns = "text"
-        #             text_marker.type = Marker.TEXT_VIEW_FACING
-        #             text_marker.action = Marker.ADD
-        #             text_marker.scale.z = 0.1
-        #             text_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)  # White text
-
-        #             # use visualization_msgs to visualize the likelihood
-        #             marker.pose.position.x = obs[0]
-        #             marker.pose.position.y = obs[1]
-        #             marker.pose.position.z = 0.0
-        #             marker.color = ColorRGBA(r=0.0, g=0.5, b=1.0, a=likelihood)
-        #             marker_id += 1
-        #             marker.id = marker_id
-        #             marker_array.markers.append(marker)
-        #             text_marker.pose.position.x = obs[0]
-        #             text_marker.pose.position.y = obs[1]
-        #             text_marker.pose.position.z = 0.1
-        #             text_marker.text = f"{likelihood:.2f}"
-        #             text_marker.id = marker_id
-        #             marker_array.markers.append(text_marker)
-        # if self.visualize_candidate and self.beacon_no == 1:
-        #     self.circles_pub.publish(marker_array)
-        #     self.get_logger().debug("Published marker array")
-        #     # clean up
-        #     marker_array.markers.clear()
+                obs[0] = 0.991*obs[0]
+                obs[1] = 0.991*obs[1]
+                if likelihood > self.likelihood_threshold:
+                    obs_candidates.append({'position': obs, 'probability': likelihood})
+                else:
+                    self.get_logger.info("calibrated obs likelihood very bad")
+                if self.visualize_true:
+                    self.visualize_candidates(obs, likelihood)
 
         return obs_candidates
 

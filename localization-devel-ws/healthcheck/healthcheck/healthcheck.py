@@ -341,20 +341,19 @@ class HealthCheckNode(Node):
             self.lidar_pose.pose.pose.orientation.z,
             self.lidar_pose.pose.pose.orientation.w
         )
-        # normalize the yaw
-        lidar_yaw = math.atan2(math.sin(lidar_yaw), math.cos(lidar_yaw))
         odom_yaw = rpy_from_quaternion(
             self.odom2map.pose.pose.orientation.x,
             self.odom2map.pose.pose.orientation.y,
             self.odom2map.pose.pose.orientation.z,
             self.odom2map.pose.pose.orientation.w
         )
-        odom_yaw = math.atan2(math.sin(odom_yaw), math.cos(odom_yaw))
         # 1. compare lidar and odom2map, if they agree, fine!
+        angle_diff = abs(math.atan2(math.sin(odom_yaw - lidar_yaw), math.cos(odom_yaw - lidar_yaw)))
+
         if np.linalg.norm(
             np.array([self.odom2map.pose.pose.position.x - self.lidar_pose.pose.pose.position.x,
                       self.odom2map.pose.pose.position.y - self.lidar_pose.pose.pose.position.y])
-        ) < 0.15 and abs(odom_yaw - lidar_yaw) < 0.4:
+        ) < 0.15 and abs(angle_diff) < 0.4:
             self.point_msg.x = self.p_lidar_param_running[0]
             self.point_msg.y = self.p_lidar_param_running[1]
             self.point_msg.z = self.p_lidar_param_running[2]
