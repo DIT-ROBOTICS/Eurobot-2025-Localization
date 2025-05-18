@@ -22,11 +22,17 @@ def generate_launch_description():
         'local_filter_whole.xml'
     ])
 
+    # rplidar_launch = PathJoinSubstitution([
+    #     FindPackageShare('lidar_localization_pkg'),
+    #     'launch',
+    #     'firmware',
+    #     'rplidar_s3_launch.py'
+    # ])
     rplidar_launch = PathJoinSubstitution([
         FindPackageShare('lidar_localization_pkg'),
         'launch',
         'firmware',
-        'rplidar_s3_launch.py'
+        'ydlidar_launch.py'
     ])
 
     obstacle_extractor_launch = PathJoinSubstitution([
@@ -75,7 +81,7 @@ def generate_launch_description():
             'debug_mode': False,
             'visualize_candidate': True,
             'likelihood_threshold': 0.8,
-            'consistency_threshold': 0.97
+            'consistency_threshold': 0.95
         }]
     )
 
@@ -119,7 +125,7 @@ def generate_launch_description():
         output='screen',
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '1.57',
+            '--roll', '0', '--pitch', '0', '--yaw', '-1.623',
             '--frame-id', 'base_footprint',
             '--child-frame-id', 'laser'
         ]

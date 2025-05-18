@@ -35,7 +35,7 @@ services:
 
   localization-main:
     profiles: ['localization_main']
-    image: jossiewang/eurobot2025-localization2:Develop # OdomTF finished testing 30th April 2025(Odom, obs_pcl)
+    image: jossiewang/eurobot2025-localization:ydlidar # OdomTF finished testing 30th April 2025(Odom, obs_pcl)
     container_name: localization-main
     <<: 
       - *ros2-vars
@@ -44,7 +44,7 @@ services:
         source /home/user/localization-ws/install/setup.bash &&
         ros2 launch ${ROS2_LAUNCH_FILE}"
 
-  localization-FixObstacleCPU:
+  localization-RunStarter:
     profiles: ['localization_RunStarter']
     image: jossiewang/eurobot2025-localization2:runstarter
     container_name: localization-RunStarter
@@ -119,7 +119,7 @@ services:
 
   localization-bash:
     profiles: ['localization_bash']
-    image: jossiewang/eurobot2025-localization:local-ros2-wSensors
+    image: jossiewang/eurobot2025-localization:ydlidar
     container_name: localization-bash
     <<: 
       - *ros2-vars
