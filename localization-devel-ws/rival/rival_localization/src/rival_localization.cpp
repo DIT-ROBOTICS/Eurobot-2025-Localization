@@ -14,14 +14,25 @@ void Rival::initialize() {
     this->declare_parameter<std::string>("robot_name", "robot");
     this->declare_parameter<std::string>("rival_name", "rival");
     this->declare_parameter<double>("frequency", 10.);
+    // for play area
     this->declare_parameter<double>("x_max", 3.);
     this->declare_parameter<double>("x_min", 0.);
     this->declare_parameter<double>("y_max", 2.);
     this->declare_parameter<double>("y_min", 0.);
+    // for obstacle tracking (within_lock)
     this->declare_parameter<double>("vel_lpf_gain", 0.9);
     this->declare_parameter<double>("locking_rad", 0.3);
     this->declare_parameter<double>("lockrad_growing_rate", 0.3);
-    this->declare_parameter<double>("cam_weight", 0.5);
+    // for is_me
+    this->declare_parameter<double>("is_me", 0.3);
+    // weights for the three sensors (the weight will be normalized depending on the combination)
+    this->declare_parameter<double>("cam_weight", 2);
+    this->declare_parameter<double>("obs_weight", 6);
+    this->declare_parameter<double>("side_weight", 2);
+    // threshold for comparing poses
+    this->declare_parameter<double>("cam_side_threshold", 0.2);
+    this->declare_parameter<double>("side_obs_threshold", 0.2);
+    this->declare_parameter<double>("obs_cam_threshold", 0.2);
     
     robot_name           = this->get_parameter("robot_name").get_value<std::string>();
     rival_name           = this->get_parameter("rival_name").as_string();
@@ -33,12 +44,20 @@ void Rival::initialize() {
     vel_lpf_gain         = this->get_parameter("vel_lpf_gain").as_double();
     p_locking_rad        = this->get_parameter("locking_rad").as_double(); // but what if rival is moving?? should increase if rival's moving!
     lockrad_growing_rate = this->get_parameter("lockrad_growing_rate").as_double(); // 5e-2 meter per second
+    p_is_me              = this->get_parameter("is_me").as_double();
     cam_weight           = this->get_parameter("cam_weight").as_double();
+    obs_weight           = this->get_parameter("obs_weight").as_double();
+    side_weight          = this->get_parameter("side_weight").as_double();
+    cam_side_threshold   = this->get_parameter("cam_side_threshold").as_double();
+    side_obs_threshold   = this->get_parameter("side_obs_threshold").as_double();
+    obs_cam_threshold    = this->get_parameter("obs_cam_threshold").as_double();
     
     RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
     obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("obstacles_to_map", 10, std::bind(&Rival::obstacles_callback, this, _1));
     cam_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/ceiling_rival/pose", 10, std::bind(&Rival::cam_callback, this, _1));
+    side_obstacle_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("side_obstacles_to_map", 10, std::bind(&Rival::side_obstacles_callback, this, _1));
+    robot_pose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("final_pose", 10, std::bind(&Rival::robot_pose_callback, this, _1));
     rival_raw_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
     rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("final_pose", 10);
 
@@ -67,6 +86,15 @@ bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point
     double distance = sqrt(pow((pre.x - cur.x), 2) + pow((pre.y - cur.y), 2));
 
     if (distance > locking_rad) ok = false;
+
+    return ok;
+}
+
+bool Rival::is_me(geometry_msgs::msg::Point center) {
+
+    bool ok = true;
+
+    if (sqrt(pow((center.x - rival_final_pose.x), 2) + pow((center.y - rival_final_pose.y), 2)) < p_is_me) ok = false;
 
     return ok;
 }
@@ -193,30 +221,88 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
     return;
 }
 
+void side_obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr& msg) {
+
+    double max_radius = 0.15;
+
+    for (const obstacle_detector::msg::CircleObstacle& circle : msg->circles) {
+
+        if (!in_playArea_obs(circle.center)) continue; // check if the obstacle is in the play area
+        if (is_me(circle.center)) continue; // ignore the one closest to our robot
+        if (in_crossed_area(circle.center)) continue; // ignore the ones in columns area, or other specified areas
+        if (circle.radius > max_radius) { // find the obstacle with the largest radius
+            max_radius = circle.radius;
+            obstacle_pose = circle.center;
+        }
+    }
+    if (max_radius < 0.15) return; // no obstacle found, maybe the rival is blocked by something
+    side_obstacle_ok = true;
+}
+
 void Rival::fusion() {
 
-    rival_ok = true;
-
-    if(obstacle_ok && camera_ok){ // fuse with weight for each sensor
-        rival_raw_pose.x = obstacle_pose.x * (1 - cam_weight) + cam_rival_pose.x * cam_weight;
-        rival_raw_pose.y = obstacle_pose.y * (1 - cam_weight) + cam_rival_pose.y * cam_weight;
-        rival_raw_vel = obstacle_vel;
+    rival_ok = false;
+    // if side_obstalce_ok, check by comparing with camera, and use weight to fuse
+    // param for fusing the three
+    if(side_obstacle_ok && camera_ok && obstacle_ok){
+        // normalize the weights
+        double total_weight = cam_weight + obs_weight + side_weight;
+        double distance_cam_side = sqrt(pow((side_obstacle_pose.x - cam_rival_pose.x), 2) + pow((side_obstacle_pose.y - cam_rival_pose.y), 2));
+        double distance_side_obs = sqrt(pow((side_obstacle_pose.x - obstacle_pose.x), 2) + pow((side_obstacle_pose.y - obstacle_pose.y), 2));
+        if (distance_cam_side < cam_side_threshold && distance_side_obs < side_obs_threshold) { // if side_obstacle is close to camera
+            rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + obstacle_pose.x * (obs_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
+            rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + obstacle_pose.y * (obs_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
+            rival_ok = true;
+        }
     }
-    else if(obstacle_ok && !camera_ok){
-        rival_raw_pose = obstacle_pose;
-        rival_raw_vel = obstacle_vel;
+    if(side_obstacle_ok && camera_ok && !obstacle_ok){
+        // normalize the weights
+        double total_weight = cam_weight + side_weight;
+        double distance_cam_side = sqrt(pow((side_obstacle_pose.x - cam_rival_pose.x), 2) + pow((side_obstacle_pose.y - cam_rival_pose.y), 2));
+        if (distance_cam_side < cam_side_threshold) { // if side_obstacle is close to camera
+            rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
+            rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
+            rival_ok = true;
+        }
     }
-    else if(!obstacle_ok && camera_ok){
+    if(side_obstacle_ok && !camera_ok && obstacle_ok){
+        // normalize the weights
+        double total_weight = obs_weight + side_weight;
+        double distance_side_obs = sqrt(pow((side_obstacle_pose.x - obstacle_pose.x), 2) + pow((side_obstacle_pose.y - obstacle_pose.y), 2));
+        if (distance_side_obs < side_obs_threshold) { // if side_obstacle is close to camera
+            rival_raw_pose.x = obstacle_pose.x * (obs_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
+            rival_raw_pose.y = obstacle_pose.y * (obs_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
+            rival_ok = true;
+        }
+    }
+    if(!side_obstacle_ok && camera_ok && obstacle_ok){
+        // normalize the weights
+        double total_weight = cam_weight + obs_weight;
+        double distance_cam_obs = sqrt(pow((obstacle_pose.x - cam_rival_pose.x), 2) + pow((obstacle_pose.y - cam_rival_pose.y), 2));
+        if (distance_cam_obs < obs_cam_threshold) { // if side_obstacle is close to camera
+            rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + obstacle_pose.x * (obs_weight / total_weight);
+            rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + obstacle_pose.y * (obs_weight / total_weight);
+            rival_ok = true;
+        }
+    }
+    // if only one of the three is ok, use that one
+    if(side_obstacle_ok && !camera_ok && !obstacle_ok){
+        rival_raw_pose = side_obstacle_pose;
+        rival_ok = true;
+    }
+    if(!side_obstacle_ok && camera_ok && !obstacle_ok){
         rival_raw_pose = cam_rival_pose;
-        rival_raw_vel.x = 0;
-        rival_raw_vel.y = 0; // TODO: how to get rival's velocity from camera? is it stable?
+        rival_ok = true;
     }
-    else
-        rival_ok = false;
+    if(!side_obstacle_ok && !camera_ok && obstacle_ok){
+        rival_raw_pose = obstacle_pose;
+        rival_ok = true;
+    }
     
-    // RCLCPP_INFO(this->get_logger(),"obstacle_ok: %d", obstacle_ok);
+    // reset the flags
     obstacle_ok = false;
     camera_ok = false;
+    side_obstacle_ok = false;
 }
 
 
