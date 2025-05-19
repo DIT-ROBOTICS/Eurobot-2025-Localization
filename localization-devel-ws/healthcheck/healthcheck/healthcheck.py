@@ -103,6 +103,8 @@ class HealthCheckNode(Node):
         # Timer for health check (3 seconds interval) V
         self.timer = self.create_timer(3.0, self.health_check_timer_callback)
         self.timer2 = self.create_timer(1.0, self.check_final_pose)
+        self.timer3 = self.create_timer(0.1, self.sensor_check)
+                                        
         self.wheel_slip_first = True
 
         # for slip estimation
@@ -184,7 +186,6 @@ class HealthCheckNode(Node):
     def health_check_timer_callback(self):
         self.dead_wheel_slip_estimation()
         # self.check_lidar_delay()
-        # self.check_final_pose()
 
     def dead_wheel_slip_estimation(self): #V
         # Check for dead wheel slip estimation
@@ -364,8 +365,8 @@ class HealthCheckNode(Node):
 
         # 2. if there's no camera, just initialpub odom2map, and have lidar to try again
         if not hasattr(self, 'camera_pose'):
-            self.get_logger().warn("camera_pose not available, republishing odom2map as initial") 
-            self.init_pub.publish(self.odom2map)
+            self.get_logger().warn("camera_pose not available") 
+            # self.init_pub.publish(self.odom2map) 
             return False
         # 3. if there's a camera, and odom2map agree with cameram, we suspect that lidar is broken
         if not is_valid_stamp(self.camera_pose.header.stamp):
@@ -419,6 +420,33 @@ class HealthCheckNode(Node):
                 file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
                 file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
             self.get_logger().warn("All three poses doesn't agree")
+            return False
+        
+    def sensor_check(self):
+
+        if not hasattr(self, 'imu_cov'):
+            return
+
+        current_time = self.get_clock().now().nanoseconds / 1e9
+        # if current_time - self.start_time > 5:
+        #     return
+        def is_valid_stamp(stamp, tolerance):
+            t = stamp.sec + stamp.nanosec / 1e9
+            return abs(current_time - t) < tolerance and t > 1e-3
+        
+        if not is_valid_stamp(self.imu_cov.header.stamp, 1e-1):
+            self.get_logger().warn("imu_cov timestamp invalid or too old")
+            # write in the report file
+            with open(self.report_file_path, 'a') as file:
+                file.write("imu_cov timestamp invalid or too old\n")
+            return False
+        
+        if not hasattr(self, 'odom2map'):
+            return
+        if not is_valid_stamp(self.odom2map.header.stamp, 1e-2):
+            self.get_logger().warn("odom2map timestamp invalid or too old")
+            with open(self.report_file_path, 'a') as file:
+                file.write("Odom2map timestamp invalid or too old\n")
             return False
         
     def odom2map_callback(self, msg):
