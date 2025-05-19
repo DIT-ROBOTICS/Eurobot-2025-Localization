@@ -216,6 +216,7 @@ class EKFFootprintBroadcaster(Node):
         self.X[1] += v_x * dt *math.sin(theta + w * dt) + v_y * dt * math.cos(theta + w * dt)
 
         self.X[2] += w * dt
+        self.X[2] = normalize_angle(self.X[2])
         self.footprint_publish()
         self.P = self.P + self.Q
 
