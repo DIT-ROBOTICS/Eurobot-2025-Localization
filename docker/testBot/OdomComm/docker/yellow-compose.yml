@@ -60,12 +60,7 @@ services:
             roslaunch odometry odometry_comm.launch"
 
   ros2-localization-dev:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-      args:
-        USERNAME: user
-    image: jossiewang/eurobot2025-localization2:Develop
+    image: jossiewang/eurobot2025-localization:ydlidar
     container_name: localization-2025-dev-ros2
     stdin_open: true
     tty: true
@@ -103,4 +98,5 @@ services:
     command: /bin/bash -c "
         source /opt/ros/humble/setup.bash && 
         source /home/user/localization-ws/install/setup.bash &&
-        ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/yellow.launch"
+        sudo chmod 777 /dev/ttyUSB1 &&
+        ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/y_running_launch.py"

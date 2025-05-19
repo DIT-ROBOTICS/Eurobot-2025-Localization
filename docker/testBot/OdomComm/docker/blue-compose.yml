@@ -99,4 +99,4 @@ services:
         source /opt/ros/humble/setup.bash && 
         source /home/user/localization-ws/install/setup.bash &&
         sudo chmod 777 /dev/ttyUSB1 &&
-        ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/running_launch.py"
+        ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/b_running_launch.py"
