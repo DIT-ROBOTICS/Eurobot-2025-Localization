@@ -26,7 +26,11 @@
         <param from="$(find-pkg-share rival_localization)/config/rival_localization.yaml"/>
         <remap from="raw_pose" to="/$(var rival_name)/raw_pose" />
         <remap from="final_pose" to="/$(var rival_name)/final_pose"/>
-        <remap from="obstacles_to_map" to="/$(var robot_name)/obstacles_to_map_side"/>
+        <remap from="side_obstacles_to_map" to="/$(var robot_name)/obstacles_to_map_side"/>
+        <remap from="robot_pose" to="/final_pose" />
+    </node>
+    <node pkg="foxglove_bridge" exec="foxglove_bridge" name="foxglove_bridge" output="screen">
+        <param name="port" value="8765" />
     </node>
 
 </launch>

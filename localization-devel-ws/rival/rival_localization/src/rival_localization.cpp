@@ -72,7 +72,7 @@ void Rival::initialize() {
     obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("obstacles_to_map", 10, std::bind(&Rival::obstacles_callback, this, _1));
     cam_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/ceiling_rival/pose", 10, std::bind(&Rival::cam_callback, this, _1));
     side_obstacle_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("side_obstacles_to_map", 10, std::bind(&Rival::side_obstacles_callback, this, _1));
-    robot_pose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("final_pose", 10, std::bind(&Rival::robot_pose_callback, this, _1));
+    robot_pose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("robot_pose", 10, std::bind(&Rival::robot_pose_callback, this, _1));
     rival_raw_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
     rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("final_pose", 10);
 
@@ -81,6 +81,7 @@ void Rival::initialize() {
   
     obstacle_ok = false;
     locking_rad = p_locking_rad;
+    my_pose.x=10, my_pose.y=10;
 }        
 
 bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
