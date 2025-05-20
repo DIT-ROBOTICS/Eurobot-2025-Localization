@@ -18,7 +18,7 @@ def generate_launch_description():
     inverted = LaunchConfiguration('inverted', default='false')
     angle_compensate = LaunchConfiguration('angle_compensate', default='true')
     scan_mode = LaunchConfiguration('scan_mode', default='DenseBoost')
-    topic_name = LaunchConfiguration('topic_name', default='scan')
+    topic_name = LaunchConfiguration('topic_name', default='side_scan')
 
     rviz_config_dir = os.path.join(
             get_package_share_directory('rival_localization'),

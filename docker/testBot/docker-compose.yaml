@@ -84,7 +84,7 @@ services:
   
   localization-build-run:
     profiles: ['build_and_run']
-    image: jossiewang/eurobot2025-localization2:testbot-release
+    image: jossiewang/eurobot2025-localization:ydlidar
     container_name: localization_build_run
     <<: 
       - *ros2-vars
