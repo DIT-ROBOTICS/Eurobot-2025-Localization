@@ -33,24 +33,39 @@ void Rival::initialize() {
     this->declare_parameter<double>("cam_side_threshold", 0.2);
     this->declare_parameter<double>("side_obs_threshold", 0.2);
     this->declare_parameter<double>("obs_cam_threshold", 0.2);
+    // a list of crossed areas, each area as [x_min, x_max, y_min, y_max]
+    // This is stored as a flat vector, but you can interpret it as an n x 4 matrix in your code
+    this->declare_parameter<std::vector<double>>(
+        "crossed_areas", 
+        {2.25, 3.0, 0.0, 0.15,
+         2.55, 3.0, 0.65, 1.1}
+    );
+
     
     robot_name           = this->get_parameter("robot_name").get_value<std::string>();
     rival_name           = this->get_parameter("rival_name").as_string();
     freq                 = this->get_parameter("frequency").as_double();
+    // for play area
     x_max                = this->get_parameter("x_max").as_double();
     x_min                = this->get_parameter("x_min").as_double();
     y_max                = this->get_parameter("y_max").as_double();
     y_min                = this->get_parameter("y_min").as_double();
+    // for obstacle tracking (within_lock)
     vel_lpf_gain         = this->get_parameter("vel_lpf_gain").as_double();
     p_locking_rad        = this->get_parameter("locking_rad").as_double(); // but what if rival is moving?? should increase if rival's moving!
     lockrad_growing_rate = this->get_parameter("lockrad_growing_rate").as_double(); // 5e-2 meter per second
+    // for is_me
     p_is_me              = this->get_parameter("is_me").as_double();
+    // weights for the three sensors (the weight will be normalized depending on the combination)
     cam_weight           = this->get_parameter("cam_weight").as_double();
     obs_weight           = this->get_parameter("obs_weight").as_double();
     side_weight          = this->get_parameter("side_weight").as_double();
+    // threshold for comparing poses
     cam_side_threshold   = this->get_parameter("cam_side_threshold").as_double();
     side_obs_threshold   = this->get_parameter("side_obs_threshold").as_double();
     obs_cam_threshold    = this->get_parameter("obs_cam_threshold").as_double();
+    // a list of crossed areas, each area as [x_min, x_max, y_min, y_max]
+    crossed_areas = this->get_parameter("crossed_areas").as_double_array();
     
     RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
@@ -78,6 +93,21 @@ bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
     return ok;
 }
 
+bool Rival::in_crossed_area(geometry_msgs::msg::Point center) {
+
+    bool ok = true;
+    // given a n * 4 matrix, it represents the crossed area of rectangle areas
+    // if the center is in any of the areas, return false
+    for (size_t i = 0; i < crossed_areas.size(); i += 4) {
+        if (center.x > crossed_areas[i] && center.x < crossed_areas[i + 1] && center.y > crossed_areas[i + 2] && center.y < crossed_areas[i + 3]) {
+            ok = false;
+            break;
+        }
+    }
+
+    return ok;
+}
+
 bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point cur, double dt) {
 
     bool ok = true;
@@ -94,7 +124,7 @@ bool Rival::is_me(geometry_msgs::msg::Point center) {
 
     bool ok = true;
 
-    if (sqrt(pow((center.x - rival_final_pose.x), 2) + pow((center.y - rival_final_pose.y), 2)) < p_is_me) ok = false;
+    if (sqrt(pow((center.x - my_pose.x), 2) + pow((center.y - my_pose.y), 2)) < p_is_me) ok = false;
 
     return ok;
 }
@@ -148,7 +178,7 @@ void Rival::imm_filter() {
     rival_final_vel.y  = model.x_[3];
 }
 
-void Rival::cam_callback(const geometry_msgs::msg::PoseStamped::ConstPtr& msg) {
+void Rival::cam_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
 
     cam_rival_pose.x = msg->pose.position.x;
     cam_rival_pose.y = msg->pose.position.y;
@@ -156,7 +186,7 @@ void Rival::cam_callback(const geometry_msgs::msg::PoseStamped::ConstPtr& msg) {
     cam_stamp = msg->header.stamp;
 }
 
-void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr& msg) {
+void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg) {
 
     static bool first = false;
     static geometry_msgs::msg::Point obstacle_pose_pre;
@@ -221,7 +251,7 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
     return;
 }
 
-void side_obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr& msg) {
+void Rival::side_obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg) {
 
     double max_radius = 0.15;
 
@@ -237,6 +267,11 @@ void side_obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr& 
     }
     if (max_radius < 0.15) return; // no obstacle found, maybe the rival is blocked by something
     side_obstacle_ok = true;
+}
+
+void Rival::robot_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
+    my_pose.x = msg->pose.pose.position.x;
+    my_pose.y = msg->pose.pose.position.y;
 }
 
 void Rival::fusion() {
