@@ -74,7 +74,7 @@ void Rival::initialize() {
     side_obstacle_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("/side/side_obstacles_to_map", 10, std::bind(&Rival::side_obstacles_callback, this, _1));
     robot_pose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("final_pose", 10, std::bind(&Rival::robot_pose_callback, this, _1));
     rival_raw_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
-    rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("rival/rival_pose", 10);
+    rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("rhino_pose", 10);
 
     br = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
     timer_ = this->create_wall_timer(std::chrono::duration<double>(1.0 / freq), std::bind(&Rival::timerCallback, this));
