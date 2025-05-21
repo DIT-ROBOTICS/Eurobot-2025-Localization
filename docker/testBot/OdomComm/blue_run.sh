@@ -16,4 +16,4 @@
 
 ## 4. deployment
 echo "[COMMUNICATION] Deploying..."
-docker compose -p communication -f docker/blue-compose.yml up
+docker compose -p localization-blue -f docker/blue-compose.yml up
