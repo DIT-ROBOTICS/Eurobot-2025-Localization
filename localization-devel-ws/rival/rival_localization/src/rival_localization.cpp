@@ -96,17 +96,17 @@ bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
 
 bool Rival::in_crossed_area(geometry_msgs::msg::Point center) {
 
-    bool ok = true;
+    bool tf = false;
     // given a n * 4 matrix, it represents the crossed area of rectangle areas
     // if the center is in any of the areas, return false
     for (size_t i = 0; i < crossed_areas.size(); i += 4) {
         if (center.x > crossed_areas[i] && center.x < crossed_areas[i + 1] && center.y > crossed_areas[i + 2] && center.y < crossed_areas[i + 3]) {
-            ok = false;
+            tf = true;
             break;
         }
     }
 
-    return ok;
+    return tf;
 }
 
 bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point cur, double dt) {
@@ -123,11 +123,10 @@ bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point
 
 bool Rival::is_me(geometry_msgs::msg::Point center) {
 
-    bool ok = true;
+    bool tf = false;
+    if (sqrt(pow((center.x - my_pose.x), 2) + pow((center.y - my_pose.y), 2)) < p_is_me) tf = true;
 
-    if (sqrt(pow((center.x - my_pose.x), 2) + pow((center.y - my_pose.y), 2)) < p_is_me) ok = false;
-
-    return ok;
+    return tf;
 }
 
 geometry_msgs::msg::Vector3 Rival::lpf(double gain, geometry_msgs::msg::Vector3 pre, geometry_msgs::msg::Vector3 cur) {
@@ -254,19 +253,23 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPt
 
 void Rival::side_obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg) {
 
-    double max_radius = 0.15;
+    double max_radius = 0.0;
 
     for (const obstacle_detector::msg::CircleObstacle& circle : msg->circles) {
 
         if (!in_playArea_obs(circle.center)) continue; // check if the obstacle is in the play area
+        // RCLCPP_INFO(this->get_logger(),"in play area: %f, %f", circle.center.x, circle.center.y);
         if (is_me(circle.center)) continue; // ignore the one closest to our robot
+        // RCLCPP_INFO(this->get_logger(),"is not me: %f, %f", circle.center.x, circle.center.y);
         if (in_crossed_area(circle.center)) continue; // ignore the ones in columns area, or other specified areas
+        // RCLCPP_INFO(this->get_logger(),"not in crossed area: %f, %f", circle.center.x, circle.center.y);
         if (circle.radius > max_radius) { // find the obstacle with the largest radius
             max_radius = circle.radius;
-            obstacle_pose = circle.center;
+            side_obstacle_pose = circle.center;
         }
     }
     if (max_radius < 0.15) return; // no obstacle found, maybe the rival is blocked by something
+    // RCLCPP_INFO(this->get_logger(),"max radius: %f", max_radius);
     side_obstacle_ok = true;
 }
 
@@ -324,6 +327,7 @@ void Rival::fusion() {
     // if only one of the three is ok, use that one
     if(side_obstacle_ok && !camera_ok && !obstacle_ok){
         rival_raw_pose = side_obstacle_pose;
+        // RCLCPP_INFO(this->get_logger(),"side_obstacle ok");
         rival_ok = true;
     }
     if(!side_obstacle_ok && camera_ok && !obstacle_ok){
@@ -350,7 +354,7 @@ void Rival::timerCallback() {
     fusion();
 
     if(rival_ok){
-
+        // RCLCPP_INFO(this->get_logger(),"rival ok");
         rival_stamp = clock.now();
 
         rival_raw_vel = lpf(vel_lpf_gain, rival_vel_pre, rival_raw_vel);

@@ -7,7 +7,7 @@
         args="0 0 0 0 0 0 1 map $(var robot_name)/map" />
 
     <node name="map_link_to_laser" pkg="tf2_ros" exec="static_transform_publisher"
-        args="3 2 0 0 0 1 $(var robot_name)/map $(var robot_name)/laser" />
+        args="1.85 1.9 0 0 0 0 1 $(var robot_name)/map $(var robot_name)/laser" />
 
     <group>
         <push-ros-namespace namespace="robot"/>
