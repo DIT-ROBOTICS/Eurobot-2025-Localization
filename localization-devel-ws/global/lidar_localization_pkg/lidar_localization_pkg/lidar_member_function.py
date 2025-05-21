@@ -237,8 +237,8 @@ class LidarLocalization(Node): # inherit from Node
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
             if likelihood > self.likelihood_threshold:
-                obs[0] = 0.985*obs[0]
-                obs[1] = 0.985*obs[1]
+                obs[0] = 0.987*obs[0]
+                obs[1] = 0.987*obs[1]
                 # obs[0] = 0.989*obs[0]
                 # obs[1] = 0.99*obs[1]
                 if likelihood > self.likelihood_threshold:
@@ -365,6 +365,11 @@ class LidarLocalization(Node): # inherit from Node
                 # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
                 self.lidar_pose_pub.publish(self.lidar_pose_msg)
                 self.publish_beacons(beacons)
+                # debug print the calculation time (from obstacle stamp to now)
+                if self.debug_mode:
+                    obs_time_rclpy = rclpy.time.Time.from_msg(self.obs_time)
+                    calc_time_ms = (self.get_clock().now() - obs_time_rclpy).nanoseconds * 1e-6
+                    self.get_logger().info(f"calculation time: {calc_time_ms:.2f} ms")
 
             except np.linalg.LinAlgError as e:
                 self.get_logger().warn("Linear algebra error: {}".format(e))

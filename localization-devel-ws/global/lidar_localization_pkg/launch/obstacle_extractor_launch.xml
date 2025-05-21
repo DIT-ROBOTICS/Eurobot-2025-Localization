@@ -21,7 +21,7 @@
     <param name="max_split_distance"   value="0.2"/>
     <param name="max_merge_separation" value="0.05"/>
     <param name="max_merge_spread"     value="0.2"/>
-    <param name="max_circle_radius"    value="0.25"/>
+    <param name="max_circle_radius"    value="0.07"/>
     <param name="radius_enlargement"   value="0.0"/> <!-- we do not need enlargement! -->
 
     <param name="tail_threshold"       value="0.0"/> <!-- vector angle 75 degree -->

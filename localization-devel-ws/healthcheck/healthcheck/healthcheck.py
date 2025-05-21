@@ -104,7 +104,7 @@ class HealthCheckNode(Node):
         self.timer = self.create_timer(3.0, self.health_check_timer_callback)
         self.timer2 = self.create_timer(1.0, self.check_final_pose)
         self.timer3 = self.create_timer(0.1, self.sensor_check)
-                                        
+                                                                                
         self.wheel_slip_first = True
 
         # for slip estimation
@@ -230,12 +230,10 @@ class HealthCheckNode(Node):
 
                 self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}, Magnitude: {slip_magnitude}")
 
-                # Append slip data to the health report file
-                with open(self.report_file_path, 'a') as file:
-                    file.write(f"Slip X: {slip_x}, Slip Y: {slip_y}\n")
-
                 if slip_x > 0.03 or slip_y > 0.03: # TODO: more test on this, it shouldn't be so frequent!
                     self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
+                    with open(self.report_file_path, 'a') as file:
+                        file.write(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}\n")
 
 
             except Exception as e:
@@ -434,20 +432,27 @@ class HealthCheckNode(Node):
             t = stamp.sec + stamp.nanosec / 1e9
             return abs(current_time - t) < tolerance and t > 1e-3
         
-        if not is_valid_stamp(self.imu_cov.header.stamp, 1e-1):
+        if not is_valid_stamp(self.imu_cov.header.stamp, 1e-2):
             self.get_logger().warn("imu_cov timestamp invalid or too old")
             # write in the report file
             with open(self.report_file_path, 'a') as file:
-                file.write("imu_cov timestamp invalid or too old\n")
-            return False
+                # Record the time difference between current time and imu_cov stamp
+                imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
+                time_diff = current_time - imu_time
+                file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference current to imu_cov: {time_diff} seconds\n")
+            # return False
         
         if not hasattr(self, 'odom2map'):
             return
         if not is_valid_stamp(self.odom2map.header.stamp, 1e-2):
-            self.get_logger().warn("odom2map timestamp invalid or too old")
+            self.get_logger().warn("[sensor check] odom2map timestamp invalid or too old")
             with open(self.report_file_path, 'a') as file:
-                file.write("Odom2map timestamp invalid or too old\n")
-            return False
+                # also record the time difference between imu_cov and odom2map
+                odom_time = self.odom2map.header.stamp.sec + self.odom2map.header.stamp.nanosec / 1e9
+                imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
+                time_diff = imu_time - odom_time
+                file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference imu to odom: {time_diff} seconds\n")                
+            # return False
         
     def odom2map_callback(self, msg):
         self.odom2map = PoseWithCovarianceStamped()
