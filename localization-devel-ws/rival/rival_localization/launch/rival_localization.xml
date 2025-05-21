@@ -17,4 +17,10 @@
         <remap from="robot_pose" to="/final_pose" />
     </node>
 
+    <node pkg="foxglove_bridge" exec="foxglove_bridge" name="foxglove_bridge" output="screen">
+        <param name="port" value="8765" />
+    </node>
+
+    <include file="/home/user/localization-ws/src/localization-devel-ws/rival/rival_localization/launch/side_rival.xml" />
+
 </launch>
