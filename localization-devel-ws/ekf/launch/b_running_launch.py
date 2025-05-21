@@ -97,13 +97,11 @@ def generate_launch_description():
         parameters=[rival_config_path],
         remappings=[
             ('raw_pose', [rival_name, '/raw_pose']),
-            ('final_pose', [rival_name, '/final_pose'])
+            # ('final_pose', [rival_name, '/final_pose'])
         ]
     )
 
-    rival_obstacle_node = GroupAction([
-        SetLaunchConfiguration('ros_namespace', rival_name),
-        Node(
+    rival_obstacle_node = Node(
             package='obstacle_detector',
             executable='obstacle_extractor_node',
             name='obstacle_detector_to_map',
@@ -113,10 +111,10 @@ def generate_launch_description():
             ],
             remappings=[
                 ('raw_obstacles', '/obstacles_to_map'),
-                ('scan', '/scan')
+                ('scan', '/scan'),
+                ('raw_obstacles_visualization_pcl', 'raw_obstacle_visualization_to_map_pcl')
             ]
-        )
-    ])
+    )
 
     static_tf = Node(
         package='tf2_ros',

@@ -56,7 +56,7 @@ services:
         source /home/user/localization-ws/install/setup.bash &&
         sudo chmod 777 /dev/ttyUSB1 &&
         cd /home/user/localization-ws &&
-        colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release  --packages-select local_filter &&
+        colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release &&
         source /home/user/localization-ws/install/setup.bash &&
         ros2 launch ${ROS2_LAUNCH_FILE}"
 
