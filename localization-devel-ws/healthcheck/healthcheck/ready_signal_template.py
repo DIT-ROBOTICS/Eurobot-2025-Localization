@@ -21,11 +21,11 @@ class ReadySignal(Node):
 
         self.is_main_ready = False
 
-    def readyCallback(self, msg):
+    def _readyCallback(self, msg):
         if msg is not None and not self.is_main_ready:
             self.is_main_ready = True
 
-    def sendReadySignal(self, group_, state_):
+    def _sendReadySignal(self, group_, state_):
         self.get_logger().info('send ready signal')
 
         # 4:localization
