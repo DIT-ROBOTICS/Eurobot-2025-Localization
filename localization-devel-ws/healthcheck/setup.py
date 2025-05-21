@@ -19,6 +19,7 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch/firmware', '*launch.[pxy][yma]*'))),
         # Include all config files.
         (os.path.join('share', package_name, 'config'), glob(os.path.join('config', '*.yml'))),
+        (os.path.join('share', package_name, 'config'), glob('srv/*.srv')),
     ],
     install_requires=[
         'setuptools',
@@ -37,7 +38,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'healthcheck_node = healthcheck.healthcheck:main',
+            'healthcheck_node = healthcheck.healthcheck:main'
         ],
     },
 )
