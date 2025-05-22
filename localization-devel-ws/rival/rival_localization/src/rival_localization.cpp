@@ -14,39 +14,74 @@ void Rival::initialize() {
     this->declare_parameter<std::string>("robot_name", "robot");
     this->declare_parameter<std::string>("rival_name", "rival");
     this->declare_parameter<double>("frequency", 10.);
+    // for play area
     this->declare_parameter<double>("x_max", 3.);
     this->declare_parameter<double>("x_min", 0.);
     this->declare_parameter<double>("y_max", 2.);
     this->declare_parameter<double>("y_min", 0.);
+    // for obstacle tracking (within_lock)
     this->declare_parameter<double>("vel_lpf_gain", 0.9);
     this->declare_parameter<double>("locking_rad", 0.3);
     this->declare_parameter<double>("lockrad_growing_rate", 0.3);
-    this->declare_parameter<double>("cam_weight", 0.5);
+    // for is_me
+    this->declare_parameter<double>("is_me", 0.3);
+    // weights for the three sensors (the weight will be normalized depending on the combination)
+    this->declare_parameter<double>("cam_weight", 2);
+    this->declare_parameter<double>("obs_weight", 6);
+    this->declare_parameter<double>("side_weight", 2);
+    // threshold for comparing poses
+    this->declare_parameter<double>("cam_side_threshold", 0.2);
+    this->declare_parameter<double>("side_obs_threshold", 0.2);
+    this->declare_parameter<double>("obs_cam_threshold", 0.2);
+    // a list of crossed areas, each area as [x_min, x_max, y_min, y_max]
+    // This is stored as a flat vector, but you can interpret it as an n x 4 matrix in your code
+    this->declare_parameter<std::vector<double>>(
+        "crossed_areas", 
+        {2.25, 3.0, 0.0, 0.15,
+         2.55, 3.0, 0.65, 1.1}
+    );
+
     
     robot_name           = this->get_parameter("robot_name").get_value<std::string>();
     rival_name           = this->get_parameter("rival_name").as_string();
     freq                 = this->get_parameter("frequency").as_double();
+    // for play area
     x_max                = this->get_parameter("x_max").as_double();
     x_min                = this->get_parameter("x_min").as_double();
     y_max                = this->get_parameter("y_max").as_double();
     y_min                = this->get_parameter("y_min").as_double();
+    // for obstacle tracking (within_lock)
     vel_lpf_gain         = this->get_parameter("vel_lpf_gain").as_double();
     p_locking_rad        = this->get_parameter("locking_rad").as_double(); // but what if rival is moving?? should increase if rival's moving!
     lockrad_growing_rate = this->get_parameter("lockrad_growing_rate").as_double(); // 5e-2 meter per second
+    // for is_me
+    p_is_me              = this->get_parameter("is_me").as_double();
+    // weights for the three sensors (the weight will be normalized depending on the combination)
     cam_weight           = this->get_parameter("cam_weight").as_double();
+    obs_weight           = this->get_parameter("obs_weight").as_double();
+    side_weight          = this->get_parameter("side_weight").as_double();
+    // threshold for comparing poses
+    cam_side_threshold   = this->get_parameter("cam_side_threshold").as_double();
+    side_obs_threshold   = this->get_parameter("side_obs_threshold").as_double();
+    obs_cam_threshold    = this->get_parameter("obs_cam_threshold").as_double();
+    // a list of crossed areas, each area as [x_min, x_max, y_min, y_max]
+    crossed_areas = this->get_parameter("crossed_areas").as_double_array();
     
     RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
     obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("obstacles_to_map", 10, std::bind(&Rival::obstacles_callback, this, _1));
     cam_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/ceiling_rival/pose", 10, std::bind(&Rival::cam_callback, this, _1));
+    side_obstacle_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("/side/side_obstacles_to_map", 10, std::bind(&Rival::side_obstacles_callback, this, _1));
+    robot_pose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("final_pose", 10, std::bind(&Rival::robot_pose_callback, this, _1));
     rival_raw_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
-    rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("final_pose", 10);
+    rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("rhino_pose", 10);
 
     br = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
     timer_ = this->create_wall_timer(std::chrono::duration<double>(1.0 / freq), std::bind(&Rival::timerCallback, this));
   
     obstacle_ok = false;
     locking_rad = p_locking_rad;
+    my_pose.x = 10, my_pose.y = 10;
 }        
 
 bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
@@ -59,6 +94,21 @@ bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
     return ok;
 }
 
+bool Rival::in_crossed_area(geometry_msgs::msg::Point center) {
+
+    bool tf = false;
+    // given a n * 4 matrix, it represents the crossed area of rectangle areas
+    // if the center is in any of the areas, return false
+    for (size_t i = 0; i < crossed_areas.size(); i += 4) {
+        if (center.x > crossed_areas[i] && center.x < crossed_areas[i + 1] && center.y > crossed_areas[i + 2] && center.y < crossed_areas[i + 3]) {
+            tf = true;
+            break;
+        }
+    }
+
+    return tf;
+}
+
 bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point cur, double dt) {
 
     bool ok = true;
@@ -69,6 +119,14 @@ bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point
     if (distance > locking_rad) ok = false;
 
     return ok;
+}
+
+bool Rival::is_me(geometry_msgs::msg::Point center) {
+
+    bool tf = false;
+    if (sqrt(pow((center.x - my_pose.x), 2) + pow((center.y - my_pose.y), 2)) < p_is_me) tf = true;
+
+    return tf;
 }
 
 geometry_msgs::msg::Vector3 Rival::lpf(double gain, geometry_msgs::msg::Vector3 pre, geometry_msgs::msg::Vector3 cur) {
@@ -120,7 +178,7 @@ void Rival::imm_filter() {
     rival_final_vel.y  = model.x_[3];
 }
 
-void Rival::cam_callback(const geometry_msgs::msg::PoseStamped::ConstPtr& msg) {
+void Rival::cam_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
 
     cam_rival_pose.x = msg->pose.position.x;
     cam_rival_pose.y = msg->pose.position.y;
@@ -128,7 +186,7 @@ void Rival::cam_callback(const geometry_msgs::msg::PoseStamped::ConstPtr& msg) {
     cam_stamp = msg->header.stamp;
 }
 
-void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr& msg) {
+void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg) {
 
     static bool first = false;
     static geometry_msgs::msg::Point obstacle_pose_pre;
@@ -193,30 +251,98 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
     return;
 }
 
+void Rival::side_obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg) {
+
+    double max_radius = 0.0;
+
+    for (const obstacle_detector::msg::CircleObstacle& circle : msg->circles) {
+
+        if (!in_playArea_obs(circle.center)) continue; // check if the obstacle is in the play area
+        // RCLCPP_INFO(this->get_logger(),"in play area: %f, %f", circle.center.x, circle.center.y);
+        if (is_me(circle.center)) continue; // ignore the one closest to our robot
+        // RCLCPP_INFO(this->get_logger(),"is not me: %f, %f", circle.center.x, circle.center.y);
+        if (in_crossed_area(circle.center)) continue; // ignore the ones in columns area, or other specified areas
+        // RCLCPP_INFO(this->get_logger(),"not in crossed area: %f, %f", circle.center.x, circle.center.y);
+        if (circle.radius > max_radius) { // find the obstacle with the largest radius
+            max_radius = circle.radius;
+            side_obstacle_pose = circle.center;
+        }
+    }
+    if (max_radius < 0.15) return; // no obstacle found, maybe the rival is blocked by something
+    // RCLCPP_INFO(this->get_logger(),"max radius: %f", max_radius);
+    side_obstacle_ok = true;
+}
+
+void Rival::robot_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
+    my_pose.x = msg->pose.pose.position.x;
+    my_pose.y = msg->pose.pose.position.y;
+}
+
 void Rival::fusion() {
 
-    rival_ok = true;
-
-    if(obstacle_ok && camera_ok){ // fuse with weight for each sensor
-        rival_raw_pose.x = obstacle_pose.x * (1 - cam_weight) + cam_rival_pose.x * cam_weight;
-        rival_raw_pose.y = obstacle_pose.y * (1 - cam_weight) + cam_rival_pose.y * cam_weight;
-        rival_raw_vel = obstacle_vel;
+    rival_ok = false;
+    // if side_obstalce_ok, check by comparing with camera, and use weight to fuse
+    // param for fusing the three
+    if(side_obstacle_ok && camera_ok && obstacle_ok){
+        // normalize the weights
+        double total_weight = cam_weight + obs_weight + side_weight;
+        double distance_cam_side = sqrt(pow((side_obstacle_pose.x - cam_rival_pose.x), 2) + pow((side_obstacle_pose.y - cam_rival_pose.y), 2));
+        double distance_side_obs = sqrt(pow((side_obstacle_pose.x - obstacle_pose.x), 2) + pow((side_obstacle_pose.y - obstacle_pose.y), 2));
+        if (distance_cam_side < cam_side_threshold && distance_side_obs < side_obs_threshold) { // if side_obstacle is close to camera
+            rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + obstacle_pose.x * (obs_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
+            rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + obstacle_pose.y * (obs_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
+            rival_ok = true;
+        }
     }
-    else if(obstacle_ok && !camera_ok){
-        rival_raw_pose = obstacle_pose;
-        rival_raw_vel = obstacle_vel;
+    if(side_obstacle_ok && camera_ok && !obstacle_ok){
+        // normalize the weights
+        double total_weight = cam_weight + side_weight;
+        double distance_cam_side = sqrt(pow((side_obstacle_pose.x - cam_rival_pose.x), 2) + pow((side_obstacle_pose.y - cam_rival_pose.y), 2));
+        if (distance_cam_side < cam_side_threshold) { // if side_obstacle is close to camera
+            rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
+            rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
+            rival_ok = true;
+        }
     }
-    else if(!obstacle_ok && camera_ok){
+    if(side_obstacle_ok && !camera_ok && obstacle_ok){
+        // normalize the weights
+        double total_weight = obs_weight + side_weight;
+        double distance_side_obs = sqrt(pow((side_obstacle_pose.x - obstacle_pose.x), 2) + pow((side_obstacle_pose.y - obstacle_pose.y), 2));
+        if (distance_side_obs < side_obs_threshold) { // if side_obstacle is close to camera
+            rival_raw_pose.x = obstacle_pose.x * (obs_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
+            rival_raw_pose.y = obstacle_pose.y * (obs_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
+            rival_ok = true;
+        }
+    }
+    if(!side_obstacle_ok && camera_ok && obstacle_ok){
+        // normalize the weights
+        double total_weight = cam_weight + obs_weight;
+        double distance_cam_obs = sqrt(pow((obstacle_pose.x - cam_rival_pose.x), 2) + pow((obstacle_pose.y - cam_rival_pose.y), 2));
+        if (distance_cam_obs < obs_cam_threshold) { // if side_obstacle is close to camera
+            rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + obstacle_pose.x * (obs_weight / total_weight);
+            rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + obstacle_pose.y * (obs_weight / total_weight);
+            rival_ok = true;
+        }
+    }
+    // if only one of the three is ok, use that one
+    if(side_obstacle_ok && !camera_ok && !obstacle_ok){
+        rival_raw_pose = side_obstacle_pose;
+        // RCLCPP_INFO(this->get_logger(),"side_obstacle ok");
+        rival_ok = true;
+    }
+    if(!side_obstacle_ok && camera_ok && !obstacle_ok){
         rival_raw_pose = cam_rival_pose;
-        rival_raw_vel.x = 0;
-        rival_raw_vel.y = 0; // TODO: how to get rival's velocity from camera? is it stable?
+        rival_ok = true;
     }
-    else
-        rival_ok = false;
+    if(!side_obstacle_ok && !camera_ok && obstacle_ok){
+        rival_raw_pose = obstacle_pose;
+        rival_ok = true;
+    }
     
-    // RCLCPP_INFO(this->get_logger(),"obstacle_ok: %d", obstacle_ok);
+    // reset the flags
     obstacle_ok = false;
     camera_ok = false;
+    side_obstacle_ok = false;
 }
 
 
@@ -228,7 +354,7 @@ void Rival::timerCallback() {
     fusion();
 
     if(rival_ok){
-
+        // RCLCPP_INFO(this->get_logger(),"rival ok");
         rival_stamp = clock.now();
 
         rival_raw_vel = lpf(vel_lpf_gain, rival_vel_pre, rival_raw_vel);

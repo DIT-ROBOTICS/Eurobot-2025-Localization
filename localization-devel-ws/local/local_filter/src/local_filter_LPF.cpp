@@ -22,8 +22,8 @@ struct RobotState
 
 class GlobalFilterNode {
 public:
-    GlobalFilterNode(std::shared_ptr<rclcpp::Node> nh, std::shared_ptr<rclcpp::Node> nh_local) :
-    nh_(nh), nh_local_(nh_local){
+    GlobalFilterNode(std::shared_ptr<rclcpp::Node> nh) :
+    nh_(nh){
         // Initialize filter coefficients and initial values
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
@@ -39,17 +39,17 @@ public:
         robotstate_.sigma(1, 1) = 0.1;   // y-y
         robotstate_.sigma(2, 2) = 0.1;   // theta-theta
 
-        nh_local_->declare_parameter("LPF_alpha_x", 0.5); // filter coefficient
-        alpha_x=nh_local_->get_parameter("LPF_alpha_x").as_double();
+        nh_->declare_parameter("LPF_alpha_x", 0.5); // filter coefficient
+        alpha_x=nh_->get_parameter("LPF_alpha_x").as_double();
 
-        nh_local_->declare_parameter("LPF_alpha_y", 0.5); // filter coefficient
-        alpha_y=nh_local_->get_parameter("LPF_alpha_y").as_double();
+        nh_->declare_parameter("LPF_alpha_y", 0.5); // filter coefficient
+        alpha_y=nh_->get_parameter("LPF_alpha_y").as_double();
 
-        nh_local_->declare_parameter("linear_cov_max", 0.1);
-        linear_cov_max_=nh_local_->get_parameter("linear_cov_max").as_double();
+        nh_->declare_parameter("linear_cov_max", 0.1);
+        linear_cov_max_=nh_->get_parameter("linear_cov_max").as_double();
 
-        nh_local_->declare_parameter("angular_cov_max", 0.05);
-        angular_cov_max_=nh_local_->get_parameter("angular_cov_max").as_double();
+        nh_->declare_parameter("angular_cov_max", 0.05);
+        angular_cov_max_=nh_->get_parameter("angular_cov_max").as_double();
 
         for(int i=0;i<3;i++){
             std::string str;
@@ -59,8 +59,8 @@ public:
                 case 2: str="vz"; break;
                 default: break;
             }
-            nh_local_->declare_parameter("covariance_"+str, 0.);
-            cov_backup_[i]=nh_local_->get_parameter("covariance_"+str).as_double();
+            nh_->declare_parameter("covariance_"+str, 0.);
+            cov_backup_[i]=nh_->get_parameter("covariance_"+str).as_double();
         }
 
         for(int i=0;i<3;i++){
@@ -71,8 +71,8 @@ public:
                 case 3: str="vz"; break;
                 default: break;
             }
-            nh_local_->declare_parameter("covariance_multi_"+str, 0.);
-            cov_multi_[i]=nh_local_->get_parameter("covariance_multi_"+str).as_double();
+            nh_->declare_parameter("covariance_multi_"+str, 0.);
+            cov_multi_[i]=nh_->get_parameter("covariance_multi_"+str).as_double();
         }
 
         setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initial_pose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
@@ -163,6 +163,7 @@ public:
         robotstate_.sigma(2, 1) = pose_msg.pose.covariance[31];  // theta-y
         robotstate_.sigma(2, 2) = pose_msg.pose.covariance[35];  // theta-theta
         RCLCPP_INFO(nh_->get_logger(), "Received initial pose: x = %f, y = %f, theta = %f",  robotstate_.mu(0), robotstate_.mu(1), robotstate_.mu(2));
+        
         // publish absolute coordinate
         coord_odom2map.header.stamp= now;
         coord_odom2map.header.frame_id= "map";
@@ -270,7 +271,6 @@ public:
 
 private:
     std::shared_ptr<rclcpp::Node> nh_;
-    std::shared_ptr<rclcpp::Node> nh_local_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr setpose_sub_;
@@ -306,11 +306,9 @@ int main(int argc, char** argv) {
 
     auto exec=std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
     std::shared_ptr<rclcpp::Node> nh = rclcpp::Node::make_shared("nh");
-    std::shared_ptr<rclcpp::Node> nh_local = rclcpp::Node::make_shared("nh_local");
-    GlobalFilterNode global_filter_node(nh, nh_local);
+    GlobalFilterNode global_filter_node(nh);
 
     exec->add_node(nh);
-    exec->add_node(nh_local);
     exec->spin();
 
     rclcpp::shutdown();

@@ -1,5 +1,6 @@
 *.vscode
 bag/
+report/
 
 # ROS #
 #######
@@ -12,3 +13,5 @@ log/
 *.pyc
 *.pyo
 __pycache__/
+localization-devel-ws/ydlidar_ros2_driver
+localization-devel-ws/YDLidar-SDK

@@ -52,18 +52,14 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose = PoseWithCovarianceStamped()
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
-        self.cam_time = 0
         self.init_topics()
 
         self.footprint_publish()
-        if self.use_cam:
-            self.create_timer(1.0 / self.rate, self.camera_update)
 
         self.fast_spin = False
         self.init = False
         
     def claim_parameters(self):
-        self.declare_parameter('use_cam', 0)
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('update_rate', 1)
@@ -73,10 +69,10 @@ class EKFFootprintBroadcaster(Node):
         self.declare_parameter('r_camera_angular', 0.15)
         self.declare_parameter('r_threshold_xy', 1e-3)
         self.declare_parameter('r_threshold_theta', 1e-2)
-        self.declare_parameter('refresh_zone_xl', 0.7)
-        self.declare_parameter('refresh_zone_xr', 2.3)
-        self.declare_parameter('refresh_zone_yl', 0.3)
-        self.declare_parameter('refresh_zone_yr', 1.5)
+        self.declare_parameter('refresh_zone_xl', 0.0)
+        self.declare_parameter('refresh_zone_xr', 3.0)
+        self.declare_parameter('refresh_zone_yl', 0.0)
+        self.declare_parameter('refresh_zone_yr', 2.0)
         self.declare_parameter('fast_spin_threshold', 3)
         self.declare_parameter('fast_vx_threshold', 0.5)
         self.declare_parameter('fast_vy_threshold', 0.5)
@@ -89,7 +85,6 @@ class EKFFootprintBroadcaster(Node):
         self.R_camera[0, 0] = self.get_parameter('r_camera_linear').value
         self.R_camera[1, 1] = self.get_parameter('r_camera_linear').value
         self.R_camera[2, 2] = self.get_parameter('r_camera_angular').value
-        self.use_cam = self.get_parameter('use_cam').value
         self.r_threshold_xy = self.get_parameter('r_threshold_xy').value
         self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
         self.refresh_zone_xl = self.get_parameter('refresh_zone_xl').value
@@ -103,7 +98,7 @@ class EKFFootprintBroadcaster(Node):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
         self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,1)
         self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
-        self.create_subscription(PoseStamped, '/ceiling_robot/pose', self.camera_callback, 1)
+        self.create_subscription(PoseStamped, 'camera_pose', self.camera_callback, 1)
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
 
     
@@ -173,6 +168,7 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.orientation.w
         )
         self.cam_measurement = np.array([msg.pose.position.x, msg.pose.position.y, theta])
+        self.camera_update()
 
     def camera_update(self):
         current_time = self.get_clock().now().nanoseconds / 1e9
@@ -208,18 +204,19 @@ class EKFFootprintBroadcaster(Node):
 
     def ekf_predict(self, v_x, v_y, w, dt):
         theta = self.X[2]
-        c_theta = math.cos(theta)
-        s_theta = math.sin(theta)
-        c_delta = math.cos(w * dt)
-        s_delta = math.sin(w * dt)
-        if abs(w) > 1e-3:
-            self.X[0] += (c_theta*s_delta - s_theta*(c_delta-1))*v_x / w - (s_theta*s_delta - c_theta*(c_delta-1))*v_y / w
-            self.X[1] += (s_theta*s_delta - c_theta*(c_delta-1))*v_x / w + (c_theta*s_delta - s_theta*(c_delta-1))*v_y / w
-        else:
-            self.X[0] += v_x * dt * math.cos(theta + w * dt) - v_y * dt * math.sin(theta + w * dt)
-            self.X[1] += v_x * dt *math.sin(theta + w * dt) + v_y * dt * math.cos(theta + w * dt)
+        # c_theta = math.cos(theta)
+        # s_theta = math.sin(theta)
+        # c_delta = math.cos(w * dt)
+        # s_delta = math.sin(w * dt)
+        # if abs(w) > 1e-3:
+        #     self.X[0] += (c_theta*s_delta - s_theta*(c_delta-1))*v_x / w - (s_theta*s_delta - c_theta*(c_delta-1))*v_y / w
+        #     self.X[1] += (s_theta*s_delta - c_theta*(c_delta-1))*v_x / w + (c_theta*s_delta - s_theta*(c_delta-1))*v_y / w
+        # else:
+        self.X[0] += v_x * dt * math.cos(theta + w * dt) - v_y * dt * math.sin(theta + w * dt)
+        self.X[1] += v_x * dt *math.sin(theta + w * dt) + v_y * dt * math.cos(theta + w * dt)
 
         self.X[2] += w * dt
+        self.X[2] = normalize_angle(self.X[2])
         self.footprint_publish()
         self.P = self.P + self.Q
 

@@ -99,6 +99,8 @@ private:
   bool checkSegmentsProximity(const Segment& s1, const Segment& s2);
   bool checkSegmentsCollinearity(const Segment& segment, const Segment& s1, const Segment& s2);
   Point distortionCorrection(sensor_msgs::msg::LaserScan, double*, double, double);
+  void tailElimination(PointSet&);
+  bool vectorComparison(double, double, double, double, double, double);
   void detectCircles();
   void mergeCircles();
   bool compareCircles(const Circle& c1, const Circle& c2, Circle& merged_circle);
@@ -155,6 +157,8 @@ private:
   double p_max_y_limit_;
 
   double p_max_range_ = 3.6;
+
+  double p_tail_threshold;
 
   std::string p_frame_id_;
   std::string published_obstacles_frame_id_ = "";

@@ -90,6 +90,8 @@ void ObstacleExtractor::updateParamsUtil(){
   nh_->declare_parameter("frame_id", rclcpp::PARAMETER_STRING);
   nh_->declare_parameter("max_range", rclcpp::PARAMETER_DOUBLE);
 
+  nh_->declare_parameter("tail_threshold", rclcpp::PARAMETER_DOUBLE);
+
   nh_->get_parameter_or("active", p_active_, true);
   nh_->get_parameter_or("use_scan", p_use_scan_, true);
   nh_->get_parameter_or("use_pcl", p_use_pcl_, true);
@@ -115,12 +117,18 @@ void ObstacleExtractor::updateParamsUtil(){
   nh_->get_parameter_or("frame_id", p_frame_id_, std::string{"map"});
   nh_->get_parameter_or("max_range", p_max_range_, 3.6);
 
+  nh_->get_parameter_or("tail_threshold", p_tail_threshold, 0.5);
+
   if (p_active_ != prev_active) {
     if (p_active_) {
       if (p_use_scan_){
-        RCLCPP_INFO_STREAM_ONCE(nh_->get_logger(), "Using LaserScan topic");
+        rclcpp::QoS qos(rclcpp::KeepLast(10));
+        qos.best_effort();  // ⬅️ 改成 best_effort
+        qos.durability_volatile();
+        
         scan_sub_ = nh_->create_subscription<sensor_msgs::msg::LaserScan>(
-            "scan", 10, std::bind(&ObstacleExtractor::scanCallback, this, std::placeholders::_1));
+            "scan", qos, std::bind(&ObstacleExtractor::scanCallback, this, std::placeholders::_1));
+        
       }else if (p_use_pcl_){
         RCLCPP_INFO_STREAM_ONCE(nh_->get_logger(), "Using PointCloud1 topic");
         pcl_sub_ = nh_->create_subscription<sensor_msgs::msg::PointCloud>(
@@ -293,6 +301,7 @@ void ObstacleExtractor::groupPoints() {
       if (abs(sin_d) < sin_dp && range < prev_range)
         point_set.is_visible = false;
 
+      // tailElimination(point_set);
       detectSegments(point_set);
 
       // Begin new point set
@@ -303,7 +312,85 @@ void ObstacleExtractor::groupPoints() {
     }
   }
 
-  detectSegments(point_set); // Check the last point set too!
+  // tailElimination(point_set);
+  detectSegments(point_set); 
+}
+void ObstacleExtractor::tailElimination(PointSet& point_set) {
+  auto group_size = std::distance(point_set.begin, point_set.end);
+  if (group_size <= 6) return;
+
+  PointIterator forward_iter = std::next(point_set.begin);
+  PointIterator inverse_iter = std::prev(point_set.end);
+  PointIterator middle_iter = point_set.begin;
+  std::advance(middle_iter, group_size / 2);
+
+  int tail_num = 0;
+  int rtail_num = 0;
+  bool forward_done = false;
+  bool inverse_done = false;
+
+  while (!forward_done || !inverse_done) {
+    if (!forward_done) {
+      if (forward_iter == middle_iter || std::next(forward_iter) == point_set.end) {
+        forward_done = true;
+      } else {
+        tail_num++;
+        auto prev = std::prev(forward_iter);
+        auto next = std::next(forward_iter);
+
+        if (vectorComparison(prev->x, prev->y,
+                             forward_iter->x, forward_iter->y,
+                             next->x, next->y) &&
+            tail_num >= 3) {
+          point_set.begin = std::next(forward_iter);
+          point_set.num_points -= tail_num;
+          group_size -= tail_num;
+          forward_done = true;
+        } else {
+          ++forward_iter;
+        }
+      }
+    }
+
+    if (!inverse_done) {
+      if (inverse_iter == middle_iter || inverse_iter == point_set.begin) {
+        inverse_done = true;
+      } else {
+        rtail_num++;
+        auto prev = std::next(inverse_iter);
+        auto next = std::prev(inverse_iter);
+
+        if (vectorComparison(prev->x, prev->y,
+                             inverse_iter->x, inverse_iter->y,
+                             next->x, next->y) &&
+            rtail_num >= 3) {
+          point_set.end = std::prev(inverse_iter);
+          point_set.num_points -= rtail_num;
+          group_size -= rtail_num;
+          inverse_done = true;
+        } else {
+          --inverse_iter;
+        }
+      }
+    }
+
+    if (group_size <= 6) break;
+  }
+}
+bool ObstacleExtractor::vectorComparison(
+  double prev_x, double prev_y,
+  double x, double y,
+  double next_x, double next_y){
+    Eigen::Vector2d vec_prev;
+    Eigen::Vector2d vec_next;
+
+    double length_prev = sqrt( pow(x - prev_x, 2) + pow(y - prev_y, 2));
+    double length_next = sqrt( pow(next_x - x, 2) + pow(next_y - y, 2));
+
+    vec_prev << (x - prev_x) / length_prev, (y - prev_y) / length_prev;
+    vec_next << (next_x - x) / length_next, (next_y - y) / length_next;
+
+    return vec_prev.dot(vec_next) < p_tail_threshold;
 }
 
 void ObstacleExtractor::detectSegments(const PointSet& point_set) {
