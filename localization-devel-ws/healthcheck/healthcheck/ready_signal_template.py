@@ -24,6 +24,7 @@ class ReadySignal(Node):
     def _readyCallback(self, msg):
         if msg is not None and not self.is_main_ready:
             self.is_main_ready = True
+            self.get_logger().info(f'enter raedy callback')
 
     def _sendReadySignal(self, group_, state_):
         self.get_logger().info('send ready signal')
