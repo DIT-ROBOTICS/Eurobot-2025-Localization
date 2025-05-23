@@ -103,6 +103,8 @@ class HealthCheckNode(Node):
         # Timer for health check (3 seconds interval) V
         self.timer = self.create_timer(3.0, self.health_check_timer_callback)
         self.timer2 = self.create_timer(1.0, self.check_final_pose)
+        self.timer3 = self.create_timer(0.1, self.sensor_check)
+                                                                                
         self.wheel_slip_first = True
 
         # for slip estimation
@@ -184,7 +186,6 @@ class HealthCheckNode(Node):
     def health_check_timer_callback(self):
         self.dead_wheel_slip_estimation()
         # self.check_lidar_delay()
-        # self.check_final_pose()
 
     def dead_wheel_slip_estimation(self): #V
         # Check for dead wheel slip estimation
@@ -229,12 +230,10 @@ class HealthCheckNode(Node):
 
                 self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}, Magnitude: {slip_magnitude}")
 
-                # Append slip data to the health report file
-                with open(self.report_file_path, 'a') as file:
-                    file.write(f"Slip X: {slip_x}, Slip Y: {slip_y}\n")
-
                 if slip_x > 0.03 or slip_y > 0.03: # TODO: more test on this, it shouldn't be so frequent!
                     self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
+                    with open(self.report_file_path, 'a') as file:
+                        file.write(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}\n")
 
 
             except Exception as e:
@@ -341,20 +340,19 @@ class HealthCheckNode(Node):
             self.lidar_pose.pose.pose.orientation.z,
             self.lidar_pose.pose.pose.orientation.w
         )
-        # normalize the yaw
-        lidar_yaw = math.atan2(math.sin(lidar_yaw), math.cos(lidar_yaw))
         odom_yaw = rpy_from_quaternion(
             self.odom2map.pose.pose.orientation.x,
             self.odom2map.pose.pose.orientation.y,
             self.odom2map.pose.pose.orientation.z,
             self.odom2map.pose.pose.orientation.w
         )
-        odom_yaw = math.atan2(math.sin(odom_yaw), math.cos(odom_yaw))
         # 1. compare lidar and odom2map, if they agree, fine!
+        angle_diff = abs(math.atan2(math.sin(odom_yaw - lidar_yaw), math.cos(odom_yaw - lidar_yaw)))
+
         if np.linalg.norm(
             np.array([self.odom2map.pose.pose.position.x - self.lidar_pose.pose.pose.position.x,
                       self.odom2map.pose.pose.position.y - self.lidar_pose.pose.pose.position.y])
-        ) < 0.15 and abs(odom_yaw - lidar_yaw) < 0.4:
+        ) < 0.15 and abs(angle_diff) < 0.4:
             self.point_msg.x = self.p_lidar_param_running[0]
             self.point_msg.y = self.p_lidar_param_running[1]
             self.point_msg.z = self.p_lidar_param_running[2]
@@ -365,8 +363,8 @@ class HealthCheckNode(Node):
 
         # 2. if there's no camera, just initialpub odom2map, and have lidar to try again
         if not hasattr(self, 'camera_pose'):
-            self.get_logger().warn("camera_pose not available, republishing odom2map as initial") 
-            self.init_pub.publish(self.odom2map)
+            self.get_logger().warn("camera_pose not available") 
+            # self.init_pub.publish(self.odom2map) 
             return False
         # 3. if there's a camera, and odom2map agree with cameram, we suspect that lidar is broken
         if not is_valid_stamp(self.camera_pose.header.stamp):
@@ -421,6 +419,40 @@ class HealthCheckNode(Node):
                 file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
             self.get_logger().warn("All three poses doesn't agree")
             return False
+        
+    def sensor_check(self):
+
+        if not hasattr(self, 'imu_cov'):
+            return
+
+        current_time = self.get_clock().now().nanoseconds / 1e9
+        # if current_time - self.start_time > 5:
+        #     return
+        def is_valid_stamp(stamp, tolerance):
+            t = stamp.sec + stamp.nanosec / 1e9
+            return abs(current_time - t) < tolerance and t > 1e-3
+        
+        if not is_valid_stamp(self.imu_cov.header.stamp, 1e-2):
+            self.get_logger().warn("imu_cov timestamp invalid or too old")
+            # write in the report file
+            with open(self.report_file_path, 'a') as file:
+                # Record the time difference between current time and imu_cov stamp
+                imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
+                time_diff = imu_time - current_time
+                file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference current to imu_cov: {time_diff} seconds\n")
+            # return False
+        
+        if not hasattr(self, 'odom2map'):
+            return
+        if not is_valid_stamp(self.odom2map.header.stamp, 1e-2):
+            self.get_logger().warn("[sensor check] odom2map timestamp invalid or too old")
+            with open(self.report_file_path, 'a') as file:
+                # also record the time difference between imu_cov and odom2map
+                odom_time = self.odom2map.header.stamp.sec + self.odom2map.header.stamp.nanosec / 1e9
+                imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
+                time_diff = odom_time - imu_time
+                file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference imu to odom: {time_diff} seconds\n")                
+            # return False
         
     def odom2map_callback(self, msg):
         self.odom2map = PoseWithCovarianceStamped()
