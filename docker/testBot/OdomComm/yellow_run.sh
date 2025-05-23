@@ -16,4 +16,4 @@
 
 ## 4. deployment
 echo "[COMMUNICATION] Deploying..."
-docker compose -p communication -f docker/yellow-compose.yml up
+docker compose -p localization-yellow -f docker/yellow-compose.yml up
