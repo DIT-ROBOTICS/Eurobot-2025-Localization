@@ -59,6 +59,9 @@
 #include "std_srvs/srv/empty.hpp"
 #include "sensor_msgs/msg/point_field.hpp"
 
+#include "geometry_msgs/msg/pose_array.hpp"
+
+
 #include <eigen3/Eigen/Dense>
 #include "obstacle_detector/msg/obstacles.hpp"
 #include "obstacle_detector/msg/circle_obstacle.hpp"
@@ -115,6 +118,7 @@ private:
   rclcpp::Publisher<obstacle_detector::msg::Obstacles>::SharedPtr obstacles_pub_;
   // rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr obstacles_vis_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacles_vis_pcl_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr obstacles_pose_array_pub_;
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr params_srv_;
 
   rclcpp::Time stamp_;
@@ -141,6 +145,7 @@ private:
   bool p_discard_converted_segments_;
   bool p_transform_coordinates_;
 
+  bool p_pose_array_;
   int p_min_group_points_;
 
   double p_distance_proportion_;
