@@ -99,6 +99,9 @@ class HealthCheckNode(Node):
         # # Create health report file V
         self.create_health_report_file()
 
+        # for main communication
+        self.ready_signal = ReadySignal()
+
         self.check_localization_ok()
 
         # Timer for health check (3 seconds interval) V
@@ -114,9 +117,6 @@ class HealthCheckNode(Node):
         self.new_odom = False
 
         self.point_msg = Point()
-
-        # for main communication
-        self.ready_signal = ReadySignal()
 
     def create_health_report_file(self):
         # Generate the filename based on the current date and timeV
