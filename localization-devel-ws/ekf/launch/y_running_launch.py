@@ -81,7 +81,8 @@ def generate_launch_description():
             'debug_mode': False,
             'visualize_candidate': True,
             'likelihood_threshold': 0.8,
-            'consistency_threshold': 0.95
+            'consistency_threshold': 0.95,
+            'lidar_multiplier': 0.987
         }]
     )
 
