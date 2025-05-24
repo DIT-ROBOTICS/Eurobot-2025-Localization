@@ -92,6 +92,9 @@ class HealthCheckNode(Node):
             'lidar_param_update',
             10
         )
+
+        self.is_localization_ok = False
+        self.signal_timer = self.create_timer(0.1, self.signal_to_main)
         # TF buffer
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -185,8 +188,7 @@ class HealthCheckNode(Node):
         self.lidar_param_pub.publish(self.point_msg)
         self.get_logger().info("Lidar parameters set to running")
         # 6. response to main (a service?)
-        self.get_logger().info("send ready signal")
-        self.ready_signal.sendReadySignal(4, 3)
+        self.is_localization_ok = True
         return True
     
     def health_check_timer_callback(self):
@@ -494,6 +496,15 @@ class HealthCheckNode(Node):
 
     def imu_cov_callback(self, msg):
         self.imu_cov = msg
+
+    def signal_to_main(self):
+        if self.ready_signal.is_main_ready and self.is_localization_ok:
+            self.ready_signal.sendReadySignal(4, 3)
+            self.signal_timer.cancel()
+            self.signal_timer = None
+
+        else:
+            self.get_logger().info("waiting for main...")
 
 def main(args=None):
     rclpy.init(args=args)
