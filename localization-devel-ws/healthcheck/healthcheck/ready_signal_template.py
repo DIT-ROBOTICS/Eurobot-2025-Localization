@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from custom_interfaces.srv import StartUpSrv
+from btcpp_ros2_interfaces.srv import StartUpSrv
 
 
 class ReadySignal(Node):
@@ -21,12 +21,12 @@ class ReadySignal(Node):
 
         self.is_main_ready = False
 
-    def _readyCallback(self, msg):
+    def readyCallback(self, msg):
         if msg is not None and not self.is_main_ready:
             self.is_main_ready = True
             self.get_logger().info(f'enter ready callback')
 
-    def _sendReadySignal(self, group_, state_):
+    def sendReadySignal(self, group_, state_):
         self.get_logger().info('send ready signal')
 
         # 4:localization

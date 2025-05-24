@@ -186,7 +186,7 @@ class HealthCheckNode(Node):
         self.get_logger().info("Lidar parameters set to running")
         # 6. response to main (a service?)
         self.get_logger().info("send ready signal")
-        self.ready_signal._sendReadySignal(4, 3)
+        self.ready_signal.sendReadySignal(4, 3)
         return True
     
     def health_check_timer_callback(self):
