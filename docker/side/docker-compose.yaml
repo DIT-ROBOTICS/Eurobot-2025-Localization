@@ -40,6 +40,7 @@ services:
       # Mount sound card to prevent Gazebo warning.
       # - /dev/snd:/dev/snd
       - /dev:/dev
+      - /home/vision/localization/Eurobot-2025-Localization/docker/side/ethDDS.xml:/tmp/dds.xml
       # Mount Gazebo models directory to reuse models downloaded during first launch.
       # Reference: https://answers.ros.org/question/365658
       # - ./cache/.gazebo:/home/user/.gazebo

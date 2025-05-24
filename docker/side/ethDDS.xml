@@ -4,16 +4,14 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="https://cdds.io/config https://raw.githubusercontent.com/eclipse-cyclonedds/cyclonedds/master/etc/cyclonedds.xsd"
 >
-
-<Domain Id="0">
+  <Domain Id="any">
     <General>
-      <AllowMulticast>false</AllowMulticast>
-      <NetworkInterface name="lo"/>
+      <Interfaces>
+        <NetworkInterface name="enx00e04c693d7c"/>
+      </Interfaces>
+      <AllowMulticast>true</AllowMulticast>
+      <MaxMessageSize>65500B</MaxMessageSize>
+      <!-- <EnableMulticastLoopback>false</EnableMulticastLoopback> -->
     </General>
-    <Discovery>
-      <Peers>
-        <Peer address="127.0.0.1"/>
-      </Peers>
-    </Discovery>
   </Domain>
 </CycloneDDS>
