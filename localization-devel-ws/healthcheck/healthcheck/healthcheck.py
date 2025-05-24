@@ -155,8 +155,15 @@ class HealthCheckNode(Node):
         # ---------- 3. Map button id → (x, y, yaw) ----------
         # mind blue/yellow, panda or raccoon
         start_lookup = { # x, y, z, x, y, z, w
-            0: ( 1.20,  0.20,  0.00, 0.00, 0.00, 0.707, 0.707), # origin
-            1: ( 0.00,  0.00,  0.00, 0.00, 0.00, 0.00, 1.00), # origin
+            0:   (1.20, 0.20, 0.00, 0.00, 0.00, 0.707, 0.707),   
+            1:   (0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00),     
+            10:  (0.35, 1.70, 0.00, 0.00, 0.00, 0.707, -0.707),
+            11:  (2.70, 0.90, 0.00, 0.00, 0.00, 1.00, 0.00),
+            13:  (1.28, 0.30, 0.00, 0.00, 0.00, 0.707, 0.707),   
+            # team blue
+            19:  (2.65, 1.70, 0.00, 0.00, 0.00, 0.707, -0.707),  
+            15:  (0.30, 0.90, 0.00, 0.00, 0.00, 0.00, 1.00),     
+            17:  (1.72, 0.30, 0.00, 0.00, 0.00, 0.707, 0.707),  
         }
         if pressed_id not in start_lookup:
             self.get_logger().error(f"[read_button] Button {pressed_id} not in lookup table")
@@ -214,13 +221,13 @@ class HealthCheckNode(Node):
         self.check_tf_ok()
         # 2. local_filter, odom2map and imu/data_cov are published(what;s the difference oddom2map and local_filter? can they be merged?)
         if hasattr(self, 'odom2map') and hasattr(self, 'local_filter') and hasattr(self, 'imu_cov'):
-            self.get_logger().info("odom2map local_filter, and imu are published")
+            # self.get_logger().info("odom2map local_filter, and imu are published")
         # 3. either initial pose or camera pose is published
         if not hasattr(self, 'initial_pose') and not hasattr(self, 'camera_pose'):
             self.get_logger().warn("need inital or camera pose to initialize...")
             return False
         if not hasattr(self, 'lidar_pose'):
-            self.get_logger().warn("lidar_pose not available")
+            # self.get_logger().warn("lidar_pose not available")
             return False
         # 4. lidar_pose is published and agree with either initial pose or camera pose (TODO)
         if hasattr(self, 'lidar_pose') and hasattr(self, 'initial_pose'):
@@ -303,7 +310,7 @@ class HealthCheckNode(Node):
                 slip_magnitude = math.sqrt(slip_x**2 + slip_y**2) # for analysis
                 self.slip_values.append(slip_magnitude)
 
-                self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}, Magnitude: {slip_magnitude}")
+                # self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}, Magnitude: {slip_magnitude}")
 
                 if slip_x > 0.03 or slip_y > 0.03: # TODO: more test on this, it shouldn't be so frequent!
                     self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
@@ -462,7 +469,7 @@ class HealthCheckNode(Node):
             self.point_msg.y = self.p_lidar_param_running[1]
             self.point_msg.z = self.p_lidar_param_running[2]
             self.lidar_param_pub.publish(self.point_msg)
-            self.get_logger().info("Lidar parameters set to running")
+            # self.get_logger().info("Lidar parameters set to running")
             return False
         else:
             self.get_logger().warn("odom2map and camera_pose have a large difference")
