@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from healthcheck.srv import StartUpSrv
+from custom_interfaces.srv import StartUpSrv
 
 
 class ReadySignal(Node):

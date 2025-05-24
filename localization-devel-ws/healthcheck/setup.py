@@ -19,7 +19,6 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch/firmware', '*launch.[pxy][yma]*'))),
         # Include all config files.
         (os.path.join('share', package_name, 'config'), glob(os.path.join('config', '*.yml'))),
-        (os.path.join('share', package_name, 'config'), glob('srv/*.srv')),
     ],
     install_requires=[
         'setuptools',
@@ -29,6 +28,7 @@ setup(
         'visualization_msgs',
         'std_msgs',
         'tf2_ros',
+        'custom_interfaces',
     ],
     zip_safe=True,
     maintainer='user',

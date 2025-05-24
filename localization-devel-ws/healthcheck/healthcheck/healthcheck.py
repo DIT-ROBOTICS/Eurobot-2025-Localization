@@ -8,7 +8,7 @@ import math
 import numpy as np
 from datetime import datetime  # Import for date and time
 import os  # Import for file operations
-from ready_signal_template import ReadySignal
+from healthcheck.ready_signal_template import ReadySignal
 
 def rpy_from_quaternion(x, y, z, w):
     # yaw (z-axis rotation)
