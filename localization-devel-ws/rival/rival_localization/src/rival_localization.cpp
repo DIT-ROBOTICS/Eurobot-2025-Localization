@@ -26,9 +26,9 @@ void Rival::initialize() {
     // for is_me
     this->declare_parameter<double>("is_me", 0.3);
     // weights for the three sensors (the weight will be normalized depending on the combination)
-    this->declare_parameter<double>("cam_weight", 2);
-    this->declare_parameter<double>("obs_weight", 6);
-    this->declare_parameter<double>("side_weight", 2);
+    this->declare_parameter<double>("cam_weight", 2.0);
+    this->declare_parameter<double>("obs_weight", 6.0);
+    this->declare_parameter<double>("side_weight", 2.0);
     // threshold for comparing poses
     this->declare_parameter<double>("cam_side_threshold", 0.2);
     this->declare_parameter<double>("side_obs_threshold", 0.2);
