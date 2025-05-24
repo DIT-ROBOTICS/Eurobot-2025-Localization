@@ -35,7 +35,7 @@ services:
 
   localization-main:
     profiles: ['localization_main']
-    image: jossiewang/eurobot2025-localization:ydlidar # OdomTF finished testing 30th April 2025(Odom, obs_pcl)
+    image: jossiewang/eurobot2025-localization2:master # OdomTF finished testing 30th April 2025(Odom, obs_pcl)
     container_name: localization-main
     <<: 
       - *ros2-vars
@@ -46,7 +46,7 @@ services:
 
   localization-RunStarter:
     profiles: ['localization_RunStarter']
-    image: jossiewang/eurobot2025-localization2:runstarter
+    image: jossiewang/eurobot2025-localization2:master
     container_name: localization-RunStarter
     <<: 
       - *ros2-vars
@@ -57,7 +57,7 @@ services:
 
   localization-build-run:
     profiles: ['build_and_run']
-    image: jossiewang/eurobot2025-localization2:testbot-release
+    image: jossiewang/eurobot2025-localization2:master
     container_name: localization_build_run
     <<: 
       - *ros2-vars
@@ -92,7 +92,7 @@ services:
 
   localization-bash:
     profiles: ['localization_bash']
-    image: jossiewang/eurobot2025-localization:ydlidar
+    image: jossiewang/eurobot2025-localization:master
     container_name: localization-bash
     <<: 
       - *ros2-vars

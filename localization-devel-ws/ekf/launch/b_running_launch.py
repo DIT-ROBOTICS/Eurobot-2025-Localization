@@ -137,7 +137,8 @@ def generate_launch_description():
             name='obstacle_detector_to_map',
             parameters=[
                 rival_config_path,
-                {'frame_id': 'map'}
+                {'frame_id': 'map'},
+                {'pose_array':'true'}
             ],
             remappings=[
                 ('raw_obstacles', '/obstacles_to_map'),

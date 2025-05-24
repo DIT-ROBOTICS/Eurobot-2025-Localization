@@ -20,3 +20,5 @@ obstacle_detector_to_map:
     max_merge_spread: 0.02
     max_circle_radius: 0.2
     radius_enlargement: 0.05
+
+    pose_array:true
