@@ -28,7 +28,7 @@ def generate_launch_description():
     #     'firmware',
     #     'rplidar_s3_launch.py'
     # ])
-    rplidar_launch = PathJoinSubstitution([
+    ydlidar_launch = PathJoinSubstitution([
         FindPackageShare('lidar_localization_pkg'),
         'launch',
         'firmware',
@@ -132,7 +132,8 @@ def generate_launch_description():
         ]
     )
 
-    rplidar_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(rplidar_launch))
+    # rplidar_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(rplidar_launch))
+    ydlidar_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(ydlidar_launch))
     obstacle_extractor_include = IncludeLaunchDescription(AnyLaunchDescriptionSource(obstacle_extractor_launch))
 
     return LaunchDescription([
@@ -140,7 +141,7 @@ def generate_launch_description():
         DeclareLaunchArgument('side', default_value='1'),
 
         static_tf,
-        rplidar_include,
+        ydlidar_include,
         obstacle_extractor_include,
 
         healthcheck_node,
