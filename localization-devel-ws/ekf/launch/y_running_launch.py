@@ -95,7 +95,7 @@ def generate_launch_description():
         executable='rival_localization',
         name='rival_localization',
         output='screen',
-        parameters=[rival_config_path,
+        parameters=[
             {
                 'robot_name': 'robot',
                 'frequency': 10.0,
