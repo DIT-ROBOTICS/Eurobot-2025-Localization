@@ -11,7 +11,8 @@ class ReadySignal(Node):
         self.ready_sub = self.create_subscription(
             String,
             '/robot/startup/plan',
-            self.readyCallback
+            self.readyCallback,
+            2
         )
 
         self.ready_srv_client = self.create_client(
