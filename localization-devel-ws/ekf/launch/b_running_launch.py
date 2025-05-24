@@ -75,14 +75,14 @@ def generate_launch_description():
         package='lidar_localization_pkg',
         executable='lidar_localization',
         name='lidar_localization',
+        arguments=['--ros-args', '--log-level', 'info'],
         output='screen',
         parameters=[{
             'side': side,
             'debug_mode': False,
             'visualize_candidate': True,
             'likelihood_threshold': 0.8,
-            'consistency_threshold': 0.95,
-            'lidar_multiplier': 0.987
+            'consistency_threshold': 0.95
         }]
     )
 
@@ -95,16 +95,43 @@ def generate_launch_description():
         executable='rival_localization',
         name='rival_localization',
         output='screen',
-        parameters=[rival_config_path],
+        parameters=[rival_config_path,
+            {
+                'robot_name': 'robot',
+                'frequency': 10.0,
+                'x_max': 3.0,
+                'x_min': 0.0,
+                'y_max': 2.0,
+                'y_min': 0.0,
+                'vel_lpf_gain': 0.9,
+                'locking_rad': 0.3,
+                'lockrad_growing_rate': 0.3,
+                'is_me': 0.3,
+                'cam_weight': 6.0,
+                'obs_weight': 10.0,
+                'side_weight': 2.0,
+                'cam_side_threshold': 0.2,
+                'side_obs_threshold': 0.2,
+                'obs_cam_threshold': 0.2,
+                'crossed_areas': [
+                    2.55, 3.0, 0.65, 1.1,
+                    2.4, 2.85, 1.55, 2.0,
+                    2.0, 3.0, 0.0, 0.15,
+                    1.0, 2.0, 0.0, 0.4,
+                    0.0, 1.0, 0.0, 0.15,
+                    0.0, 0.45, 0.65, 1.1,
+                    0.15, 0.6, 1.55, 2.0,
+                    1.05, 1.95, 1.50, 2.0
+                ]
+            }
+        ],
         remappings=[
             ('raw_pose', [rival_name, '/raw_pose']),
-            ('final_pose', [rival_name, '/final_pose'])
+            # ('final_pose', [rival_name, '/final_pose'])
         ]
     )
 
-    rival_obstacle_node = GroupAction([
-        SetLaunchConfiguration('ros_namespace', rival_name),
-        Node(
+    rival_obstacle_node = Node(
             package='obstacle_detector',
             executable='obstacle_extractor_node',
             name='obstacle_detector_to_map',
@@ -114,10 +141,10 @@ def generate_launch_description():
             ],
             remappings=[
                 ('raw_obstacles', '/obstacles_to_map'),
-                ('scan', '/scan')
+                ('scan', '/scan'),
+                ('raw_obstacles_visualization_pcl', 'raw_obstacle_visualization_to_map_pcl')
             ]
-        )
-    ])
+    )
 
     static_tf = Node(
         package='tf2_ros',
