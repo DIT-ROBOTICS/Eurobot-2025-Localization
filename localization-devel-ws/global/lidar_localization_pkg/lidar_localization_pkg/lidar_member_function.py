@@ -19,24 +19,26 @@ class LidarLocalization(Node): # inherit from Node
         # Declare parameters
         self.declare_parameter('side', 0)
         self.declare_parameter('debug_mode', False)
-        self.declare_parameter('use_two_beacons', True)
+        self.declare_parameter('use_two_beacons', False)
         self.declare_parameter('visualize_candidate', True)
         self.declare_parameter('likelihood_threshold', 0.001)
         self.declare_parameter('consistency_threshold', 0.9)
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('robot_parent_frame_id', 'map')
-        self.declare_parameter('likelihood_threshold_two', 0.9)
+        self.declare_parameter('lidar_multiplier', 0.987)
+        self.declare_parameter('likelihood_threshold_two', 0.95)
         self.declare_parameter('consistency_threshold_two', 0.99)
 
         # Get parameters
         self.side = self.get_parameter('side').get_parameter_value().integer_value
         self.debug_mode = self.get_parameter('debug_mode').get_parameter_value().bool_value
-        self.use_two_beacons = self.get_parameter('use_two_beacons').get_parameter_value().bool_value
+        self.p_use_two_beacons = self.get_parameter('use_two_beacons').get_parameter_value().bool_value
         self.visualize_true = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
         self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
         self.robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
         self.robot_parent_frame_id = self.get_parameter('robot_parent_frame_id').get_parameter_value().string_value
+        self.lidar_multiplier = self.get_parameter('lidar_multiplier').get_parameter_value().double_value
         self.likelihood_threshold_two = self.get_parameter('likelihood_threshold_two').get_parameter_value().double_value
         self.consistency_threshold_two = self.get_parameter('consistency_threshold_two').get_parameter_value().double_value
 
@@ -116,6 +118,7 @@ class LidarLocalization(Node): # inherit from Node
 
         self.P_pred_linear = 0.8 # starting mode [0.8, 1.0, 0.8] -> [70cm, 35 deg, 80%]
         self.P_pred_angular = 1.0
+        self.use_two_beacons = self.p_use_two_beacons
     
     def obstacle_callback(self, msg): # main
         self.get_logger().debug('obstacle detected')
@@ -158,11 +161,11 @@ class LidarLocalization(Node): # inherit from Node
         if landmarks_with_candidates == 3:
             self.landmarks_set = self.get_landmarks_set(self.landmarks_candidate)
         elif landmarks_with_candidates == 2:
-            self.get_logger().info("candidates only two beacons")
+            # self.get_logger().info("candidates only two beacons")
             self.get_two_beacons()
             return
         else:
-            self.get_logger().warn("less than two landmarks")
+            # self.get_logger().warn("less than two landmarks")
             return
 
         # for the normal case, complete three landmarks
@@ -197,6 +200,7 @@ class LidarLocalization(Node): # inherit from Node
     def local_callback(self, msg):
         # get robot speed
         self.robot_speed = np.array([msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.angular.z])
+        if not self.p_use_two_beacons: return
         # if robot spin larger than 0.3, do not use two beacons
         if abs(self.robot_speed[2]) > 0.3:
             self.use_two_beacons = False
@@ -435,9 +439,9 @@ class LidarLocalization(Node): # inherit from Node
             self.get_logger().debug("lidar pose is out of map")
             return
         lidar_cov = np.diag([0.05**2, 0.05**2, 0.05**2])
-        lidar_cov[0, 0] /= max_likelihood
-        lidar_cov[1, 1] /= max_likelihood
-        lidar_cov[2, 2] /= max_likelihood
+        lidar_cov[0, 0] /= max_likelihood/10
+        lidar_cov[1, 1] /= max_likelihood/10
+        lidar_cov[2, 2] /= max_likelihood/10
         # publish the lidar pose
         self.pub_lidar_pose(lidar_pose, lidar_cov)
         if self.visualize_true:
