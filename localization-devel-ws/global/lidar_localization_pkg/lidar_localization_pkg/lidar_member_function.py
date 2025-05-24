@@ -19,22 +19,28 @@ class LidarLocalization(Node): # inherit from Node
         # Declare parameters
         self.declare_parameter('side', 0)
         self.declare_parameter('debug_mode', False)
+        self.declare_parameter('use_two_beacons', False)
         self.declare_parameter('visualize_candidate', True)
         self.declare_parameter('likelihood_threshold', 0.001)
         self.declare_parameter('consistency_threshold', 0.9)
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('lidar_multiplier', 0.987)
+        self.declare_parameter('likelihood_threshold_two', 0.95)
+        self.declare_parameter('consistency_threshold_two', 0.99)
 
         # Get parameters
         self.side = self.get_parameter('side').get_parameter_value().integer_value
         self.debug_mode = self.get_parameter('debug_mode').get_parameter_value().bool_value
+        self.p_use_two_beacons = self.get_parameter('use_two_beacons').get_parameter_value().bool_value
         self.visualize_true = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
         self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
         self.robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
         self.robot_parent_frame_id = self.get_parameter('robot_parent_frame_id').get_parameter_value().string_value
         self.lidar_multiplier = self.get_parameter('lidar_multiplier').get_parameter_value().double_value
+        self.likelihood_threshold_two = self.get_parameter('likelihood_threshold_two').get_parameter_value().double_value
+        self.consistency_threshold_two = self.get_parameter('consistency_threshold_two').get_parameter_value().double_value
 
         # Set the landmarks map based on the side
         if self.side == 0:
@@ -103,6 +109,7 @@ class LidarLocalization(Node): # inherit from Node
 
         self.init_landmarks_map(self.landmarks_map)
         self.robot_pose = []
+        self.landmarks_set = []
         self.P_pred = np.array([[0.05**2, 0.0, 0.0], [0.0, 0.05**2, 0.0], [0.0, 0.0, 0.1]]) # TODO: tune the value, fixed for now
         self.newPose = False
         self.R = np.array([[0.001, 0.0], [0.0, 0.001]]) # measurement noise; TODO: tune the value
@@ -111,6 +118,7 @@ class LidarLocalization(Node): # inherit from Node
 
         self.P_pred_linear = 0.8 # starting mode [0.8, 1.0, 0.8] -> [70cm, 35 deg, 80%]
         self.P_pred_angular = 1.0
+        self.use_two_beacons = self.p_use_two_beacons
     
     def obstacle_callback(self, msg): # main
         self.get_logger().debug('obstacle detected')
@@ -142,13 +150,32 @@ class LidarLocalization(Node): # inherit from Node
                 self.get_logger().error("no new predict topic, skip.")
                 return
             
-        # data processing
+        # main: data processing
         self.landmarks_candidate = self.get_landmarks_candidate(self.landmarks_map, self.obs_raw)
-        self.landmarks_set = self.get_landmarks_set(self.landmarks_candidate)
-        if len(self.landmarks_set) == 0:
-            self.get_logger().debug("empty landmarks set")
+
+        # if each of the three beacon has at least one candidate
+        landmarks_with_candidates = 0
+        for i in range(3):
+            if len(self.landmarks_candidate[i]['obs_candidates']) > 0:
+                landmarks_with_candidates += 1
+        if landmarks_with_candidates == 3:
+            self.landmarks_set = self.get_landmarks_set(self.landmarks_candidate)
+        elif landmarks_with_candidates == 2:
+            # self.get_logger().info("candidates only two beacons")
+            self.get_two_beacons()
             return
+        else:
+            # self.get_logger().warn("less than two landmarks")
+            return
+
+        # for the normal case, complete three landmarks
+        if len(self.landmarks_set) == 0: # when fail when checking consistency and likelihood
+            self.get_logger().debug("empty landmarks set")
+            self.get_two_beacons()
+            return
+
         self.get_lidar_pose(self.landmarks_set, self.landmarks_map)
+
         # clear used data
         self.clear_data()
     
@@ -173,6 +200,13 @@ class LidarLocalization(Node): # inherit from Node
     def local_callback(self, msg):
         # get robot speed
         self.robot_speed = np.array([msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.angular.z])
+        if not self.p_use_two_beacons: return
+        # if robot spin larger than 0.3, do not use two beacons
+        if abs(self.robot_speed[2]) > 0.3:
+            self.use_two_beacons = False
+        else:
+            self.use_two_beacons = True
+
 
     def set_lidar_side_callback(self, msg):
         side = msg.data.lower()
@@ -222,7 +256,7 @@ class LidarLocalization(Node): # inherit from Node
         x_o, y_o = landmark
         r_prime = np.sqrt((x_o - x_r) ** 2 + (y_o - y_r) ** 2)
         # theta_rob = np.arctan2(
-        temp = angle_limit_checking(np.arctan2(y_o - y_r, x_o - x_r)) # limit checking is not necessary right?
+        temp = np.arctan2(y_o - y_r, x_o - x_r)
         theta_prime = angle_limit_checking(temp - phi_r)
 
         H = np.array([
@@ -345,31 +379,8 @@ class LidarLocalization(Node): # inherit from Node
                 lidar_cov[2, 2] /= max_likelihood
 
                 # publish the lidar pose
-                self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
-                self.lidar_pose_msg.header.frame_id = 'map' #TODO: param
-                self.lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
-                self.lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
-                self.lidar_pose_msg.pose.pose.position.z = 0.0
-                self.lidar_pose_msg.pose.pose.orientation.x = 0.0
-                self.lidar_pose_msg.pose.pose.orientation.y = 0.0
-                self.lidar_pose_msg.pose.pose.orientation.z = np.sin(lidar_pose[2] / 2)
-                self.lidar_pose_msg.pose.pose.orientation.w = np.cos(lidar_pose[2] / 2)
-                self.lidar_pose_msg.pose.covariance = [
-                    lidar_cov[0, 0], 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, lidar_cov[1, 1], 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, lidar_cov[2, 2]
-                ]
-                # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
-                self.lidar_pose_pub.publish(self.lidar_pose_msg)
+                self.pub_lidar_pose(lidar_pose, lidar_cov)
                 self.publish_beacons(beacons)
-                # debug print the calculation time (from obstacle stamp to now)
-                if self.debug_mode:
-                    obs_time_rclpy = rclpy.time.Time.from_msg(self.obs_time)
-                    calc_time_ms = (self.get_clock().now() - obs_time_rclpy).nanoseconds * 1e-6
-                    self.get_logger().info(f"calculation time: {calc_time_ms:.2f} ms")
 
             except np.linalg.LinAlgError as e:
                 self.get_logger().warn("Linear algebra error: {}".format(e))
@@ -382,6 +393,146 @@ class LidarLocalization(Node): # inherit from Node
             self.get_logger().debug("not enough beacons")
 
         return lidar_pose, lidar_cov
+
+    def get_two_beacons(self):
+
+        if self.use_two_beacons == False:
+            self.get_logger().debug("use_two_beacons is set to false")
+            return
+
+        indices = []
+        self.get_logger().debug("get two beacons")
+
+        # get the index of the two beacons with candidates and obstacle probability larger than 0.8
+        for i in range(3):
+            if any(candidate['probability'] > self.likelihood_threshold_two for candidate in self.landmarks_candidate[i]['obs_candidates']):
+                indices.append(i)
+
+        self.get_logger().debug(f"indices: {indices}")
+
+        if len(indices) == 2:
+            two_index = [indices[0], indices[1]]
+            self.get_set_two(two_index)
+        elif len(indices) == 3:
+            for i in range(3): # 01, 12, 20
+                two_index = [indices[i], indices[(i + 1) % 3]]
+                self.get_set_two(two_index)
+
+        # check if there is valid set
+        if len(self.landmarks_set) == 0:
+            self.get_logger().warn("no valid set")
+            return
+
+        # use the set with the highest probability
+        max_likelihood = max(set['probability_set'] for set in self.landmarks_set)
+        max_likelihood_idx = next(i for i, set in enumerate(self.landmarks_set) if set['probability_set'] == max_likelihood)
+        beacons = [self.landmarks_set[max_likelihood_idx]['beacons'][0], self.landmarks_set[max_likelihood_idx]['beacons'][1]]
+        # calculate the lidar pose
+        lidar_pose = self.get_lidar_pose_two(
+            indices[0],
+            indices[1],
+            beacons[0][0], beacons[0][1],
+            beacons[1][0], beacons[1][1]
+        )
+        # check if the lidar pose is in the map
+        if lidar_pose[0] < 0 or lidar_pose[0] > 3 or lidar_pose[1] < 0 or lidar_pose[1] > 2:
+            self.get_logger().debug("lidar pose is out of map")
+            return
+        lidar_cov = np.diag([0.05**2, 0.05**2, 0.05**2])
+        lidar_cov[0, 0] /= max_likelihood/10
+        lidar_cov[1, 1] /= max_likelihood/10
+        lidar_cov[2, 2] /= max_likelihood/10
+        # publish the lidar pose
+        self.pub_lidar_pose(lidar_pose, lidar_cov)
+        if self.visualize_true:
+            self.visualize_sets(beacons, max_likelihood, self.landmarks_set[max_likelihood_idx]['consistency'])
+            
+        # also print the likelihood
+        self.get_logger().debug(f"lidar_pose (two): {lidar_pose}")
+        self.get_logger().debug(f"lidar_pose (two) likelihood: {max_likelihood}")
+
+        self.clear_data()
+
+    def get_set_two(self, two_index):
+
+        # nominal geometry
+        nominal_distance = np.linalg.norm(self.landmarks_map[two_index[0]] - self.landmarks_map[two_index[1]])
+        self.get_logger().debug(f"nominal distance: {nominal_distance:.2f}")
+        angle1 = np.arctan2(self.landmarks_map[two_index[1]][1] - self.robot_pose[1], self.landmarks_map[two_index[1]][0] - self.robot_pose[0])
+        angle0 = np.arctan2(self.landmarks_map[two_index[0]][1] - self.robot_pose[1], self.landmarks_map[two_index[0]][0] - self.robot_pose[0]) 
+        nominal_angle = angle_limit_checking(angle1 - angle0)
+        # print nominal angle, display in degree
+        self.get_logger().debug(f"nominal angle: {nominal_angle * 180 / np.pi:.2f} degree")
+
+        # get the sets
+        for i in range(len(self.landmarks_candidate[two_index[0]]['obs_candidates'])):
+            for j in range(len(self.landmarks_candidate[two_index[1]]['obs_candidates'])):
+                set = {
+                    'beacons': {
+                        0: self.landmarks_candidate[two_index[0]]['obs_candidates'][i]['position'],
+                        1: self.landmarks_candidate[two_index[1]]['obs_candidates'][j]['position']
+                    }
+                }
+                # geometry consistency
+                # 1. check the cross product: 'robot to beacon 0' cross 'robot to beacon 1'
+                cross = np.cross(set['beacons'][0], set['beacons'][1]) # TODO: check if beacon 0 and 1 will be in the order of beacon a, b and c
+                if self.side == 0: # yellow is clockwise(negative)
+                    if cross > 0:
+                        # self.get_logger().debug("cross product is positive")
+                        continue
+                elif self.side == 1: # blue is counter-clockwise(positive)
+                    if cross < 0:
+                        # self.get_logger().debug("cross product is negative")
+                        continue
+                # 2. check the distance between the two beacons
+                set['consistency'] = 1 - abs(np.linalg.norm(set['beacons'][0] - set['beacons'][1]) - nominal_distance) / nominal_distance
+                if set['consistency'] < self.consistency_threshold_two:
+                    self.get_logger().debug(f"Geometry consistency is less than {self.consistency_threshold_two}: {set['consistency']}")
+                    continue
+                # 3. check the angle between the two beacons
+                angle1 = np.arctan2(set['beacons'][1][1], set['beacons'][1][0])
+                angle0 = np.arctan2(set['beacons'][0][1], set['beacons'][0][0])
+                angle = angle_limit_checking(angle1 - angle0)
+                if abs(angle_limit_checking(angle - nominal_angle)) > np.pi / 18: # 10 degree
+                    self.get_logger().debug(f"Angle difference is too large: {angle * 180 / np.pi:.2f} degree")
+                    continue
+                # self.get_logger().info(f"angle1: {angle1 * 180 / np.pi:.2f} degree")
+                # self.get_logger().info(f"angle0: {angle0 * 180 / np.pi:.2f} degree")
+                # self.get_logger().info(f"cadidate angle: {angle * 180 / np.pi:.2f} degree")
+                # probability of the set
+                set['probability_set'] = self.landmarks_candidate[two_index[0]]['obs_candidates'][i]['probability'] * self.landmarks_candidate[two_index[1]]['obs_candidates'][j]['probability']
+                if set['probability_set'] < self.likelihood_threshold_two:
+                    self.get_logger().debug(f"Probability is less than {self.likelihood_threshold_two}: {set['probability_set']}")
+                    continue
+                self.landmarks_set.append(set)
+
+    def get_lidar_pose_two(self, landmark_index_1, landmark_index_2, bxr, byr, cxr, cyr):
+
+        lidar_pose = np.zeros(3)
+        # the beacons position w.r.t. map
+        bxm = self.landmarks_map[landmark_index_1][0]
+        bym = self.landmarks_map[landmark_index_1][1]
+        cxm = self.landmarks_map[landmark_index_2][0]
+        cym = self.landmarks_map[landmark_index_2][1]
+        x = cxm - bxm
+        y = cym - bym
+        xr = cxr - bxr
+        yr = cyr - byr
+        # calculate the angle from robot to map
+        costheta = (xr*x + yr*y) / (xr**2 + yr**2)
+        sintheta = (xr*y - yr*x) / (xr**2 + yr**2)
+        lidar_pose[2] = np.arctan2(sintheta, costheta)
+        # find the linear translation from robot to map
+        # 1. transform beacon positions from w.r.t. robot to w.r.t. map
+        bx = costheta * bxr - sintheta * byr
+        by = sintheta * bxr + costheta * byr
+        cx = costheta * cxr - sintheta * cyr
+        cy = sintheta * cxr + costheta * cyr
+        # 2. linear translation from robot to map, take the average of the result from the two beacons
+        lidar_pose[0] = (bxm - bx)/2 + (cxm - cx)/2
+        lidar_pose[1] = (bym - by)/2 + (cym - cy)/2
+
+        return lidar_pose
 
     def visualize_sets(self, beacons, max_likelihood, consistency):
         marker_array = MarkerArray()
@@ -574,6 +725,27 @@ class LidarLocalization(Node): # inherit from Node
 
         self.beacons_pub.publish(pose_array)
         self.get_logger().debug("Published beacons to /beacons_guaguagua")
+    
+    def pub_lidar_pose(self, lidar_pose, lidar_cov):
+        # publish the lidar pose
+        self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg()
+        self.lidar_pose_msg.header.frame_id = 'map' #TODO: param
+        self.lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
+        self.lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
+        self.lidar_pose_msg.pose.pose.position.z = 0.0
+        self.lidar_pose_msg.pose.pose.orientation.x = 0.0
+        self.lidar_pose_msg.pose.pose.orientation.y = 0.0
+        self.lidar_pose_msg.pose.pose.orientation.z = np.sin(lidar_pose[2] / 2)
+        self.lidar_pose_msg.pose.pose.orientation.w = np.cos(lidar_pose[2] / 2)
+        self.lidar_pose_msg.pose.covariance = [
+            lidar_cov[0, 0], 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, lidar_cov[1, 1], 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, lidar_cov[2, 2]
+        ]
+        self.lidar_pose_pub.publish(self.lidar_pose_msg)
 
 
 def quaternion_from_euler(ai, aj, ak):
