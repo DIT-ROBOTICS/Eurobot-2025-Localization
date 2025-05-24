@@ -8,6 +8,7 @@ import math
 import numpy as np
 from datetime import datetime  # Import for date and time
 import os  # Import for file operations
+import json  # Import for JSON operations
 
 def rpy_from_quaternion(x, y, z, w):
     # yaw (z-axis rotation)
@@ -95,6 +96,9 @@ class HealthCheckNode(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
+        # Read the user input from button file
+        self.read_button()
+
         # # Create health report file V
         self.create_health_report_file()
 
@@ -113,6 +117,77 @@ class HealthCheckNode(Node):
         self.new_odom = False
 
         self.point_msg = Point()
+
+    def read_button(self):
+        # Read from file /home/user/share/data to learn the initial position of the robot
+        button_file_path = '/home/user/share/data/button.json'
+        # Find the starting point set as true, and publish the initial pose if successful
+        # the table:
+        # no. -> initial pose
+        # 17 -> 1.2, 0.3, 0.0, 0.0, 0.0, 0.0, 1.0
+
+    def read_button(self):
+        """
+        Read /home/user/share/data/button.json, detect which start-button is
+        pressed, and publish the corresponding initial pose.
+        """
+        button_file_path = '/home/user/share/data/button.json'
+
+        # ---------- 1. Load the file ----------
+        try:
+            with open(button_file_path, 'r') as fp:
+                btn_data = json.load(fp)
+        except (OSError, json.JSONDecodeError) as e:
+            self.get_logger().error(f"[read_button] Cannot read {button_file_path}: {e}")
+            return
+
+        states = btn_data.get("states", {})
+        if not states:
+            self.get_logger().warn("[read_button] No 'states' field in JSON")
+            return
+
+        # ---------- 2. Find the first button that is True ----------
+        pressed_id = next((int(k) for k, v in states.items() if v), None)
+        if pressed_id is None:
+            self.get_logger().info("[read_button] No button is pressed. waiting for initial pose...")
+            return
+
+        # ---------- 3. Map button id → (x, y, yaw) ----------
+        # mind blue/yellow, panda or raccoon
+        start_lookup = { # x, y, z, x, y, z, w
+            0: ( 1.20,  0.20,  0.00, 0.00, 0.00, 0.707, 0.707), # origin
+            1: ( 0.00,  0.00,  0.00, 0.00, 0.00, 0.00, 1.00), # origin
+        }
+        if pressed_id not in start_lookup:
+            self.get_logger().error(f"[read_button] Button {pressed_id} not in lookup table")
+            return
+
+        # ---------- 4. Build & publish initial pose ----------
+        init_msg = PoseWithCovarianceStamped()
+        init_msg.header.stamp = self.get_clock().now().to_msg()
+        init_msg.header.frame_id = self.p_map_frame_id
+        init_msg.pose.pose.position.x = start_lookup[pressed_id][0]
+        init_msg.pose.pose.position.y = start_lookup[pressed_id][1]
+        init_msg.pose.pose.position.z = 0.0
+        init_msg.pose.pose.orientation.x = start_lookup[pressed_id][3]
+        init_msg.pose.pose.orientation.y = start_lookup[pressed_id][4]
+        init_msg.pose.pose.orientation.z = start_lookup[pressed_id][5]
+        init_msg.pose.pose.orientation.w = start_lookup[pressed_id][6]
+
+        self.init_pub.publish(init_msg)
+        self.initial_pose = init_msg
+
+        yaw = rpy_from_quaternion(
+            start_lookup[pressed_id][3],
+            start_lookup[pressed_id][4],
+            start_lookup[pressed_id][5],
+            start_lookup[pressed_id][6]
+        )
+        self.get_logger().info(f"[read_button] Init pose published from button {pressed_id} "
+                            f"→ ({start_lookup[pressed_id][0]:.2f}, {start_lookup[pressed_id][1]:.2f}, {yaw:.2f} rad)")
+
+        # Kick-start the localisation pipeline
+        self.check_localization_ok()
 
     def create_health_report_file(self):
         # Generate the filename based on the current date and timeV
