@@ -24,7 +24,7 @@ class ReadySignal(Node):
     def _readyCallback(self, msg):
         if msg is not None and not self.is_main_ready:
             self.is_main_ready = True
-            self.get_logger().info(f'enter raedy callback')
+            self.get_logger().info(f'enter ready callback')
 
     def _sendReadySignal(self, group_, state_):
         self.get_logger().info('send ready signal')
@@ -34,16 +34,9 @@ class ReadySignal(Node):
         request.group = group_
         request.state = state_
 
-        future = self.ready_srv_client.call_async(request)
+        self.ready_srv_client.call_async(request)
 
-        def callback(fut):
-            try:
-                response = fut.result()
-                self.get_logger().info(f'response: success={int(response.success)}, group={response.group}')
-            except Exception as e:
-                self.get_logger().error(f'Service call failed: {e}')
-
-        future.add_done_callback(callback)
+        self.get_logger().info(f"response: success={state_}, group={group_}")
 
 def main(args=None):
     rclpy.init(args=args)
