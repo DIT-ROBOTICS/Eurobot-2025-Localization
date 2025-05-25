@@ -27,16 +27,16 @@ class ReadySignal(Node):
             self.is_main_ready = True
 
     def sendReadySignal(self, group_, state_):
-        self.get_logger().info('send ready signal')
+        if self.is_main_ready:
+            self.get_logger().info('send ready signal')
 
-        # 4:localization
-        request = StartUpSrv.Request()
-        request.group = group_
-        request.state = state_
+            request = StartUpSrv.Request()
+            request.group = group_
+            request.state = state_
 
-        self.ready_srv_client.call_async(request)
+            self.ready_srv_client.call_async(request)
 
-        self.get_logger().info(f"response: success={state_}, group={group_}")
+            self.get_logger().info(f"response: success={state_}, group={group_}")
 
 def main(args=None):
     rclpy.init(args=args)

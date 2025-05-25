@@ -498,13 +498,10 @@ class HealthCheckNode(Node):
         self.imu_cov = msg
 
     def signal_to_main(self):
-        if self.ready_signal.is_main_ready and self.is_localization_ok:
+        if self.is_localization_ok:
             self.ready_signal.sendReadySignal(4, 3)
             self.signal_timer.cancel()
             self.signal_timer = None
-
-        else:
-            self.get_logger().info("waiting for main...")
 
 def main(args=None):
     rclpy.init(args=args)
