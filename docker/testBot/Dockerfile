@@ -155,7 +155,7 @@ CMD ["/bin/bash"]
 FROM final AS devel-ws
 
 ARG USERNAME
-ARG BRANCH_SELECT=ft.tail-eliminator
+ARG BRANCH_SELECT=Raccoon
 
 WORKDIR /home/user/temp
 RUN git clone -b ${BRANCH_SELECT} https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization

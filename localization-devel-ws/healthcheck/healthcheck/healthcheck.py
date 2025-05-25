@@ -8,7 +8,10 @@ import math
 import numpy as np
 from datetime import datetime  # Import for date and time
 import os  # Import for file operations
+
 from healthcheck.ready_signal_template import ReadySignal
+import json  # Import for JSON operations
+
 
 def rpy_from_quaternion(x, y, z, w):
     # yaw (z-axis rotation)
@@ -99,6 +102,9 @@ class HealthCheckNode(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
+        # Read the user input from button file
+        self.read_button()
+
         # # Create health report file V
         self.create_health_report_file()
 
@@ -120,6 +126,81 @@ class HealthCheckNode(Node):
         self.new_odom = False
 
         self.point_msg = Point()
+
+    def read_button(self):
+        """
+        Read /home/user/share/data/button.json, detect which start-button is
+        pressed, and publish the corresponding initial pose.
+        """
+        button_file_path = '/home/user/share/data/button.json'
+
+        # ---------- 1. Load the file ----------
+        try:
+            with open(button_file_path, 'r') as fp:
+                btn_data = json.load(fp)
+        except (OSError, json.JSONDecodeError) as e:
+            self.get_logger().error(f"[read_button] Cannot read {button_file_path}: {e}")
+            return
+
+        states = btn_data.get("states", {})
+        if not states:
+            self.get_logger().warn("[read_button] No 'states' field in JSON")
+            return
+
+        # ---------- 2. Find the first button that is True ----------
+        pressed_id = next((int(k) for k, v in states.items() if v), None)
+        if pressed_id is None:
+            self.get_logger().info("[read_button] No button is pressed. waiting for initial pose...")
+            return
+
+        # ---------- 3. Map button id → (x, y, yaw) ----------
+        # mind blue/yellow, panda or raccoon
+        start_lookup = { # x, y, z, x, y, z, w
+            0:   (1.20, 0.20, 0.00, 0.00, 0.00, 0.707, 0.707),   
+            1:   (0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00),     
+            10:  (0.35, 1.70, 0.00, 0.00, 0.00, 0.707, -0.707),
+            11:  (2.70, 0.90, 0.00, 0.00, 0.00, 1.00, 0.00),
+            # 13:  (1.28, 0.30, 0.00, 0.00, 0.00, 0.707, 0.707),   # for Panda
+            13:  (1.28, 0.30, 0.00, 0.00, 0.00, 1.00, 0.00),   # for Raccoon
+            # team blue
+            19:  (2.65, 1.70, 0.00, 0.00, 0.00, 0.707, -0.707),  
+            15:  (0.30, 0.90, 0.00, 0.00, 0.00, 0.00, 1.00),     
+            17:  (1.72, 0.30, 0.00, 0.00, 0.00, 0.707, 0.707),  
+        }
+        if pressed_id not in start_lookup:
+            self.get_logger().error(f"[read_button] Button {pressed_id} not in lookup table")
+            return
+        
+        # wait until the ekf is launched
+        self.check_tf_ok()
+        self.get_init = False
+        self.odom_init = False
+        # ---------- 4. Build & publish initial pose ----------
+        init_msg = PoseWithCovarianceStamped()
+        init_msg.header.stamp = self.get_clock().now().to_msg()
+        init_msg.header.frame_id = self.p_map_frame_id
+        init_msg.pose.pose.position.x = start_lookup[pressed_id][0]
+        init_msg.pose.pose.position.y = start_lookup[pressed_id][1]
+        init_msg.pose.pose.position.z = 0.0
+        init_msg.pose.pose.orientation.x = start_lookup[pressed_id][3]
+        init_msg.pose.pose.orientation.y = start_lookup[pressed_id][4]
+        init_msg.pose.pose.orientation.z = start_lookup[pressed_id][5]
+        init_msg.pose.pose.orientation.w = start_lookup[pressed_id][6]
+
+        self.init_pub.publish(init_msg) # should be published after ekf is launched
+        self.initial_pose = init_msg
+
+        yaw = rpy_from_quaternion(
+            start_lookup[pressed_id][3],
+            start_lookup[pressed_id][4],
+            start_lookup[pressed_id][5],
+            start_lookup[pressed_id][6]
+        )
+        self.get_logger().info(f"[read_button] Init pose published from button {pressed_id} "
+                            f"→ ({start_lookup[pressed_id][0]:.2f}, {start_lookup[pressed_id][1]:.2f}, {yaw:.2f} rad)")
+
+        # Kick-start the localisation pipeline
+        self.check_localization_ok()
 
     def create_health_report_file(self):
         # Generate the filename based on the current date and timeV
@@ -152,7 +233,7 @@ class HealthCheckNode(Node):
             self.get_logger().warn("need inital or camera pose to initialize...")
             return False
         if not hasattr(self, 'lidar_pose'):
-            self.get_logger().warn("lidar_pose not available")
+            # self.get_logger().warn("lidar_pose not available")
             return False
         # 4. lidar_pose is published and agree with either initial pose or camera pose (TODO)
         if hasattr(self, 'lidar_pose') and hasattr(self, 'initial_pose'):
@@ -236,7 +317,9 @@ class HealthCheckNode(Node):
                 slip_magnitude = math.sqrt(slip_x**2 + slip_y**2) # for analysis
                 self.slip_values.append(slip_magnitude)
 
-                self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}, Magnitude: {slip_magnitude}")
+
+                # self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}, Magnitude: {slip_magnitude}")
+
 
                 if slip_x > 0.03 or slip_y > 0.03: # TODO: more test on this, it shouldn't be so frequent!
                     self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
@@ -395,7 +478,7 @@ class HealthCheckNode(Node):
             self.point_msg.y = self.p_lidar_param_running[1]
             self.point_msg.z = self.p_lidar_param_running[2]
             self.lidar_param_pub.publish(self.point_msg)
-            self.get_logger().info("Lidar parameters set to running")
+            # self.get_logger().info("Lidar parameters set to running")
             return False
         else:
             self.get_logger().warn("odom2map and camera_pose have a large difference")
@@ -446,7 +529,9 @@ class HealthCheckNode(Node):
             with open(self.report_file_path, 'a') as file:
                 # Record the time difference between current time and imu_cov stamp
                 imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
-                time_diff = current_time - imu_time
+
+                time_diff = imu_time - current_time
+
                 file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference current to imu_cov: {time_diff} seconds\n")
             # return False
         
@@ -458,7 +543,9 @@ class HealthCheckNode(Node):
                 # also record the time difference between imu_cov and odom2map
                 odom_time = self.odom2map.header.stamp.sec + self.odom2map.header.stamp.nanosec / 1e9
                 imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
-                time_diff = imu_time - odom_time
+
+                time_diff = odom_time - imu_time
+
                 file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference imu to odom: {time_diff} seconds\n")                
             # return False
         

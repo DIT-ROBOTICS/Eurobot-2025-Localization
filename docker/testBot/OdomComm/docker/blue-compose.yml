@@ -60,7 +60,8 @@ services:
             roslaunch odometry odometry_comm.launch"
 
   ros2-localization-dev:
-    image: jossiewang/eurobot2025-localization:ydlidar
+
+    image: jossiewang/eurobot2025-localization2:master
     container_name: localization-2025-dev-ros2
     stdin_open: true
     tty: true
@@ -92,11 +93,11 @@ services:
       # - /dev/dri:/dev/dri
       # Mount sound card to prevent Gazebo warning.
       # - /dev/snd:/dev/snd
+      - /home/share/data:/home/user/share/data:ro
       - /dev:/dev
       # Mount workspace
       - ../../../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
     command: /bin/bash -c "
         source /opt/ros/humble/setup.bash && 
         source /home/user/localization-ws/install/setup.bash &&
-        sudo chmod 777 /dev/ttyUSB1 &&
         ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/b_running_launch.py"
