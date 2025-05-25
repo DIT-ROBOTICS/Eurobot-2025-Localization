@@ -180,9 +180,10 @@ def generate_launch_description():
         ydlidar_include,
         obstacle_extractor_include,
 
+        ekf_node,
         healthcheck_node,
 
-        TimerAction(period=2.0, actions=[ekf_node]),
+        # TimerAction(period=2.0, actions=[ekf_node]),
         TimerAction(period=4.0, actions=[lidar_node]),
         TimerAction(period=6.0, actions=[local_filter_launch]),
         TimerAction(period=8.0, actions=[rival_node, rival_obstacle_node])
