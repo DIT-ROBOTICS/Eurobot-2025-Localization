@@ -162,7 +162,7 @@ def generate_launch_description():
         output='screen',
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '-1.633628',
+            '--roll', '0', '--pitch', '0', '--yaw', '-1.580239',
             '--frame-id', 'base_footprint',
             '--child-frame-id', 'laser'
         ]
@@ -179,9 +179,10 @@ def generate_launch_description():
         static_tf,
         ydlidar_include,
         obstacle_extractor_include,
-        ekf_node,
+
         healthcheck_node,
 
+        TimerAction(period=2.0, actions=[ekf_node]),
         TimerAction(period=4.0, actions=[lidar_node]),
         TimerAction(period=6.0, actions=[local_filter_launch]),
         TimerAction(period=8.0, actions=[rival_node, rival_obstacle_node])
