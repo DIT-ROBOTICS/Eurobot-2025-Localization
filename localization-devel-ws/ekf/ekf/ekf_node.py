@@ -103,6 +103,8 @@ class EKFFootprintBroadcaster(Node):
 
     
     def init_callback(self, msg):
+
+        self.get_logger().info("Initial pose received, initializing EKF state.")
         
         self.X[0] = msg.pose.pose.position.x
         self.X[1] = msg.pose.pose.position.y

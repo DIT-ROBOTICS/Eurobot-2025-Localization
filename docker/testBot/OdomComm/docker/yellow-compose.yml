@@ -92,6 +92,7 @@ services:
       # - /dev/dri:/dev/dri
       # Mount sound card to prevent Gazebo warning.
       # - /dev/snd:/dev/snd
+      - /home/share/data:/home/user/share/data:ro
       - /dev:/dev
       # Mount workspace
       - ../../../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
