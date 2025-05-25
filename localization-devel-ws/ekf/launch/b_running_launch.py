@@ -40,6 +40,9 @@ def generate_launch_description():
         executable='healthcheck_node',
         name='healthcheck_node',
         output='screen'
+        # ,remappings=[
+        #     ['/vision/aruco/robot/single/average_pose', '/vision/aruco/robot_pose']
+        ]
     )
 
     ekf_node = Node(
@@ -122,6 +125,7 @@ def generate_launch_description():
         ],
         remappings=[
             ('raw_pose', [rival_name, '/raw_pose'])
+            (['/ceiling_rival/pose','/vision/aruco/rival_pose'])
         ]
     )
 
