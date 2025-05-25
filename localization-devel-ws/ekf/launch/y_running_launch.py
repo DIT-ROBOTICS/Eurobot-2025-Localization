@@ -42,7 +42,7 @@ def generate_launch_description():
         output='screen'
         # ,remappings=[
         #     ['/vision/aruco/robot/single/average_pose', '/vision/aruco/robot_pose']
-        ]
+        # ]
     )
 
     ekf_node = Node(
