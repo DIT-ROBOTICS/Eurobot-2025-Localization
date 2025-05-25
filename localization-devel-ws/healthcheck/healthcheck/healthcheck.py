@@ -156,7 +156,7 @@ class HealthCheckNode(Node):
             # team blue
             19:  (2.65, 1.70, 0.00, 0.00, 0.00, 0.707, -0.707),  
             15:  (0.30, 0.90, 0.00, 0.00, 0.00, 0.00, 1.00),     
-            17:  (1.72, 0.30, 0.00, 0.00, 0.00, 0.707, 0.707),  
+            17:  (1.72, 0.30, 0.00, 0.00, 0.00, 1.00, 0.00),  
         }
         if pressed_id not in start_lookup:
             self.get_logger().error(f"[read_button] Button {pressed_id} not in lookup table")
