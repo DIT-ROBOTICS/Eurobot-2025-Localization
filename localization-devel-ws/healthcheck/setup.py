@@ -38,7 +38,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'healthcheck_node = healthcheck.healthcheck:main'
+            'healthcheck_node = healthcheck.healthcheck:main',
+            'ready_signal_node = healthcheck.ready_signal_template:main'
         ],
     },
 )
