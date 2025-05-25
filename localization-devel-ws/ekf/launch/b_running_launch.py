@@ -166,7 +166,7 @@ def generate_launch_description():
         output='screen',
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '-1.580239',
+            '--roll', '0', '--pitch', '0', '--yaw', '-1.633628',
             '--frame-id', 'base_footprint',
             '--child-frame-id', 'laser'
         ]
@@ -178,7 +178,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument('rival_name', default_value='rival'),
-        DeclareLaunchArgument('side', default_value='0'),
+        DeclareLaunchArgument('side', default_value='1'),
 
         static_tf,
         ydlidar_include,
