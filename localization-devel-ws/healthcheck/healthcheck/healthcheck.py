@@ -119,14 +119,6 @@ class HealthCheckNode(Node):
         self.point_msg = Point()
 
     def read_button(self):
-        # Read from file /home/user/share/data to learn the initial position of the robot
-        button_file_path = '/home/user/share/data/button.json'
-        # Find the starting point set as true, and publish the initial pose if successful
-        # the table:
-        # no. -> initial pose
-        # 17 -> 1.2, 0.3, 0.0, 0.0, 0.0, 0.0, 1.0
-
-    def read_button(self):
         """
         Read /home/user/share/data/button.json, detect which start-button is
         pressed, and publish the corresponding initial pose.
@@ -168,7 +160,11 @@ class HealthCheckNode(Node):
         if pressed_id not in start_lookup:
             self.get_logger().error(f"[read_button] Button {pressed_id} not in lookup table")
             return
-
+        
+        # wait until the ekf is launched
+        self.check_tf_ok()
+        self.get_init = False
+        self.odom_init = False
         # ---------- 4. Build & publish initial pose ----------
         init_msg = PoseWithCovarianceStamped()
         init_msg.header.stamp = self.get_clock().now().to_msg()
@@ -181,7 +177,7 @@ class HealthCheckNode(Node):
         init_msg.pose.pose.orientation.z = start_lookup[pressed_id][5]
         init_msg.pose.pose.orientation.w = start_lookup[pressed_id][6]
 
-        self.init_pub.publish(init_msg)
+        self.init_pub.publish(init_msg) # should be published after ekf is launched
         self.initial_pose = init_msg
 
         yaw = rpy_from_quaternion(
@@ -221,7 +217,7 @@ class HealthCheckNode(Node):
         self.check_tf_ok()
         # 2. local_filter, odom2map and imu/data_cov are published(what;s the difference oddom2map and local_filter? can they be merged?)
         if hasattr(self, 'odom2map') and hasattr(self, 'local_filter') and hasattr(self, 'imu_cov'):
-            # self.get_logger().info("odom2map local_filter, and imu are published")
+            self.get_logger().info("odom2map local_filter, and imu are published")
         # 3. either initial pose or camera pose is published
         if not hasattr(self, 'initial_pose') and not hasattr(self, 'camera_pose'):
             self.get_logger().warn("need inital or camera pose to initialize...")

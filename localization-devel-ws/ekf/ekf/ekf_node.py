@@ -73,7 +73,7 @@ class EKFFootprintBroadcaster(Node):
         self.declare_parameter('refresh_zone_xr', 3.0)
         self.declare_parameter('refresh_zone_yl', 0.0)
         self.declare_parameter('refresh_zone_yr', 2.0)
-        self.declare_parameter('fast_spin_threshold', 3)
+        self.declare_parameter('fast_spin_threshold', 3.0)
         self.declare_parameter('fast_vx_threshold', 0.5)
         self.declare_parameter('fast_vy_threshold', 0.5)
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
@@ -103,6 +103,8 @@ class EKFFootprintBroadcaster(Node):
 
     
     def init_callback(self, msg):
+
+        self.get_logger().info("Initial pose received, initializing EKF state.")
         
         self.X[0] = msg.pose.pose.position.x
         self.X[1] = msg.pose.pose.position.y
