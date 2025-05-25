@@ -125,7 +125,7 @@ def generate_launch_description():
         ],
         remappings=[
             ('raw_pose', [rival_name, '/raw_pose']),
-            (['/ceiling_rival/pose','/vision/aruco/rival_pose'])
+            ('/ceiling_rival/pose','/vision/aruco/rival_pose')
         ]
     )
 
