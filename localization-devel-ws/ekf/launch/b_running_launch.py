@@ -124,7 +124,7 @@ def generate_launch_description():
             }
         ],
         remappings=[
-            ('raw_pose', [rival_name, '/raw_pose'])
+            ('raw_pose', [rival_name, '/raw_pose']),
             (['/ceiling_rival/pose','/vision/aruco/rival_pose'])
         ]
     )
@@ -178,7 +178,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument('rival_name', default_value='rival'),
-        DeclareLaunchArgument('side', default_value='1'),
+        DeclareLaunchArgument('side', default_value='0'),
 
         static_tf,
         ydlidar_include,
