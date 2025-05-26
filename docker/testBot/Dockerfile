@@ -1,11 +1,11 @@
 ################################################################################################
 # - Base stage
 #   - This stage serves as the foundational stage for all other stages.
-#   - Base image: OSRF ROS Noetic Desktop Full
-#       - https://hub.docker.com/r/osrf/ros/tags?page=1&name=noetic-desktop-full
+#   - Base image: OSRF ROS Humble Desktop Full
+#       - https://hub.docker.com/r/osrf/ros/tags?page=1&name=humble-desktop-full
 ################################################################################################
 
-FROM osrf/ros:noetic-desktop-full AS base
+FROM osrf/ros:humble-desktop-full AS base
 
 LABEL org.opencontainers.image.authors="yoseph.huang@gmail.com"
 
@@ -15,6 +15,7 @@ ARG USER_GID=$USER_UID
 
 SHELL ["/bin/bash", "-c"]
 
+
 ################################################################################################
 # - User Setup stage
 #   - In this stage, create a non-root user and configure passwordless sudo.
@@ -22,7 +23,7 @@ SHELL ["/bin/bash", "-c"]
 
 FROM base AS user-setup
 
-# Create a non-root user
+## Create a non-root user
 RUN groupadd --gid $USER_GID $USERNAME && \
     useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash && \
     apt-get update && \
@@ -31,6 +32,7 @@ RUN groupadd --gid $USER_GID $USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME && \
     rm -rf /var/lib/apt/lists/*
 
+
 ################################################################################################
 # - Tools Installation stage
 #   - In this stage, I will install convenient tools for development.
@@ -38,109 +40,141 @@ RUN groupadd --gid $USER_GID $USERNAME && \
 
 FROM user-setup AS tools
 
-# Install necessary packages
+## Install necessary packages
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    cmake pkg-config \
+    python3-pip \
+    python3-rosdep \
+    python3-setuptools \
+    python3-numpy \
     apt-utils \
     git \
     nano \
     net-tools \
     ssh \
     usbutils \
-    udev \
+    udev \ 
     x11-apps \
     tmux \
-    htop \
+    htop \ 
+    ros-humble-foxglove-bridge \
     libsdl-image1.2-dev \
-    libsdl-dev \
-    ros-noetic-tf2-sensor-msgs \
-    ros-noetic-move-base-msgs \
-    ros-noetic-mbf-costmap-core \
-    ros-noetic-mbf-msgs \
+    libarmadillo-dev \
+    libboost-all-dev \
+    # ros-humble-laser-geometry \
     libsuitesparse-dev \
-    ros-noetic-libg2o \
-    ros-noetic-teleop-twist-keyboard \
-    ros-noetic-costmap-converter \
-    ros-noetic-robot-localization \
-    ros-noetic-imu-tools \
+    ros-humble-libg2o \
+    ros-humble-rmw-cyclonedds-cpp\
+    # ros-humble-imu-tools \
     libusb-1.0-0 libusb-1.0-0-dev -y && \
     rm -rf /var/lib/apt/lists/*
 
+RUN pip3 install --no-cache-dir rotop
+    
 ################################################################################################
-# - RPLiDar Installation stage
-#   - In this stage, install necessary tools for RPLiDar.
-################################################################################################
-
-FROM tools AS rplidar-dep
-RUN apt-get update && apt-get install -y \
-    python3-pip \
-    python3-rosdep \
-    python3-setuptools \
-    python3-numpy \
-    git && \
-    apt-get clean
-
-WORKDIR /home/${USERNAME}/localization-ws-ros1
-RUN git clone https://github.com/Slamtec/rplidar_ros.git /home/${USERNAME}/localization-ws-ros1/src/rplidar-ros-driver
-RUN . /opt/ros/noetic/setup.sh && \
-    catkin_make
-
-################################################################################################
-# - Obstacle detect Installation stage
+# - IMU Installation stage
+#   - In this stage, install neccesary stuff for phidget IMU spatial.
 ################################################################################################
 
-FROM rplidar-dep AS obs-dep
+FROM tools AS sensor-dep
 
+## Install necessary tools for imu
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    ros-noetic-laser-geometry \
-    libarmadillo-dev \
-    libboost-all-dev \
+    ros-humble-imu-tools \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /home/${USERNAME}/localization-ws-ros1
-RUN mkdir -p /home/${USERNAME}/localization-ws-ros1/src/localization-devel-ws &&  \
-    git clone https://github.com/tysik/obstacle_detector.git /home/${USERNAME}/localization-ws-ros1/src/localization-devel-ws/obstacle_detector
+USER ${USERNAME}
+WORKDIR /home/user/localization-ws/src/phidgets_drivers
+COPY phidgets_drivers /home/user/localization-ws/src/phidgets_drivers
 
+WORKDIR /home/user/localization-ws/src/rplidar-ros-driver
+RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/rplidar-ros-driver/
+# RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
+
+WORKDIR /home/user/localization-ws/src/YDLidar-SDK
+RUN git clone https://github.com/wintera1233/YDLidar-SDK.git /home/user/localization-ws/src/YDLidar-SDK/
+WORKDIR /home/user/localization-ws
+RUN cd /home/user/localization-ws/src/YDLidar-SDK/build && \
+    cmake .. && \
+    make -j4 && \
+    sudo make install
+
+WORKDIR /home/user/localization-ws/src/ydlidar_ros2_driver
+RUN git clone -b humble https://github.com/YDLIDAR/ydlidar_ros2_driver.git
+
+WORKDIR /home/user/localization-ws
+# RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
 RUN sudo apt-get update && \
     rosdep update && \
-    rosdep install --from-paths . --ignore-src -r -y
-
-# Build the workspace
-USER root
-RUN echo "source /opt/ros/noetic/setup.bash" >> /etc/bash.bashrc && \
-    echo "source /home/${USERNAME}/localization-ws-ros1/devel/setup.bash" >> /etc/bash.bashrc
-# Clean up
-RUN sudo rm -rf /var/lib/apt/lists/*
+    rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
+    /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install' \
+    && sudo rm -rf /var/lib/apt/lists/*
 
 ################################################################################################
-# - Spatial-driver Installation stage
+# - ros workspace build stage
+# 
 ################################################################################################
 
-FROM obs-dep AS imu-dep
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    python3-pip \
-    ros-noetic-imu-tools \
-    libusb-1.0-0 libusb-1.0-0-dev \
-    && rm -rf /var/lib/apt/lists/*
-COPY phidgets_drivers /home/${USERNAME}/localization-ws-ros1/src/phidgets_drivers
+FROM sensor-dep AS ros-ws
+WORKDIR /home/user/temp
+RUN git clone -b Release https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
+RUN mv /home/user/temp/Eurobot-2025-Localization/localization-devel-ws /home/user/localization-ws/src/localization-devel-ws
+RUN rm -rf /home/user/temp
+
+## Set working directory
+WORKDIR /home/${USERNAME}/localization-ws
+# RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
+USER ${USERNAME}
+RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --packages-select obstacle_detector' && \
+    # /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; source /home/user/localization-ws/install/setup.bash; colcon build --packages-select rival_localization --event-handlers console_cohesion+ --parallel-workers 1' 
+    /bin/bash -c 'source /home/user/localization-ws/install/setup.bash; colcon build --symlink-install --packages-ignore imm_filter obstacle_detector' \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+RUN rm -rf /home/user/localization-ws/src/localization-devel-ws
 
 ################################################################################################
 # - Final stage
+# 
 ################################################################################################
 
-FROM imu-dep AS final
+FROM ros-ws AS final
 
-## Set working directory
-WORKDIR /home/${USERNAME}/localization-ws-ros1
-
-# Ensure that the ROS workspace is built and set up correctly
-RUN source /opt/ros/noetic/setup.bash && \
-    cd /home/${USERNAME}/localization-ws-ros1 && \
-    catkin_make
+COPY .bashrc /home/$USERNAME/.bashrc.conf
+RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
 
 USER ${USERNAME}
-SHELL ["/bin/bash", "-c"]
+CMD ["/bin/bash"]
 
+################################################################################################
+# - devel-ws build stage
+# 
+################################################################################################
+
+FROM final AS devel-ws
+
+ARG USERNAME
+ARG BRANCH_SELECT=Raccoon
+
+WORKDIR /home/user/temp
+RUN git clone -b ${BRANCH_SELECT} https://github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /home/user/temp/Eurobot-2025-Localization
+RUN mv /home/user/temp/Eurobot-2025-Localization/localization-devel-ws /home/user/localization-ws/src/localization-devel-ws
+RUN rm -rf /home/user/temp
+
+## Set working directory
+WORKDIR /home/${USERNAME}/localization-ws
+USER ${USERNAME}
+RUN /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash && \
+    cd /home/user/localization-ws && \
+    rm -rf build/ install/ log/ && \
+    colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release' \
+    && sudo rm -rf /var/lib/apt/lists/*
+
+RUN rm -rf /home/user/localization-ws/src/localization-devel-ws
+
+COPY .bashrc /home/$USERNAME/.bashrc.conf
+RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
+
+USER ${USERNAME}
 CMD ["/bin/bash"]

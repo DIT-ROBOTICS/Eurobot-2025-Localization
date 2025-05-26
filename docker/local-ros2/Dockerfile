@@ -64,6 +64,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     # ros-humble-laser-geometry \
     libsuitesparse-dev \
     ros-humble-libg2o \
+    ros-humble-rmw-cyclonedds-cpp\
     # ros-humble-imu-tools \
     libusb-1.0-0 libusb-1.0-0-dev -y && \
     rm -rf /var/lib/apt/lists/*

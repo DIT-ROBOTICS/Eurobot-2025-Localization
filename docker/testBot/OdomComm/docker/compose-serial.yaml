@@ -1,0 +1,29 @@
+services:
+  ros1:
+    image: ros1:serial
+    container_name: ros1
+    stdin_open: true
+    tty: true
+    network_mode: host
+    privileged: true
+    volumes:
+      # - ../comm-ws:/root/comm-ws
+      # - /dev/bus/usb:/dev/bus/usb
+      - /dev:/dev
+    stop_grace_period: 1s
+    # depends_on:
+    #   ros-core:
+    #     condition: service_healthy
+    # command: /bin/bash -c "
+    #         chmod +x /root/comm-ws/devel/_setup_util.py &&
+    #         find /root/comm-ws/devel -type f -name '*.sh' -exec chmod +x {} \; &&
+    #         source /opt/ros/noetic/setup.bash && 
+    #         source /root/comm-ws/devel/setup.bash && 
+    #         cd /root/comm-ws &&
+    #         sudo chmod 777 /dev/ttyACM0 &&
+    #         roslaunch rosserial_server stm32.launch"
+    command: /bin/bash -c "
+            source /opt/ros/noetic/setup.bash && 
+            source ~/ws/devel/setup.bash &&
+            sudo chmod 777 /dev/ttyACM0 &&
+            roslaunch odometry odometry_comm.launch"
