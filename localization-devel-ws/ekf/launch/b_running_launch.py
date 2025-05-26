@@ -178,7 +178,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument('rival_name', default_value='rival'),
-        DeclareLaunchArgument('side', default_value='0'),
+        DeclareLaunchArgument('side', default_value='1'),
 
         static_tf,
         ydlidar_include,
