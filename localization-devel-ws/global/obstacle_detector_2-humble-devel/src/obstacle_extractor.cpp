@@ -92,6 +92,8 @@ void ObstacleExtractor::updateParamsUtil(){
 
   nh_->declare_parameter("tail_threshold", rclcpp::PARAMETER_DOUBLE);
 
+  nh_->declare_parameter("pose_array", rclcpp::PARAMETER_BOOL);
+
   nh_->get_parameter_or("active", p_active_, true);
   nh_->get_parameter_or("use_scan", p_use_scan_, true);
   nh_->get_parameter_or("use_pcl", p_use_pcl_, true);
@@ -119,6 +121,9 @@ void ObstacleExtractor::updateParamsUtil(){
 
   nh_->get_parameter_or("tail_threshold", p_tail_threshold, 0.5);
 
+  nh_->get_parameter_or("pose_array", p_pose_array_, false);
+
+
   if (p_active_ != prev_active) {
     if (p_active_) {
       if (p_use_scan_){
@@ -144,6 +149,7 @@ void ObstacleExtractor::updateParamsUtil(){
       obstacles_pub_ = nh_->create_publisher<obstacle_detector::msg::Obstacles>("raw_obstacles", 10);
       // obstacles_vis_pub_ = nh_->create_publisher<visualization_msgs::msg::MarkerArray>("raw_obstacles_visualization", 10);
       obstacles_vis_pcl_pub_ = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("raw_obstacles_visualization_pcl", 10);
+      if(p_pose_array_)obstacles_pose_array_pub_ = nh_->create_publisher<geometry_msgs::msg::PoseArray>("scan_obstacles", 10);
     }
     else {
       // Send empty message
@@ -151,6 +157,13 @@ void ObstacleExtractor::updateParamsUtil(){
       obstacles_msg.header.frame_id = p_frame_id_;
       obstacles_msg.header.stamp = nh_->get_clock()->now();
       obstacles_pub_->publish(obstacles_msg);
+      if (p_pose_array_){
+        auto pose_array_msg = geometry_msgs::msg::PoseArray();
+        pose_array_msg.header.frame_id = p_frame_id_;
+        pose_array_msg.header.stamp = nh_->get_clock()->now();
+        obstacles_pose_array_pub_->publish(pose_array_msg);
+      }
+      
     }
   }
 }
@@ -806,4 +819,27 @@ void ObstacleExtractor::publishObstacles() {
     }
   }
   obstacles_pub_->publish(obstacles_msg);
+
+  if (p_pose_array_){
+    auto obstacles_pose_array_msg = geometry_msgs::msg::PoseArray();
+    obstacles_pose_array_msg.header.stamp = stamp_;
+    obstacles_pose_array_msg.header.frame_id = published_obstacles_frame_id_;
+
+    for (const Circle& c : circles_) {
+      if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
+          c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_) {
+        geometry_msgs::msg::Pose pose;
+        pose.position.x = c.center.x;
+        pose.position.y = c.center.y;
+        pose.position.z = c.center.z;
+        pose.orientation.x = 0.0;
+        pose.orientation.y = 0.0;
+        pose.orientation.z = 0.0;
+        pose.orientation.w = 1.0;
+        obstacles_pose_array_msg.poses.push_back(pose);
+      }
+    }
+  obstacles_pose_array_pub_->publish(obstacles_pose_array_msg);
+  }
+ 
 }

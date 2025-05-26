@@ -15,7 +15,7 @@ side/fixed_obstacle_detector_to_map:
 
     max_group_distance: 0.2
     distance_proportion: 0.00628
-    max_split_distance: 0.01
+    max_split_distance: 0.02
     max_merge_separation: 0.2
     max_merge_spread: 0.2
     max_circle_radius: 0.25

@@ -26,9 +26,9 @@ void Rival::initialize() {
     // for is_me
     this->declare_parameter<double>("is_me", 0.3);
     // weights for the three sensors (the weight will be normalized depending on the combination)
-    this->declare_parameter<double>("cam_weight", 2);
-    this->declare_parameter<double>("obs_weight", 6);
-    this->declare_parameter<double>("side_weight", 2);
+    this->declare_parameter<double>("cam_weight", 2.0);
+    this->declare_parameter<double>("obs_weight", 6.0);
+    this->declare_parameter<double>("side_weight", 2.0);
     // threshold for comparing poses
     this->declare_parameter<double>("cam_side_threshold", 0.2);
     this->declare_parameter<double>("side_obs_threshold", 0.2);
@@ -67,7 +67,7 @@ void Rival::initialize() {
     // a list of crossed areas, each area as [x_min, x_max, y_min, y_max]
     crossed_areas = this->get_parameter("crossed_areas").as_double_array();
     
-    RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
+    // RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
     obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("obstacles_to_map", 10, std::bind(&Rival::obstacles_callback, this, _1));
     cam_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/ceiling_rival/pose", 10, std::bind(&Rival::cam_callback, this, _1));
@@ -270,6 +270,7 @@ void Rival::side_obstacles_callback(const obstacle_detector::msg::Obstacles::Sha
     }
     if (max_radius < 0.15) return; // no obstacle found, maybe the rival is blocked by something
     // RCLCPP_INFO(this->get_logger(),"max radius: %f", max_radius);
+    // RCLCPP_INFO(this->get_logger(),"side_obstacle: %f, %f", side_obstacle_pose.x, side_obstacle_pose.y);
     side_obstacle_ok = true;
 }
 
@@ -281,64 +282,64 @@ void Rival::robot_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStam
 void Rival::fusion() {
 
     rival_ok = false;
-    // if side_obstalce_ok, check by comparing with camera, and use weight to fuse
+
+    double distance_cam_obs = 10;
+    double distance_side_obs = 10;
+    double distance_cam_side = 10;
+
+    // compare the three poses, if two of them are ok
+    if(camera_ok && side_obstacle_ok){
+        distance_cam_side = sqrt(pow((side_obstacle_pose.x - cam_rival_pose.x), 2) + pow((side_obstacle_pose.y - cam_rival_pose.y), 2));
+    }
+    if(camera_ok && obstacle_ok){
+        distance_cam_obs = sqrt(pow((obstacle_pose.x - cam_rival_pose.x), 2) + pow((obstacle_pose.y - cam_rival_pose.y), 2));
+    }
+    if(side_obstacle_ok && obstacle_ok){
+        distance_side_obs = sqrt(pow((side_obstacle_pose.x - obstacle_pose.x), 2) + pow((side_obstacle_pose.y - obstacle_pose.y), 2));
+    }
+
     // param for fusing the three
-    if(side_obstacle_ok && camera_ok && obstacle_ok){
-        // normalize the weights
-        double total_weight = cam_weight + obs_weight + side_weight;
-        double distance_cam_side = sqrt(pow((side_obstacle_pose.x - cam_rival_pose.x), 2) + pow((side_obstacle_pose.y - cam_rival_pose.y), 2));
-        double distance_side_obs = sqrt(pow((side_obstacle_pose.x - obstacle_pose.x), 2) + pow((side_obstacle_pose.y - obstacle_pose.y), 2));
-        if (distance_cam_side < cam_side_threshold && distance_side_obs < side_obs_threshold) { // if side_obstacle is close to camera
-            rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + obstacle_pose.x * (obs_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
-            rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + obstacle_pose.y * (obs_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
-            rival_ok = true;
-        }
+    if(distance_cam_side < cam_side_threshold && distance_cam_obs < obs_cam_threshold && distance_side_obs < side_obs_threshold){ // if all of them agree
+        double total_weight = cam_weight + obs_weight + side_weight; // normalize the weights
+        rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + obstacle_pose.x * (obs_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
+        rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + obstacle_pose.y * (obs_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
+        rival_ok = true;
     }
-    if(side_obstacle_ok && camera_ok && !obstacle_ok){
-        // normalize the weights
-        double total_weight = cam_weight + side_weight;
-        double distance_cam_side = sqrt(pow((side_obstacle_pose.x - cam_rival_pose.x), 2) + pow((side_obstacle_pose.y - cam_rival_pose.y), 2));
-        if (distance_cam_side < cam_side_threshold) { // if side_obstacle is close to camera
-            rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
-            rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
-            rival_ok = true;
-        }
-    }
-    if(side_obstacle_ok && !camera_ok && obstacle_ok){
-        // normalize the weights
-        double total_weight = obs_weight + side_weight;
-        double distance_side_obs = sqrt(pow((side_obstacle_pose.x - obstacle_pose.x), 2) + pow((side_obstacle_pose.y - obstacle_pose.y), 2));
-        if (distance_side_obs < side_obs_threshold) { // if side_obstacle is close to camera
-            rival_raw_pose.x = obstacle_pose.x * (obs_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
-            rival_raw_pose.y = obstacle_pose.y * (obs_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
-            rival_ok = true;
-        }
-    }
-    if(!side_obstacle_ok && camera_ok && obstacle_ok){
-        // normalize the weights
+    else if(distance_cam_obs < obs_cam_threshold){
         double total_weight = cam_weight + obs_weight;
-        double distance_cam_obs = sqrt(pow((obstacle_pose.x - cam_rival_pose.x), 2) + pow((obstacle_pose.y - cam_rival_pose.y), 2));
-        if (distance_cam_obs < obs_cam_threshold) { // if side_obstacle is close to camera
-            rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + obstacle_pose.x * (obs_weight / total_weight);
-            rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + obstacle_pose.y * (obs_weight / total_weight);
+        rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + obstacle_pose.x * (obs_weight / total_weight);
+        rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + obstacle_pose.y * (obs_weight / total_weight);
+        rival_ok = true;
+    }
+    else if(distance_side_obs < side_obs_threshold){
+        double total_weight = obs_weight + side_weight;
+        rival_raw_pose.x = obstacle_pose.x * (obs_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
+        rival_raw_pose.y = obstacle_pose.y * (obs_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
+        rival_ok = true;
+    }
+    else if(distance_cam_side < cam_side_threshold){
+        double total_weight = cam_weight + side_weight;
+        rival_raw_pose.x = cam_rival_pose.x * (cam_weight / total_weight) + side_obstacle_pose.x * (side_weight / total_weight);
+        rival_raw_pose.y = cam_rival_pose.y * (cam_weight / total_weight) + side_obstacle_pose.y * (side_weight / total_weight);
+        rival_ok = true;
+    }
+    else{ // if none of them agree, use single one: cam -> side -> obs (what should be the priority?)
+        if(camera_ok){
+            rival_raw_pose = cam_rival_pose;
+            // RCLCPP_INFO(this->get_logger(),"cam ok");
+            rival_ok = true;
+        }
+        else if(side_obstacle_ok){
+            rival_raw_pose = side_obstacle_pose;
+            // RCLCPP_INFO(this->get_logger(),"side_obstacle ok");
+            rival_ok = true;
+        }
+        else if(obstacle_ok){
+            rival_raw_pose = obstacle_pose;
+            // RCLCPP_INFO(this->get_logger(),"obstacle ok");
             rival_ok = true;
         }
     }
-    // if only one of the three is ok, use that one
-    if(side_obstacle_ok && !camera_ok && !obstacle_ok){
-        rival_raw_pose = side_obstacle_pose;
-        // RCLCPP_INFO(this->get_logger(),"side_obstacle ok");
-        rival_ok = true;
-    }
-    if(!side_obstacle_ok && camera_ok && !obstacle_ok){
-        rival_raw_pose = cam_rival_pose;
-        rival_ok = true;
-    }
-    if(!side_obstacle_ok && !camera_ok && obstacle_ok){
-        rival_raw_pose = obstacle_pose;
-        rival_ok = true;
-    }
-    
     // reset the flags
     obstacle_ok = false;
     camera_ok = false;

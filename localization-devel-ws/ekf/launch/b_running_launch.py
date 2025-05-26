@@ -58,12 +58,12 @@ def generate_launch_description():
             'robot_parent_frame_id': 'map',
             'robot_frame_id': 'base_footprint',
             '/use_sim_time': False,
-            'q_linear': 1.2e-6,
-            'q_angular': 1.7e-7,
+            'q_linear': 1.2e-5,
+            'q_angular': 1.7e-6,
             'r_camra_linear': 1e-2,
-            'r_camra_angular': 0.1,
-            'r_threshold_xy': 1e-2,
-            'r_threshold_theta': 1e-1
+            'r_camra_angular': 0.15,
+            'r_threshold_xy': 1e-3,
+            'r_threshold_theta': 1e-2
         }],
         remappings=[
             ('initalpose', ['initial_pose'])
@@ -97,11 +97,13 @@ def generate_launch_description():
         parameters=[rival_config_path],
         remappings=[
             ('raw_pose', [rival_name, '/raw_pose']),
-            # ('final_pose', [rival_name, '/final_pose'])
+            ('final_pose', [rival_name, '/final_pose'])
         ]
     )
 
-    rival_obstacle_node = Node(
+    rival_obstacle_node = GroupAction([
+        SetLaunchConfiguration('ros_namespace', rival_name),
+        Node(
             package='obstacle_detector',
             executable='obstacle_extractor_node',
             name='obstacle_detector_to_map',
@@ -111,10 +113,10 @@ def generate_launch_description():
             ],
             remappings=[
                 ('raw_obstacles', '/obstacles_to_map'),
-                ('scan', '/scan'),
-                ('raw_obstacles_visualization_pcl', 'raw_obstacle_visualization_to_map_pcl')
+                ('scan', '/scan')
             ]
-    )
+        )
+    ])
 
     static_tf = Node(
         package='tf2_ros',
@@ -123,8 +125,7 @@ def generate_launch_description():
         output='screen',
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '-1.633628', #angle for 11
-            # '--roll', '0', '--pitch', '0', '--yaw', '-1.60577', #angle for 14
+            '--roll', '0', '--pitch', '0', '--yaw', '-1.623',
             '--frame-id', 'base_footprint',
             '--child-frame-id', 'laser'
         ]
