@@ -17,7 +17,7 @@ ydlidar_ros2_driver_node:
     support_motor_dtr: false
     angle_max: 180.0
     angle_min: -180.0
-    range_max: 4.0
+    range_max: 25.0
     range_min: 0.1
     frequency: 10.0
     invalid_range_is_inf: false

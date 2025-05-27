@@ -374,18 +374,13 @@ class LidarLocalization(Node): # inherit from Node
 
                 lidar_pose = self.pose_compensation(lidar_pose)
 
-                lidar_cov[0, 0] /= (max_likelihood/1.1)
-                lidar_cov[1, 1] /= (max_likelihood/1.1)
-                lidar_cov[2, 2] /= (max_likelihood/1.1)
+                lidar_cov[0, 0] /= max_likelihood
+                lidar_cov[1, 1] /= max_likelihood
+                lidar_cov[2, 2] /= max_likelihood
 
                 # publish the lidar pose
                 self.pub_lidar_pose(lidar_pose, lidar_cov)
                 self.publish_beacons(beacons)
-                # debug print the calculation time (from obstacle stamp to now)
-                if self.debug_mode:
-                    obs_time_rclpy = rclpy.time.Time.from_msg(self.obs_time)
-                    calc_time_ms = (self.get_clock().now() - obs_time_rclpy).nanoseconds * 1e-6
-                    self.get_logger().info(f"calculation time: {calc_time_ms:.2f} ms")
 
             except np.linalg.LinAlgError as e:
                 self.get_logger().warn("Linear algebra error: {}".format(e))

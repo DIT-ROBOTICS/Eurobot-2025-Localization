@@ -8,8 +8,8 @@ import math
 import numpy as np
 from datetime import datetime  # Import for date and time
 import os  # Import for file operations
-from healthcheck.ready_signal_template import ReadySignal
 import json  # Import for JSON operations
+from healthcheck.ready_signal_template import ReadySignal
 
 def rpy_from_quaternion(x, y, z, w):
     # yaw (z-axis rotation)
@@ -102,10 +102,7 @@ class HealthCheckNode(Node):
 
         # # Create health report file V
         self.create_health_report_file()
-
-        # for main communication
         self.ready_signal = ReadySignal()
-
         self.check_localization_ok()
 
         # Timer for health check (3 seconds interval) V
@@ -263,7 +260,7 @@ class HealthCheckNode(Node):
         self.point_msg.z = self.p_lidar_param_running[2]
         self.lidar_param_pub.publish(self.point_msg)
         self.get_logger().info("Lidar parameters set to running")
-        # 6. response to main (a service?)
+        # 6. response to main (a service?) (TODO)
         self.ready_signal.sendReadySignal(4, 3)
         return True
     
