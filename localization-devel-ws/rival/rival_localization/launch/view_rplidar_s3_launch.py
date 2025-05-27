@@ -20,10 +20,10 @@ def generate_launch_description():
     scan_mode = LaunchConfiguration('scan_mode', default='DenseBoost')
     topic_name = LaunchConfiguration('topic_name', default='scan')
 
-    rviz_config_dir = os.path.join(
-            get_package_share_directory('rival_localization'),
-            'rviz',
-            'rplidar_ros.rviz')
+    # rviz_config_dir = os.path.join(
+    #         get_package_share_directory('rival_localization'),
+    #         'rviz',
+    #         'rplidar_ros.rviz')
 
 
     return LaunchDescription([
@@ -76,13 +76,13 @@ def generate_launch_description():
                            'scan_mode': scan_mode
                          
                          }],
-            output='screen'),
+            output='screen')
 
-        Node(
-            package='rviz2',
-            executable='rviz2',
-            name='rviz2',
-            arguments=['-d', rviz_config_dir],
-            output='screen'),
+        # Node(
+        #     package='rviz2',
+        #     executable='rviz2',
+        #     name='rviz2',
+        #     arguments=['-d', rviz_config_dir],
+        #     output='screen'),
     ])
 
