@@ -21,7 +21,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_ros/static_transform_broadcaster.h"
-#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 
 using std::placeholders::_1;
 
@@ -54,7 +53,6 @@ private:
     bool is_me(geometry_msgs::msg::Point center);
     void timerCallback();
     void imm_filter();
-    bool is_me(geometry_msgs::msg::Point center);
 
     rclcpp::Subscription<obstacle_detector::msg::Obstacles>::SharedPtr obstacles_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr cam_sub;
@@ -67,10 +65,8 @@ private:
     obstacle_detector::msg::Obstacles obstacle;
     nav_msgs::msg::Odometry rival_output;
     geometry_msgs::msg::Point obstacle_pose;
-    geometry_msgs::msg::Point side_obstacle_pose;
     geometry_msgs::msg::Point rival_raw_pose;
     geometry_msgs::msg::Point rival_final_pose;
-    geometry_msgs::msg::Point my_pose;
     geometry_msgs::msg::Point cam_rival_pose;
     geometry_msgs::msg::Point side_obstacle_pose;
     geometry_msgs::msg::Point my_pose;
