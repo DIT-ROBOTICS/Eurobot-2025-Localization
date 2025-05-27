@@ -7,9 +7,10 @@
 
 <Domain Id="0">
     <General>
-      <AllowMulticast>false</AllowMulticast>
       <NetworkInterface name="lo"/>
+      <AllowMulticast>false</AllowMulticast>
     </General>
+
     <Discovery>
       <Peers>
         <Peer address="127.0.0.1"/>
