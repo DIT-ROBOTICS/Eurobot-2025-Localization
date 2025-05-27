@@ -2,7 +2,7 @@
     <arg name="fixed_name" default="side"/>
     
     <node name="fixed_laser_to_map" pkg="tf2_ros" exec="static_transform_publisher"
-        args="1.845 2.07 0 0 0 0 1 map $(var fixed_name)/laser" />
+        args="1.155 2.07 0 0 0 0 1 map $(var fixed_name)/laser" />
     
     <group>
         <push-ros-namespace namespace="$(var fixed_name)" />
