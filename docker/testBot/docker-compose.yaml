@@ -79,15 +79,18 @@ services:
         source /opt/ros/humble/setup.bash && 
         source /home/user/localization-ws/install/setup.bash &&
         ros2 bag record -o ${BAG_NAME} \
-           /local_filter \
+          /local_filter \
           /lidar_pose \
           /final_pose \
+          /odoo_googoogoo \
+          /cmd_vel \
           /tf \
           /tf_static \
           /odom2map \
           /rival/final_pose \
           /raw_obstacles \
           /raw_obstacles_visualization_pcl \
+          /imu/data_cov \
           /candidates"
 
   localization-bash:

@@ -27,7 +27,7 @@ services:
       - ROS_DOMAIN_ID=11
       - ROS_WS=/home/user/localization-ws
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      # - CYCLONEDDS_URI=/tmp/dds.xml
+      - CYCLONEDDS_URI=/tmp/dds.xml
     volumes:
       # Mount local timezone into container. ( Readonly )
       # Reference: https://stackoverflow.com/questions/57607381/how-do-i-change-timezone-in-a-docker-container

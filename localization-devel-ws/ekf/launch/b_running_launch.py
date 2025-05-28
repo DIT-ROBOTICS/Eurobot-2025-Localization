@@ -126,7 +126,7 @@ def generate_launch_description():
         output='screen',
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '-1.6057',
+            '--roll', '0', '--pitch', '0', '--yaw', '-1.61536',
             '--frame-id', 'base_footprint',
             '--child-frame-id', 'laser'
         ]
