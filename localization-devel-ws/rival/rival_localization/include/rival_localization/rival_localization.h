@@ -21,7 +21,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_ros/static_transform_broadcaster.h"
-#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 
 using std::placeholders::_1;
 
@@ -41,7 +40,7 @@ private:
     void obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg); // Fix signature
     void cam_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);         // Fix signature
     void side_obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg);
-    void robot_pose_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void robot_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
 
     void publish_rival_raw();
     void publish_rival_final();
@@ -57,7 +56,8 @@ private:
 
     rclcpp::Subscription<obstacle_detector::msg::Obstacles>::SharedPtr obstacles_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr cam_sub;
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr robot_pose_sub;
+    rclcpp::Subscription<obstacle_detector::msg::Obstacles>::SharedPtr side_obstacle_sub;
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr robot_pose_sub;
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr rival_raw_pub, rival_final_pub;
     rclcpp::TimerBase::SharedPtr timer_;
@@ -65,13 +65,14 @@ private:
     obstacle_detector::msg::Obstacles obstacle;
     nav_msgs::msg::Odometry rival_output;
     geometry_msgs::msg::Point obstacle_pose;
-    geometry_msgs::msg::Point side_obstacle_pose;
     geometry_msgs::msg::Point rival_raw_pose;
     geometry_msgs::msg::Point rival_final_pose;
-    geometry_msgs::msg::Point my_pose;
     geometry_msgs::msg::Point cam_rival_pose;
+    geometry_msgs::msg::Point side_obstacle_pose;
+    geometry_msgs::msg::Point my_pose;
     geometry_msgs::msg::Vector3 obstacle_vel;
-
+    geometry_msgs::msg::Vector3 rival_raw_vel;
+    geometry_msgs::msg::Vector3 rival_final_vel;
     rclcpp::Time obstacle_stamp;
     rclcpp::Time rival_stamp;
     rclcpp::Time cam_stamp;

@@ -15,12 +15,10 @@ void Rival::initialize() {
     this->declare_parameter<std::string>("rival_name", "rival");
     this->declare_parameter<double>("frequency", 10.);
     // for play area
-    // for play area
     this->declare_parameter<double>("x_max", 3.);
     this->declare_parameter<double>("x_min", 0.);
     this->declare_parameter<double>("y_max", 2.);
     this->declare_parameter<double>("y_min", 0.);
-    // for obstacle tracking (within_lock)
     // for obstacle tracking (within_lock)
     this->declare_parameter<double>("vel_lpf_gain", 0.9);
     this->declare_parameter<double>("locking_rad", 0.3);
@@ -48,19 +46,14 @@ void Rival::initialize() {
     rival_name           = this->get_parameter("rival_name").as_string();
     freq                 = this->get_parameter("frequency").as_double();
     // for play area
-    // for play area
     x_max                = this->get_parameter("x_max").as_double();
     x_min                = this->get_parameter("x_min").as_double();
     y_max                = this->get_parameter("y_max").as_double();
     y_min                = this->get_parameter("y_min").as_double();
     // for obstacle tracking (within_lock)
-    // for obstacle tracking (within_lock)
     vel_lpf_gain         = this->get_parameter("vel_lpf_gain").as_double();
     p_locking_rad        = this->get_parameter("locking_rad").as_double(); // but what if rival is moving?? should increase if rival's moving!
     lockrad_growing_rate = this->get_parameter("lockrad_growing_rate").as_double(); // 5e-2 meter per second
-    // for is_me
-    p_is_me              = this->get_parameter("is_me").as_double();
-    // weights for the three sensors (the weight will be normalized depending on the combination)
     // for is_me
     p_is_me              = this->get_parameter("is_me").as_double();
     // weights for the three sensors (the weight will be normalized depending on the combination)
@@ -88,7 +81,6 @@ void Rival::initialize() {
   
     obstacle_ok = false;
     locking_rad = p_locking_rad;
-    my_pose.x = 10, my_pose.y = 10;
     my_pose.x = 10, my_pose.y = 10;
 }        
 
@@ -187,6 +179,7 @@ void Rival::imm_filter() {
 }
 
 void Rival::cam_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+
     cam_rival_pose.x = msg->pose.position.x;
     cam_rival_pose.y = msg->pose.position.y;
     cam_rival_pose.z = msg->pose.position.z;
@@ -194,6 +187,7 @@ void Rival::cam_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
 }
 
 void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg) {
+
     static bool first = false;
     static geometry_msgs::msg::Point obstacle_pose_pre;
     static geometry_msgs::msg::Vector3 obstacle_vel_pre;
@@ -276,7 +270,7 @@ void Rival::side_obstacles_callback(const obstacle_detector::msg::Obstacles::Sha
     }
     if (max_radius < 0.15) return; // no obstacle found, maybe the rival is blocked by something
     // RCLCPP_INFO(this->get_logger(),"max radius: %f", max_radius);
-    // RCLCPP_INFO(this->get_logger(),"side_obstacle: %f, %f", side_obstacle_pose.x, side_obstacle_pose.y);
+    RCLCPP_INFO(this->get_logger(),"side_obstacle: %f, %f", side_obstacle_pose.x, side_obstacle_pose.y);
     side_obstacle_ok = true;
 }
 
@@ -349,7 +343,6 @@ void Rival::fusion() {
     // reset the flags
     obstacle_ok = false;
     camera_ok = false;
-    side_obstacle_ok = false;
     side_obstacle_ok = false;
 }
 
