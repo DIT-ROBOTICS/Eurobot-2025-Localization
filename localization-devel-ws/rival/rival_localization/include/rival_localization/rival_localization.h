@@ -21,6 +21,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_ros/static_transform_broadcaster.h"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 
 using std::placeholders::_1;
 
@@ -40,7 +41,7 @@ private:
     void obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg); // Fix signature
     void cam_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);         // Fix signature
     void side_obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg);
-    void robot_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
+    void robot_pose_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     void publish_rival_raw();
     void publish_rival_final();
@@ -48,16 +49,18 @@ private:
     void broadcast_rival_tf();
     bool in_playArea_obs(geometry_msgs::msg::Point center);
     bool in_crossed_area(geometry_msgs::msg::Point center);
+    bool in_crossed_area(geometry_msgs::msg::Point center);
     bool within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point cur, double dt);
     geometry_msgs::msg::Vector3 lpf(double gain, geometry_msgs::msg::Vector3 pre, geometry_msgs::msg::Vector3 cur);
     bool is_me(geometry_msgs::msg::Point center);
     void timerCallback();
     void imm_filter();
+    bool is_me(geometry_msgs::msg::Point center);
 
     rclcpp::Subscription<obstacle_detector::msg::Obstacles>::SharedPtr obstacles_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr cam_sub;
     rclcpp::Subscription<obstacle_detector::msg::Obstacles>::SharedPtr side_obstacle_sub;
-    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr robot_pose_sub;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr robot_pose_sub;
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr rival_raw_pub, rival_final_pub;
     rclcpp::TimerBase::SharedPtr timer_;
@@ -65,8 +68,10 @@ private:
     obstacle_detector::msg::Obstacles obstacle;
     nav_msgs::msg::Odometry rival_output;
     geometry_msgs::msg::Point obstacle_pose;
+    geometry_msgs::msg::Point side_obstacle_pose;
     geometry_msgs::msg::Point rival_raw_pose;
     geometry_msgs::msg::Point rival_final_pose;
+    geometry_msgs::msg::Point my_pose;
     geometry_msgs::msg::Point cam_rival_pose;
     geometry_msgs::msg::Point side_obstacle_pose;
     geometry_msgs::msg::Point my_pose;
