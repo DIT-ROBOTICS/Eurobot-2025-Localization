@@ -482,20 +482,20 @@ class HealthCheckNode(Node):
             msg.pose.orientation = self.camera_pose.pose.pose.orientation
             self.camera_pose_pub.publish(self.camera_pose)
             # save the broken odom information in the report file
-            with open(self.report_file_path, 'a') as file:
-                file.write(f"odom2map: {self.odom2map.pose.position.x}, {self.odom2map.pose.position.y}\n")
-                file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
-                file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
+            # with open(self.report_file_path, 'a') as file:
+            #     file.write(f"odom2map: {self.odom2map.pose.position.x}, {self.odom2map.pose.position.y}\n")
+            #     file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
+            #     file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
             return False
         else:
             self.get_logger().warn("lidar_pose, odom2map and camera_pose are all different, Splendid!")
             self.init_pub.publish(self.odom2map)
             # all three are wrong, save the information in the report file
-            with open(self.report_file_path, 'a') as file:
-                file.write(f"odom2map: {self.odom2map.pose.position.x}, {self.odom2map.pose.position.y}\n")
-                file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
-                file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
-            self.get_logger().warn("All three poses doesn't agree")
+            # with open(self.report_file_path, 'a') as file:
+            #     file.write(f"odom2map: {self.odom2map.pose.position.x}, {self.odom2map.pose.position.y}\n")
+            #     file.write(f"lidar_pose: {self.lidar_pose.pose.pose.position.x}, {self.lidar_pose.pose.pose.position.y}\n")
+            #     file.write(f"camera_pose: {self.camera_pose.pose.pose.position.x}, {self.camera_pose.pose.pose.position.y}\n")
+            # self.get_logger().warn("All three poses doesn't agree")
             return False
         
     def sensor_check(self):
@@ -513,23 +513,23 @@ class HealthCheckNode(Node):
         if not is_valid_stamp(self.imu_cov.header.stamp, 1e-2):
             self.get_logger().warn("imu_cov timestamp invalid or too old")
             # write in the report file
-            with open(self.report_file_path, 'a') as file:
-                # Record the time difference between current time and imu_cov stamp
-                imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
-                time_diff = imu_time - current_time
-                file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference current to imu_cov: {time_diff} seconds\n")
+            # with open(self.report_file_path, 'a') as file:
+            #     # Record the time difference between current time and imu_cov stamp
+            #     imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
+            #     time_diff = imu_time - current_time
+            #     file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference current to imu_cov: {time_diff} seconds\n")
             # return False
         
         if not hasattr(self, 'odom2map'):
             return
         if not is_valid_stamp(self.odom2map.header.stamp, 1e-2):
             self.get_logger().warn("[sensor check] odom2map timestamp invalid or too old")
-            with open(self.report_file_path, 'a') as file:
-                # also record the time difference between imu_cov and odom2map
-                odom_time = self.odom2map.header.stamp.sec + self.odom2map.header.stamp.nanosec / 1e9
-                imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
-                time_diff = odom_time - imu_time
-                file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference imu to odom: {time_diff} seconds\n")                
+            # with open(self.report_file_path, 'a') as file:
+            #     # also record the time difference between imu_cov and odom2map
+            #     odom_time = self.odom2map.header.stamp.sec + self.odom2map.header.stamp.nanosec / 1e9
+            #     imu_time = self.imu_cov.header.stamp.sec + self.imu_cov.header.stamp.nanosec / 1e9
+            #     time_diff = odom_time - imu_time
+            #     file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Time difference imu to odom: {time_diff} seconds\n")                
             # return False
         
     def odom2map_callback(self, msg):

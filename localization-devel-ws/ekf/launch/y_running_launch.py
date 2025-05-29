@@ -55,8 +55,8 @@ def generate_launch_description():
             'robot_parent_frame_id': 'map',
             'robot_frame_id': 'base_footprint',
             '/use_sim_time': False,
-            'q_linear': 1.2e-6,
-            'q_angular': 1.7e-7,
+            'q_linear': 1.2e-5,
+            'q_angular': 1.7e-6,
             'r_camra_linear': 1e-2,
             'r_camra_angular': 0.1,
             'r_threshold_xy': 1e-2,
@@ -77,7 +77,7 @@ def generate_launch_description():
         parameters=[{
             'side': side,
             'debug_mode': False,
-            'visualize_candidate': True,
+            'visualize_candidate': False,
             'likelihood_threshold': 0.8,
             'consistency_threshold': 0.95,
             'lidar_multiplier': 0.987
@@ -166,7 +166,7 @@ def generate_launch_description():
         output='screen',
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '-1.633628',
+            '--roll', '0', '--pitch', '0', '--yaw', '-1.61536',
             '--frame-id', 'base_footprint',
             '--child-frame-id', 'laser'
         ]
