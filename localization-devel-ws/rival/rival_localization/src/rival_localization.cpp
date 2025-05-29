@@ -270,7 +270,7 @@ void Rival::side_obstacles_callback(const obstacle_detector::msg::Obstacles::Sha
     }
     if (max_radius < 0.15) return; // no obstacle found, maybe the rival is blocked by something
     // RCLCPP_INFO(this->get_logger(),"max radius: %f", max_radius);
-    RCLCPP_INFO(this->get_logger(),"side_obstacle: %f, %f", side_obstacle_pose.x, side_obstacle_pose.y);
+    // RCLCPP_INFO(this->get_logger(),"side_obstacle: %f, %f", side_obstacle_pose.x, side_obstacle_pose.y);
     side_obstacle_ok = true;
 }
 
