@@ -75,7 +75,7 @@ class LidarLocalization(Node): # inherit from Node
             self.obstacle_callback,
             10)
         self.subscription = self.create_subscription( # if TF is not available
-            PoseWithCovarianceStamped, 
+            Odometry, 
             'final_pose',
             self.pred_pose_callback,
             10

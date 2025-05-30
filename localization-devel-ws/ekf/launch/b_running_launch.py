@@ -79,7 +79,7 @@ def generate_launch_description():
             'debug_mode': False,
             'visualize_candidate': True,
             'likelihood_threshold': 0.8,
-            'consistency_threshold': 0.95,
+            'consistency_threshold': 0.9,
             'lidar_multiplier': 0.987
         }]
     )
@@ -166,7 +166,7 @@ def generate_launch_description():
         output='screen',
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
-            '--roll', '0', '--pitch', '0', '--yaw', '-1.580239',
+            '--roll', '0', '--pitch', '0', '--yaw', '-1.59768',
             '--frame-id', 'base_footprint',
             '--child-frame-id', 'laser'
         ]

@@ -49,7 +49,7 @@ class EKFFootprintBroadcaster(Node):
         self.t = TransformStamped()
         self.t.header.frame_id = self.parent_frame_id
         self.t.child_frame_id = self.child_frame_id
-        self.final_pose = PoseWithCovarianceStamped()
+        self.final_pose = Odometry()
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
         self.init_topics()
@@ -99,7 +99,7 @@ class EKFFootprintBroadcaster(Node):
         self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,1)
         self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
         self.create_subscription(PoseStamped, 'camera_pose', self.camera_callback, 1)
-        self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
+        self.ekf_pose_publisher = self.create_publisher(Odometry, 'final_pose', 1)
 
     
     def init_callback(self, msg):
