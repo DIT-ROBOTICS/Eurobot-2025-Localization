@@ -49,7 +49,7 @@ class EKFFootprintBroadcaster(Node):
         self.t = TransformStamped()
         self.t.header.frame_id = self.parent_frame_id
         self.t.child_frame_id = self.child_frame_id
-        self.final_pose = PoseWithCovarianceStamped()
+        self.final_pose = Odometry()
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
         self.init_topics()
@@ -99,7 +99,7 @@ class EKFFootprintBroadcaster(Node):
         self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,1)
         self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
         self.create_subscription(PoseStamped, 'camera_pose', self.camera_callback, 1)
-        self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
+        self.ekf_pose_publisher = self.create_publisher(Odometry, 'final_pose', 1)
 
     
     def init_callback(self, msg):
@@ -206,16 +206,16 @@ class EKFFootprintBroadcaster(Node):
 
     def ekf_predict(self, v_x, v_y, w, dt):
         theta = self.X[2]
-        c_theta = math.cos(theta)
-        s_theta = math.sin(theta)
-        c_delta = math.cos(w * dt)
-        s_delta = math.sin(w * dt)
-        if abs(w) > 1e-3:
-            self.X[0] += (c_theta*s_delta - s_theta*(c_delta-1))*v_x / w - (s_theta*s_delta - c_theta*(c_delta-1))*v_y / w
-            self.X[1] += (s_theta*s_delta - c_theta*(c_delta-1))*v_x / w + (c_theta*s_delta - s_theta*(c_delta-1))*v_y / w
-        else:
-            self.X[0] += v_x * dt * math.cos(theta + w * dt) - v_y * dt * math.sin(theta + w * dt)
-            self.X[1] += v_x * dt *math.sin(theta + w * dt) + v_y * dt * math.cos(theta + w * dt)
+        # c_theta = math.cos(theta)
+        # s_theta = math.sin(theta)
+        # c_delta = math.cos(w * dt)
+        # s_delta = math.sin(w * dt)
+        # if abs(w) > 1e-3:
+        #     self.X[0] += (c_theta*s_delta - s_theta*(c_delta-1))*v_x / w - (s_theta*s_delta - c_theta*(c_delta-1))*v_y / w
+        #     self.X[1] += (s_theta*s_delta - c_theta*(c_delta-1))*v_x / w + (c_theta*s_delta - s_theta*(c_delta-1))*v_y / w
+        # else:
+        self.X[0] += v_x * dt * math.cos(theta + w * dt) - v_y * dt * math.sin(theta + w * dt)
+        self.X[1] += v_x * dt *math.sin(theta + w * dt) + v_y * dt * math.cos(theta + w * dt)
 
         self.X[2] += w * dt
         self.X[2] = normalize_angle(self.X[2])

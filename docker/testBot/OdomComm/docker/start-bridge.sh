@@ -11,4 +11,6 @@ fi
 source /ros2_humble/install/setup.bash
 source /ros2_humble/install/ros1_bridge/share/ros1_bridge/local_setup.bash
 
-ros2 run ros1_bridge dynamic_bridge
+echo "[INFO] Launching ros1_bridge parameter_bridge (expects topics to be loaded via rosparam on ROS1)"
+rosparam load /bridge.yaml && \
+exec ros2 run ros1_bridge parameter_bridge

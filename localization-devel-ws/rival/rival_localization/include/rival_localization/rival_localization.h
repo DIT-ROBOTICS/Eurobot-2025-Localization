@@ -40,7 +40,7 @@ private:
     void obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg); // Fix signature
     void cam_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);         // Fix signature
     void side_obstacles_callback(const obstacle_detector::msg::Obstacles::SharedPtr msg);
-    void robot_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
+    void robot_pose_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     void publish_rival_raw();
     void publish_rival_final();
@@ -57,7 +57,7 @@ private:
     rclcpp::Subscription<obstacle_detector::msg::Obstacles>::SharedPtr obstacles_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr cam_sub;
     rclcpp::Subscription<obstacle_detector::msg::Obstacles>::SharedPtr side_obstacle_sub;
-    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr robot_pose_sub;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr robot_pose_sub;
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr rival_raw_pub, rival_final_pub;
     rclcpp::TimerBase::SharedPtr timer_;

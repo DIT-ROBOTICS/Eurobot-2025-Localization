@@ -75,7 +75,7 @@ class LidarLocalization(Node): # inherit from Node
             self.obstacle_callback,
             10)
         self.subscription = self.create_subscription( # if TF is not available
-            PoseWithCovarianceStamped, 
+            Odometry, 
             'final_pose',
             self.pred_pose_callback,
             10
@@ -377,7 +377,6 @@ class LidarLocalization(Node): # inherit from Node
                 lidar_cov[0, 0] /= (max_likelihood/1.1)
                 lidar_cov[1, 1] /= (max_likelihood/1.1)
                 lidar_cov[2, 2] /= (max_likelihood/1.1)
-
                 # publish the lidar pose
                 self.pub_lidar_pose(lidar_pose, lidar_cov)
                 self.publish_beacons(beacons)

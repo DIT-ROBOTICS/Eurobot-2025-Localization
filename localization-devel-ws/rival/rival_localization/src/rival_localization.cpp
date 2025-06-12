@@ -72,7 +72,7 @@ void Rival::initialize() {
     obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("obstacles_to_map", 10, std::bind(&Rival::obstacles_callback, this, _1));
     cam_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/ceiling_rival/pose", 10, std::bind(&Rival::cam_callback, this, _1));
     side_obstacle_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("/side/side_obstacles_to_map", 10, std::bind(&Rival::side_obstacles_callback, this, _1));
-    robot_pose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("final_pose", 10, std::bind(&Rival::robot_pose_callback, this, _1));
+    robot_pose_sub = this->create_subscription<nav_msgs::msg::Odometry>("final_pose", 10, std::bind(&Rival::robot_pose_callback, this, _1));
     rival_raw_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
     rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("rhino_pose", 10);
 
@@ -274,7 +274,7 @@ void Rival::side_obstacles_callback(const obstacle_detector::msg::Obstacles::Sha
     side_obstacle_ok = true;
 }
 
-void Rival::robot_pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
+void Rival::robot_pose_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     my_pose.x = msg->pose.pose.position.x;
     my_pose.y = msg->pose.pose.position.y;
 }
