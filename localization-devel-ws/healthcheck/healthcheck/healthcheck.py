@@ -133,13 +133,13 @@ class HealthCheckNode(Node):
             self.get_logger().error(f"[read_button] Cannot read {button_file_path}: {e}")
             return
 
-        states = btn_data.get("states", {})
-        if not states:
-            self.get_logger().warn("[read_button] No 'states' field in JSON")
+        sequence = btn_data.get("sequence", [])
+        if not sequence:
+            self.get_logger().warn("[read_button] No 'sequence' field in JSON")
             return
 
-        # ---------- 2. Find the first button that is True ----------
-        pressed_id = next((int(k) for k, v in states.items() if v), None)
+        # ---------- 2. Find the first button in sequence ----------
+        pressed_id = sequence[0]
         if pressed_id is None:
             self.get_logger().info("[read_button] No button is pressed. waiting for initial pose...")
             return
